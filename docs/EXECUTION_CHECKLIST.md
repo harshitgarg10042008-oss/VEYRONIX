@@ -14,7 +14,7 @@
 | 6 | COMPLETE | Packaging, wheel/sdist distribution, CI, and end-user docs |
 | 7 | COMPLETE | SIH presentation deck and submission documentation |
 | 8 | COMPLETE | Framework registry, mapping provenance, JSON/Markdown reports, reconciliation, and CLI report flags |
-| 9 | PLANNED | Interactive unknown-syntax learning loop |
+| 9 | COMPLETE (local MVP) | Interactive unknown-syntax queue, proposals, review authorization, versioned mappings, fixtures, and audit trail |
 | 10 | PLANNED | Remediation safety hardening and approval workflows |
 | 11 | PLANNED | SDK ecosystem, integrations, and plugin governance |
 | 12 | PLANNED | Security, performance, reliability, and production hardening |
