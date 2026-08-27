@@ -29,6 +29,16 @@ class RemediationStep:
 
 
 @dataclass(frozen=True)
+class RemediationDiff:
+    finding_id: str
+    control_id: str
+    before: tuple[str, ...]
+    after: tuple[str, ...]
+    rollback: str
+    unified_preview: str
+
+
+@dataclass(frozen=True)
 class RemediationBundle:
     bundle_id: str
     vendor: str
@@ -101,6 +111,31 @@ def generate_bundle(audit: AuditResult, *, vendor: str | None = None) -> Remedia
     if not steps:
         body.append("# No safe deterministic remediation steps were generated.")
     return RemediationBundle(bundle_id, target, audit.input_sha256, generated_at, tuple(steps), "\n".join(header + body), tuple(warnings))
+
+
+def build_diffs(audit: AuditResult, bundle: RemediationBundle | None = None) -> tuple[RemediationDiff, ...]:
+    """Build evidence-backed unified previews; never return executable patches."""
+    bundle = bundle or generate_bundle(audit)
+    finding_by_id = {finding.finding_id: finding for finding in audit.findings}
+    diffs: list[RemediationDiff] = []
+    for step in bundle.steps:
+        finding = finding_by_id.get(step.finding_id)
+        before = tuple(span.excerpt for span in finding.evidence) if finding else ()
+        before_lines = "\n".join(f"- {line}" for line in before) or "- <no redacted evidence excerpt>"
+        after_lines = f"+ {step.command}"
+        unified = "--- evidence (redacted)\n+++ remediation preview (not executable)\n" + before_lines + "\n" + after_lines
+        diffs.append(RemediationDiff(step.finding_id, step.control_id, before, (step.command,), step.rollback, unified))
+    return tuple(diffs)
+
+
+def render_diffs(audit: AuditResult, bundle: RemediationBundle | None = None) -> str:
+    diffs = build_diffs(audit, bundle)
+    lines = ["# ConfigSentinel AI remediation diff preview", "", f"Audit: `{audit.audit_id}`", f"Input SHA-256: `{audit.input_sha256}`", "", "> Preview only. Evidence is redacted. No patch is executable and no device is contacted.", ""]
+    if not diffs:
+        lines.append("No safe deterministic remediation diff is available.")
+    for diff in diffs:
+        lines.extend([f"## {diff.control_id}", "", "```diff", diff.unified_preview, "```", f"Rollback preview: {diff.rollback}", ""])
+    return "\n".join(lines)
 
 
 def previews(bundle: RemediationBundle) -> tuple[RemediationPreview, ...]:

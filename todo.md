@@ -44,7 +44,7 @@
 - [x] 04 Custom policy authoring and control-pack validation.
 - [x] 05 GitOps pull-request security gates.
 - [x] 06 Approved baseline and drift detection.
-- [ ] 07 Remediation diffs and rollback previews.
+- [x] 07 Remediation diffs and rollback previews.
 - [ ] 08 Role-based governance and approvals.
 - [ ] 09 Tamper-evident audit trail and signed bundles.
 - [ ] 10 Executive and enterprise reporting.

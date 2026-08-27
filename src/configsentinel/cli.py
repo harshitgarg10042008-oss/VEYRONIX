@@ -11,7 +11,7 @@ from .client import ConfigSentinelClient
 from .engine import DeterministicComplianceEngine
 from .frameworks import normalize_frameworks
 from .ingestion import ConfigIngestionService
-from .remediation import RemediationError, generate_bundle
+from .remediation import RemediationError, generate_bundle, render_diffs
 from .reporting import write_report
 from .sources import SourceDiscoveryError
 from .policies import CustomPolicyPack
@@ -29,6 +29,7 @@ def build_parser() -> argparse.ArgumentParser:
     audit.add_argument("--report-out", type=Path, help="write a Markdown audit report")
     audit.add_argument("--json-out", type=Path, help="write a JSON audit report")
     audit.add_argument("--remediation-out", type=Path, help="write a non-executable remediation preview")
+    audit.add_argument("--diff-out", type=Path, help="write an evidence-to-command remediation diff preview")
     audit.add_argument("--approve", action="store_true", help="acknowledge operator review; still requires --dry-run")
     audit.add_argument("--dry-run", action="store_true", help="required safety flag; never applies changes")
     audit.add_argument("--policy", type=Path, help="validated local JSON custom policy pack")
@@ -82,15 +83,20 @@ def run_audit(args: argparse.Namespace) -> int:
     if args.json_out:
         write_report(result, str(args.json_out), format="json", frameworks=frameworks)
         print(f"json_report={args.json_out}")
-    if args.remediation_out:
+    if args.remediation_out or args.diff_out:
         try:
             bundle = generate_bundle(result)
         except RemediationError as exc:
             print(f"Remediation unavailable: {exc}", file=sys.stderr)
             return 2
-        args.remediation_out.parent.mkdir(parents=True, exist_ok=True)
-        args.remediation_out.write_text(bundle.script, encoding="utf-8", newline="\n")
-        print(f"remediation_preview={args.remediation_out} steps={bundle.step_count} warnings={len(bundle.warnings)}")
+        if args.remediation_out:
+            args.remediation_out.parent.mkdir(parents=True, exist_ok=True)
+            args.remediation_out.write_text(bundle.script, encoding="utf-8", newline="\n")
+            print(f"remediation_preview={args.remediation_out} steps={bundle.step_count} warnings={len(bundle.warnings)}")
+        if args.diff_out:
+            args.diff_out.parent.mkdir(parents=True, exist_ok=True)
+            args.diff_out.write_text(render_diffs(result, bundle), encoding="utf-8", newline="\n")
+            print(f"remediation_diff={args.diff_out}")
         print("SAFETY: preview generated; no device connection or execution performed.")
     return 0
 

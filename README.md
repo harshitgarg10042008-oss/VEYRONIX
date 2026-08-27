@@ -238,3 +238,12 @@ Operators can save an approved baseline containing only metadata, the redacted i
 configsentinel baseline-save ./configs/edge.conf --vendor cisco_ios --label production-approved --out baselines/edge.json
 configsentinel drift-check ./configs/edge.conf --vendor cisco_ios --baseline baselines/edge.json --json-out reports/edge-drift.json
 ```
+
+
+## Remediation diffs and rollback previews
+
+The remediation workflow now exposes structured evidence-to-command diffs in addition to the existing script-style preview. Each change links redacted source evidence to a vendor-specific proposed command and includes rollback notes. Diff output is explicitly marked non-executable, carries the source audit hash, and is generated only for deterministic templates; unsupported vendors or controls remain manual-review cases.
+
+```bash
+configsentinel audit ./configs/edge.conf --vendor cisco_ios --diff-out reports/remediation.diff
+```
