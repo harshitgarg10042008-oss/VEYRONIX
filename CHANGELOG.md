@@ -1,5 +1,9 @@
 # Changelog
 
+## Next — Phase 11 release readiness
+
+Added final deployment and production-release documentation, a safe environment template, release gates, clean-install procedure, operational runbook, incident-response guidance, rollback plan, and explicit hosted-deployment limitations. No live-device execution or hosted multi-tenant service is introduced by this documentation-only release step.
+
 ## 0.3.0 — Phase 6
 
 This release adds final packaging metadata, the `configsentinel` console command, `python -m configsentinel` support, an end-user guide, security policy, and distribution documentation. It packages the Phase 2–5 SDK, parsers, deterministic controls, secure ingestion boundary, guarded LLM gateway, remediation preview generator, and CLI runner.
