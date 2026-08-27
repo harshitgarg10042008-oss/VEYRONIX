@@ -247,3 +247,13 @@ The remediation workflow now exposes structured evidence-to-command diffs in add
 ```bash
 configsentinel audit ./configs/edge.conf --vendor cisco_ios --diff-out reports/remediation.diff
 ```
+
+
+## Role-based governance and approvals
+
+The local governance layer provides operator, reviewer, and administrator roles with an append-only JSONL event ledger. Operators can request review; only a different reviewer or administrator can approve or reject; terminal decisions cannot be changed. This gives remediation previews an auditable approval boundary without pretending to provide cloud identity management or device execution.
+
+```bash
+configsentinel approval-request rem_123 --actor alice --ledger .configsentinel/events.jsonl
+configsentinel approval-decide rem_123 --actor bob --role reviewer --approve --ledger .configsentinel/events.jsonl
+```

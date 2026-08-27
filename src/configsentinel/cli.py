@@ -17,6 +17,7 @@ from .sources import SourceDiscoveryError
 from .policies import CustomPolicyPack
 from .gitops import run_gitops_gate, write_gate_result
 from .baseline import BaselineError, compare_baseline, load_baseline, save_baseline
+from .governance import ApprovalLedger, GovernanceError, Role
 
 
 def build_parser() -> argparse.ArgumentParser:
@@ -56,6 +57,19 @@ def build_parser() -> argparse.ArgumentParser:
     drift.add_argument("--baseline", type=Path, required=True)
     drift.add_argument("--vendor", default="auto", choices=("auto", "cisco_ios", "junos", "firewall_generic", "arista_eos", "linux_nftables"))
     drift.add_argument("--json-out", type=Path)
+    gov_request = sub.add_parser("approval-request", help="request independent review for a resource")
+    gov_request.add_argument("resource_id")
+    gov_request.add_argument("--actor", required=True)
+    gov_request.add_argument("--role", choices=("operator", "admin"), default="operator")
+    gov_request.add_argument("--reason", default="")
+    gov_request.add_argument("--ledger", type=Path, required=True)
+    gov_decide = sub.add_parser("approval-decide", help="approve or reject a pending resource review")
+    gov_decide.add_argument("resource_id")
+    gov_decide.add_argument("--actor", required=True)
+    gov_decide.add_argument("--role", choices=("reviewer", "admin"), required=True)
+    gov_decide.add_argument("--approve", action="store_true")
+    gov_decide.add_argument("--reason", default="")
+    gov_decide.add_argument("--ledger", type=Path, required=True)
     return parser
 
 
@@ -122,6 +136,27 @@ def run_batch(args: argparse.Namespace) -> int:
     return 0
 
 
+def run_approval_request(args: argparse.Namespace) -> int:
+    try:
+        event = ApprovalLedger(args.ledger).request(args.resource_id, args.actor, role=Role(args.role), reason=args.reason)
+    except GovernanceError as exc:
+        print(f"Approval request rejected: {exc}", file=sys.stderr)
+        return 2
+    print(f"approval=PENDING_REVIEW resource={event.resource_id} event={event.event_id}")
+    return 0
+
+
+def run_approval_decide(args: argparse.Namespace) -> int:
+    try:
+        ledger = ApprovalLedger(args.ledger)
+        event = ledger.decide(args.resource_id, args.actor, role=Role(args.role), approve=args.approve, reason=args.reason)
+    except GovernanceError as exc:
+        print(f"Approval decision rejected: {exc}", file=sys.stderr)
+        return 2
+    print(f"approval={ledger.status(args.resource_id)} resource={event.resource_id} event={event.event_id}")
+    return 0
+
+
 def run_baseline_save(args: argparse.Namespace) -> int:
     try:
         client = ConfigSentinelClient(engine=DeterministicComplianceEngine())
@@ -181,6 +216,10 @@ def main(argv: list[str] | None = None) -> int:
         return run_baseline_save(args)
     if args.command == "drift-check":
         return run_drift(args)
+    if args.command == "approval-request":
+        return run_approval_request(args)
+    if args.command == "approval-decide":
+        return run_approval_decide(args)
     return 2
 
 
