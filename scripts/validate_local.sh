@@ -5,6 +5,7 @@ set -euo pipefail
 root_dir="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 cd "$root_dir"
 
+python -m pip install -e ".[dev,api]" >/dev/null
 python -m pytest
 python -m compileall -q src tests examples
 python -m pip install build >/dev/null

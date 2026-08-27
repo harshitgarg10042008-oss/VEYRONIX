@@ -135,3 +135,23 @@ PYTHONPATH=src python examples/local_demo.py
 ```
 
 See [`docs/PHASE_13_20_COMPLETION.md`](docs/PHASE_13_20_COMPLETION.md) for the re-baselined Phase 13–20 completion record and the explicit boundary between shipped local-first behavior and future enterprise integrations.
+
+
+## Live dashboard wiring
+
+The dashboard now consumes the deterministic report serializer through the optional local API adapter. Install the API extra and run the service in one terminal:
+
+```bash
+python -m pip install -e ".[api]"
+PYTHONPATH=src python examples/api_server.py
+```
+
+Run the frontend in a second terminal:
+
+```bash
+cd frontend
+pnpm install --frozen-lockfile
+VITE_API_BASE_URL=http://127.0.0.1:8000 pnpm dev
+```
+
+The dashboard loads the same evidence-backed report shape used by JSON and Markdown exports. Its filters narrow the visible set by severity, status, and framework mapping; the PDF action exports the current posture metrics plus the currently visible findings, evidence excerpts, input hash, mappings, and safety note. If the API is unavailable, the interface stays explicit about the offline state instead of displaying fabricated audit data.
