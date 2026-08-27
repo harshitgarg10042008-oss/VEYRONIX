@@ -26,6 +26,7 @@ from .sensitive import render_sensitive_scan, scan_sensitive
 from .webhooks import LocalWebhookQueue, WebhookError, make_audit_event
 from .ticketing import TicketingError, build_ticket_payload, render_ticket_markdown
 from .inventory import InventoryError, import_inventory_file
+from .verification import verify_report, run_benchmark
 
 
 def build_parser() -> argparse.ArgumentParser:
@@ -107,6 +108,11 @@ def build_parser() -> argparse.ArgumentParser:
     inventory = sub.add_parser("inventory-import", help="import a local JSON/CSV inventory into a topology graph")
     inventory.add_argument("source", type=Path)
     inventory.add_argument("--out", type=Path, required=True)
+    verify = sub.add_parser("verify-report", help="verify deterministic safety invariants in a report")
+    verify.add_argument("json_input", type=Path)
+    verify.add_argument("--out", type=Path, required=True)
+    benchmark = sub.add_parser("verification-benchmark", help="run built-in verification fixtures")
+    benchmark.add_argument("--out", type=Path, required=True)
     return parser
 
 
@@ -194,6 +200,26 @@ def run_batch(args: argparse.Namespace) -> int:
         args.json_out.write_text(json.dumps(payload, indent=2, sort_keys=True) + "\n", encoding="utf-8")
         print(f"json_report={args.json_out}")
     return 0
+
+
+def run_verification_benchmark(args: argparse.Namespace) -> int:
+    payload = run_benchmark()
+    args.out.parent.mkdir(parents=True, exist_ok=True)
+    args.out.write_text(json.dumps(payload, indent=2, sort_keys=True) + "\n", encoding="utf-8", newline="\n")
+    print(f"verification_benchmark={args.out} passed={payload['passed']}")
+    return 0 if payload["passed"] else 2
+
+
+def run_verify_report(args: argparse.Namespace) -> int:
+    try:
+        result = verify_report(load_report(args.json_input))
+        args.out.parent.mkdir(parents=True, exist_ok=True)
+        args.out.write_text(json.dumps(result.as_dict(), indent=2, sort_keys=True) + "\n", encoding="utf-8", newline="\n")
+    except (OSError, ValueError, EvidenceGraphError) as exc:
+        print(f"Report verification rejected: {exc}", file=sys.stderr)
+        return 2
+    print(f"report_verification={args.out} valid={result.valid}")
+    return 0 if result.valid else 2
 
 
 def run_inventory_import(args: argparse.Namespace) -> int:
@@ -376,6 +402,10 @@ def main(argv: list[str] | None = None) -> int:
         return run_ticket_export(args)
     if args.command == "inventory-import":
         return run_inventory_import(args)
+    if args.command == "verify-report":
+        return run_verify_report(args)
+    if args.command == "verification-benchmark":
+        return run_verification_benchmark(args)
     if args.command == "approval-request":
         return run_approval_request(args)
     if args.command == "approval-decide":
