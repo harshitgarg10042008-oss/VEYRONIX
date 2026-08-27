@@ -326,3 +326,12 @@ configsentinel ticket-export reports/edge.json --adapter jira --out reports/edge
 configsentinel ticket-export reports/edge.json --adapter github --out reports/edge-github.json
 configsentinel ticket-export reports/edge.json --format markdown --out reports/edge-ticket.md
 ```
+
+## Topology and inventory import
+
+The `inventory-import` command accepts bounded local JSON or CSV inventory files and produces a deterministic topology graph with node metadata, validated links, and a source SHA-256 hash. It performs import only: ConfigSentinel AI does not discover devices, connect to management interfaces, or infer unprovided links.
+
+```bash
+configsentinel inventory-import inventory.json --out reports/topology.json
+configsentinel inventory-import inventory.csv --out reports/topology.json
+```
