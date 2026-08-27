@@ -69,6 +69,6 @@
 - [x] 26 Guided SIH demonstration mode and audit comparison.
 - [x] 27 Content-addressed incremental audit cache.
 - [x] 28 SIEM and structured event export adapters.
-- [ ] 29 Encrypted backup and restore manifests.
+- [x] 29 Encrypted backup and restore manifests.
 - [ ] 30 SBOM and reproducible release metadata.
 - [ ] Final nine-upgrade completion report.

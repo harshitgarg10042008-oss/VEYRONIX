@@ -385,6 +385,17 @@ The `cache-audit` command stores serialized deterministic reports under a SHA-25
 
 The `siem-export` command writes failed and review-required findings as local JSON Lines, CEF, or LEEF events. Events contain audit metadata, control identifiers, status, severity, confidence, and evidence counts, while excluding raw evidence excerpts and passing findings. Export is artifact generation only; no SIEM endpoint is contacted.
 
+## Encrypted backup and restore
+
+The optional `backup` package extra enables authenticated encrypted backups for JSON artifacts. A versioned envelope uses Fernet authenticated encryption with a PBKDF2-HMAC-SHA256-derived key and a random salt. Passphrases are read from an environment variable rather than placed directly in shell history; wrong or short passphrases fail closed.
+
+```bash
+python -m pip install -e ".[backup]"
+export CONFIGSENTINEL_BACKUP_PASSPHRASE='use-a-secret-manager-or-protected-shell'
+configsentinel backup-create reports/edge.json --out backups/edge.csb
+configsentinel backup-restore backups/edge.csb --out restored/edge.json
+```
+
 ```bash
 configsentinel siem-export reports/edge.json --format jsonl --out reports/edge.siem.jsonl
 configsentinel siem-export reports/edge.json --format cef --out reports/edge.cef

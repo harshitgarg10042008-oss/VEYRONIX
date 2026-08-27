@@ -26,6 +26,7 @@ dependencies = []
 [project.optional-dependencies]
 dev = ["pytest>=8"]
 api = ["fastapi>=0.115", "uvicorn[standard]>=0.30"]
+backup = ["cryptography>=42.0"]
 
 [project.urls]
 Homepage = "https://github.com/harshitgarg10042008-oss/VEYRONIX"

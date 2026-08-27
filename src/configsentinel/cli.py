@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import argparse
 import json
+import os
 import sys
 from pathlib import Path
 
@@ -34,6 +35,7 @@ from .topology import TopologyError, analyze_topology, write_topology_html
 from .demo import DemoError, compare_reports, render_guided_demo
 from .cache import AuditCache, CacheError
 from .siem import SiemError, render_siem
+from .backup import BackupError, backup_file, restore_file
 from .controls import CONTROL_PACK_VERSION
 from .reporting import report_dict
 
@@ -170,6 +172,14 @@ def build_parser() -> argparse.ArgumentParser:
     siem.add_argument("json_input", type=Path)
     siem.add_argument("--format", choices=("jsonl", "cef", "leef"), default="jsonl")
     siem.add_argument("--out", type=Path, required=True)
+    backup_create = sub.add_parser("backup-create", help="create an authenticated encrypted JSON backup")
+    backup_create.add_argument("json_input", type=Path)
+    backup_create.add_argument("--out", type=Path, required=True)
+    backup_create.add_argument("--passphrase-env", default="CONFIGSENTINEL_BACKUP_PASSPHRASE")
+    backup_restore = sub.add_parser("backup-restore", help="restore an authenticated encrypted JSON backup")
+    backup_restore.add_argument("encrypted_input", type=Path)
+    backup_restore.add_argument("--out", type=Path, required=True)
+    backup_restore.add_argument("--passphrase-env", default="CONFIGSENTINEL_BACKUP_PASSPHRASE")
     return parser
 
 
@@ -256,6 +266,28 @@ def run_batch(args: argparse.Namespace) -> int:
         args.json_out.parent.mkdir(parents=True, exist_ok=True)
         args.json_out.write_text(json.dumps(payload, indent=2, sort_keys=True) + "\n", encoding="utf-8")
         print(f"json_report={args.json_out}")
+    return 0
+
+
+def run_backup_create(args: argparse.Namespace) -> int:
+    try:
+        passphrase = os.environ.get(args.passphrase_env, "")
+        backup_file(args.json_input, args.out, passphrase)
+    except (OSError, ValueError, BackupError, RuntimeError) as exc:
+        print(f"Backup creation rejected: {exc}", file=sys.stderr)
+        return 2
+    print(f"encrypted_backup={args.out} passphrase_source=environment:{args.passphrase_env}")
+    return 0
+
+
+def run_backup_restore(args: argparse.Namespace) -> int:
+    try:
+        passphrase = os.environ.get(args.passphrase_env, "")
+        restore_file(args.encrypted_input, args.out, passphrase)
+    except (OSError, ValueError, BackupError, RuntimeError) as exc:
+        print(f"Backup restore rejected: {exc}", file=sys.stderr)
+        return 2
+    print(f"restored_backup={args.out} passphrase_source=environment:{args.passphrase_env}")
     return 0
 
 
@@ -630,6 +662,10 @@ def main(argv: list[str] | None = None) -> int:
         return run_cached_audit(args)
     if args.command == "siem-export":
         return run_siem_export(args)
+    if args.command == "backup-create":
+        return run_backup_create(args)
+    if args.command == "backup-restore":
+        return run_backup_restore(args)
     if args.command == "approval-request":
         return run_approval_request(args)
     if args.command == "approval-decide":
