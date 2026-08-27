@@ -1,0 +1,25 @@
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "configsentinel-sdk"
+version = "0.2.0"
+description = "Evidence-grounded, vendor-neutral network compliance SDK"
+readme = "README.md"
+requires-python = ">=3.11"
+authors = [{name = "ConfigSentinel Team"}]
+license = {text = "Proprietary hackathon prototype"}
+classifiers = ["Programming Language :: Python :: 3", "Typing :: Typed"]
+dependencies = []
+
+[tool.setuptools]
+package-dir = {"" = "src"}
+
+[tool.setuptools.packages.find]
+where = ["src"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+pythonpath = ["src"]
+addopts = "-q"
