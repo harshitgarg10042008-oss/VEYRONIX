@@ -18,6 +18,7 @@ from .policies import CustomPolicyPack
 from .gitops import run_gitops_gate, write_gate_result
 from .baseline import BaselineError, compare_baseline, load_baseline, save_baseline
 from .governance import ApprovalLedger, GovernanceError, Role
+from .auditlog import AuditLogError, AuditTrail, sign_envelope
 
 
 def build_parser() -> argparse.ArgumentParser:
@@ -31,6 +32,9 @@ def build_parser() -> argparse.ArgumentParser:
     audit.add_argument("--json-out", type=Path, help="write a JSON audit report")
     audit.add_argument("--remediation-out", type=Path, help="write a non-executable remediation preview")
     audit.add_argument("--diff-out", type=Path, help="write an evidence-to-command remediation diff preview")
+    audit.add_argument("--trail", type=Path, help="append a tamper-evident local audit event")
+    audit.add_argument("--signed-out", type=Path, help="write an HMAC-signed JSON evidence envelope")
+    audit.add_argument("--signing-key-file", type=Path, help="read the local HMAC signing key")
     audit.add_argument("--approve", action="store_true", help="acknowledge operator review; still requires --dry-run")
     audit.add_argument("--dry-run", action="store_true", help="required safety flag; never applies changes")
     audit.add_argument("--policy", type=Path, help="validated local JSON custom policy pack")
@@ -91,6 +95,29 @@ def run_audit(args: argparse.Namespace) -> int:
     print(f"vendor={result.vendor} findings={len(result.findings)} failed={result.failed_count} unknown={len(result.unknown_blocks)} frameworks={','.join(frameworks)}")
     for finding in result.findings:
         print(f"{finding.control_id}\t{finding.status.value}\t{finding.severity.value}")
+    if args.trail:
+        try:
+            event = AuditTrail(args.trail).append(result)
+        except (OSError, AuditLogError) as exc:
+            print(f"Audit trail unavailable: {exc}", file=sys.stderr)
+            return 2
+        print(f"audit_trail={args.trail} sequence={event.sequence} event_hash={event.event_hash}")
+    if args.signed_out:
+        if not args.signing_key_file:
+            print("Signed export requires --signing-key-file.", file=sys.stderr)
+            return 2
+        try:
+            key_path = args.signing_key_file
+            if key_path.is_symlink() or not key_path.is_file() or key_path.stat().st_size > 4096:
+                raise AuditLogError("signing key path is invalid")
+            key = key_path.read_bytes()
+            envelope = sign_envelope(json.loads(client.report_json(result, frameworks=frameworks)), key)
+            args.signed_out.parent.mkdir(parents=True, exist_ok=True)
+            args.signed_out.write_text(json.dumps(envelope, indent=2, sort_keys=True) + "\n", encoding="utf-8")
+        except (OSError, ValueError, AuditLogError) as exc:
+            print(f"Signed export unavailable: {exc}", file=sys.stderr)
+            return 2
+        print(f"signed_export={args.signed_out}")
     if args.report_out:
         write_report(result, str(args.report_out), format="markdown", frameworks=frameworks)
         print(f"report={args.report_out}")

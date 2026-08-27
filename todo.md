@@ -46,7 +46,7 @@
 - [x] 06 Approved baseline and drift detection.
 - [x] 07 Remediation diffs and rollback previews.
 - [x] 08 Role-based governance and approvals.
-- [ ] 09 Tamper-evident audit trail and signed bundles.
+- [x] 09 Tamper-evident audit trail and signed bundles.
 - [ ] 10 Executive and enterprise reporting.
 - [ ] 11 Multidimensional historical analytics.
 - [ ] 12 Evidence graph view.

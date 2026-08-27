@@ -257,3 +257,13 @@ The local governance layer provides operator, reviewer, and administrator roles 
 configsentinel approval-request rem_123 --actor alice --ledger .configsentinel/events.jsonl
 configsentinel approval-decide rem_123 --actor bob --role reviewer --approve --ledger .configsentinel/events.jsonl
 ```
+
+
+## Tamper-evident trail and signed evidence
+
+ConfigSentinel AI can append audit metadata to a local JSONL hash chain. Each event links to the previous event and can be verified for sequence, chain, and content integrity. Operators can also export a report as an HMAC-SHA256 signed envelope using a locally protected key file. The signed payload contains report metadata, findings, evidence, and hashes, but never the original unredacted configuration; HMAC provides integrity and shared-key authenticity, not public-key non-repudiation.
+
+```bash
+configsentinel audit ./configs/edge.conf --vendor cisco_ios --trail .configsentinel/audit.jsonl
+configsentinel audit ./configs/edge.conf --vendor cisco_ios --signed-out reports/edge.signed.json --signing-key-file .configsentinel/signing.key
+```
