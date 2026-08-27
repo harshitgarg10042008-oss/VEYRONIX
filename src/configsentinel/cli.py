@@ -40,6 +40,7 @@ from .release import ReleaseError, write_release_artifacts
 from .attestation import AttestationError, build_attestation, load_attestation, verify_attestation
 from .uncertainty import UncertaintyError, build_uncertainty_budget
 from .mutation import MutationError, run_mutation_lab
+from .assurance_twin import AssuranceTwinError, build_assurance_twin, write_assurance_twin_html
 from .controls import CONTROL_PACK_VERSION
 from .reporting import report_dict
 
@@ -128,6 +129,15 @@ def build_parser() -> argparse.ArgumentParser:
     mutation.add_argument("--framework", action="append", dest="frameworks", default=None)
     mutation.add_argument("--max-mutations", type=int, default=5)
     mutation.add_argument("--out", type=Path, required=True)
+    twin = sub.add_parser("assurance-twin", help="build an evidence-first local assurance twin")
+    twin.add_argument("topology_input", type=Path)
+    twin.add_argument("--report", type=Path)
+    twin.add_argument("--finding-asset", action="append", default=[], metavar="FINDING=ASSET")
+    twin.add_argument("--add-link", action="append", default=[], metavar="SOURCE=TARGET")
+    twin.add_argument("--remove-link", action="append", default=[], metavar="SOURCE=TARGET")
+    twin.add_argument("--depth", type=int, default=1)
+    twin.add_argument("--out", type=Path, required=True)
+    twin.add_argument("--html-out", type=Path)
     sensitive.add_argument("file", type=Path)
     sensitive.add_argument("--format", choices=("markdown", "json"), default="markdown")
     sensitive.add_argument("--out", type=Path, required=True)
@@ -584,6 +594,38 @@ def run_mutation_lab_command(args: argparse.Namespace) -> int:
     print(f"mutation_lab={args.out} passed={report['summary']['passed']} mutations={report['summary']['mutation_count']}")
     return 0 if report["summary"]["passed"] else 1
 
+def _parse_edge_specs(values: list[str]) -> list[tuple[str, str]]:
+    edges: list[tuple[str, str]] = []
+    for value in values:
+        if "=" not in value:
+            raise AssuranceTwinError("edge specification must use SOURCE=TARGET")
+        source, target = (part.strip() for part in value.split("=", 1))
+        if not source or not target:
+            raise AssuranceTwinError("edge specification requires source and target")
+        edges.append((source, target))
+    return edges
+
+def run_assurance_twin(args: argparse.Namespace) -> int:
+    try:
+        graph = load_report(args.topology_input)
+        source_report = load_report(args.report) if args.report else None
+        finding_assets: dict[str, str] = {}
+        for item in args.finding_asset:
+            if "=" not in item:
+                raise AssuranceTwinError("finding-asset mapping must use FINDING=ASSET")
+            finding_id, asset_id = (part.strip() for part in item.split("=", 1))
+            finding_assets[finding_id] = asset_id
+        twin = build_assurance_twin(graph, report=source_report, finding_assets=finding_assets, depth=args.depth, counterfactual_add=_parse_edge_specs(args.add_link), counterfactual_remove=_parse_edge_specs(args.remove_link))
+        args.out.parent.mkdir(parents=True, exist_ok=True)
+        args.out.write_text(json.dumps(twin, indent=2, sort_keys=True) + "\n", encoding="utf-8", newline="\n")
+        if args.html_out:
+            write_assurance_twin_html(twin, args.html_out)
+    except (OSError, UnicodeDecodeError, ValueError, AssuranceTwinError, EvidenceGraphError) as exc:
+        print(f"Assurance twin rejected: {exc}", file=sys.stderr)
+        return 2
+    print(f"assurance_twin={args.out} nodes={twin['facts']['node_count']} links={twin['facts']['link_count']} derived_impacts={len(twin['analyses'])}")
+    return 0
+
 def run_sensitive_scan(args: argparse.Namespace) -> int:
     try:
         text = args.file.read_text(encoding="utf-8")
@@ -730,6 +772,8 @@ def main(argv: list[str] | None = None) -> int:
         return run_uncertainty_budget(args)
     if args.command == "mutation-lab":
         return run_mutation_lab_command(args)
+    if args.command == "assurance-twin":
+        return run_assurance_twin(args)
     if args.command == "webhook-enqueue":
         return run_webhook_enqueue(args)
     if args.command == "ticket-export":

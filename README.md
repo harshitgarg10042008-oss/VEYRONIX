@@ -478,3 +478,14 @@ PYTHONPATH=src:. python -m configsentinel.cli mutation-lab ./configs/edge.cfg --
 ```
 
 The artifact contains source hashes, changed control IDs, expected and observed statuses, and pass/fail mutation results, but never raw configuration text. The lab requires an explicit vendor, enforces a mutation count limit, uses no network access, and does not change the source audit verdict or apply a configuration.
+
+
+## SentinelProof S4: Evidence-First Assurance Twin
+
+The Assurance Twin projects an imported inventory into a bounded local graph that separates imported facts from derived neighborhoods. Operators can link findings to assets and run a counterfactual add/remove-link analysis without discovering devices, inferring traffic flow, estimating exploitability, or applying remediation.
+
+```bash
+PYTHONPATH=src:. python -m configsentinel.cli assurance-twin topology.json --report reports/edge.json --finding-asset finding_id=edge --add-link edge=db --depth 2 --out reports/edge.twin.json --html-out reports/edge.twin.html
+```
+
+Graph nodes and links are labeled as `imported`; operator finding links and graph neighborhoods are labeled with their provenance. Missing links are not treated as proof of isolation, and unlinked findings remain visible. The HTML explorer is self-contained and loads no external resources.
