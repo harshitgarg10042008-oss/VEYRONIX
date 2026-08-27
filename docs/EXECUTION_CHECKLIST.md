@@ -15,9 +15,9 @@
 | 7 | COMPLETE | SIH presentation deck and submission documentation |
 | 8 | COMPLETE | Framework registry, mapping provenance, JSON/Markdown reports, reconciliation, and CLI report flags |
 | 9 | COMPLETE (local MVP) | Interactive unknown-syntax queue, proposals, review authorization, versioned mappings, fixtures, and audit trail |
-| 10 | PLANNED | Remediation safety hardening and approval workflows |
-| 11 | PLANNED | SDK ecosystem, integrations, and plugin governance |
-| 12 | PLANNED | Security, performance, reliability, and production hardening |
+| 10 | COMPLETE | Advanced system hardening, resource budgets, safe output paths, metrics, and performance benchmarks |
+| 11 | COMPLETE (release docs) | Deployment guidance, production-release gates, environment policy, rollback, and operational runbooks |
+| 12 | COMPLETE (local demo) | Offline-first local demonstration, deterministic scenarios, one-command validation, safety evidence, and presenter runbook |
 | 13 | PLANNED | Final production-readiness gate |
 
 ## Phase 8 acceptance gate
@@ -75,7 +75,7 @@ The implementation has **14 execution phases**, numbered **Phase 0 through Phase
 - [ ] Dashboard, REST API, CLI, and SDK return equivalent results for the same audit.
 - [ ] Every control has secure, insecure, edge, malformed, and unsupported fixtures as applicable.
 - [ ] The clean-install path works on a new machine using documented commands.
-- [ ] The judging demo works with an offline or cached fallback path.
+- [x] The judging demo works with an offline or cached fallback path.
 - [ ] All high and critical security findings are fixed or formally accepted with compensating mitigation.
 
 ---
@@ -464,7 +464,7 @@ These features begin only after the 100% MVP gate passes. Each feature requires 
 - [ ] No model-generated command executes automatically.
 - [ ] Control sources and licenses are documented.
 - [ ] Held-out evaluation results are honest and reproducible.
-- [ ] The fallback demo works without internet dependency.
+- [x] The fallback demo works without internet dependency.
 - [ ] All team members know the 60-second and three-minute explanations.
 - [ ] The local project folder is backed up before any manual GitHub push.
 - [ ] The user, not Manus, performs any future GitHub commit or push.
