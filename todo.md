@@ -86,7 +86,7 @@
 
 - [x] S1 Configuration Attestation Tokens.
 - [x] S2 Evidence coverage and uncertainty budgets.
-- [ ] S3 Semantic Mutation Lab.
+- [x] S3 Semantic Mutation Lab.
 - [ ] S4 Evidence-First Network Assurance Twin.
 - [ ] S5 Resource-Level Least-Privilege Compiler.
 - [ ] S6 Governed Unknown-Syntax Apprenticeship Contracts.
@@ -94,3 +94,9 @@
 - [ ] S8 Compliance Time Machine.
 - [ ] S9 Proof-Carrying Remediation.
 - [ ] Final SentinelProof integrated acceptance and completion report.
+- [ ] S10 Privacy-Preserving Audit Exchange.
+- [ ] S11 Reviewer Disagreement Analytics.
+- [ ] S12 Assurance Drift and Freshness Decay.
+- [ ] S13 Adversarial Parser Robustness Pack.
+- [ ] S14 Policy Provenance Compiler.
+- [ ] Final complete SentinelProof acceptance and completion report.

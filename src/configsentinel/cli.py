@@ -39,6 +39,7 @@ from .backup import BackupError, backup_file, restore_file
 from .release import ReleaseError, write_release_artifacts
 from .attestation import AttestationError, build_attestation, load_attestation, verify_attestation
 from .uncertainty import UncertaintyError, build_uncertainty_budget
+from .mutation import MutationError, run_mutation_lab
 from .controls import CONTROL_PACK_VERSION
 from .reporting import report_dict
 
@@ -121,6 +122,12 @@ def build_parser() -> argparse.ArgumentParser:
     uncertainty = sub.add_parser("uncertainty-budget", help="build an evidence coverage and uncertainty budget")
     uncertainty.add_argument("json_input", type=Path)
     uncertainty.add_argument("--out", type=Path, required=True)
+    mutation = sub.add_parser("mutation-lab", help="run bounded semantic mutation tests")
+    mutation.add_argument("file", type=Path)
+    mutation.add_argument("--vendor", required=True, choices=("cisco_ios", "junos", "firewall_generic", "arista_eos", "linux_nftables"))
+    mutation.add_argument("--framework", action="append", dest="frameworks", default=None)
+    mutation.add_argument("--max-mutations", type=int, default=5)
+    mutation.add_argument("--out", type=Path, required=True)
     sensitive.add_argument("file", type=Path)
     sensitive.add_argument("--format", choices=("markdown", "json"), default="markdown")
     sensitive.add_argument("--out", type=Path, required=True)
@@ -566,6 +573,17 @@ def run_uncertainty_budget(args: argparse.Namespace) -> int:
     print(f"uncertainty_budget={args.out} state={assurance['state']} coverage={assurance['evidence_coverage']:.6f} gaps={len(assurance['gaps'])}")
     return 0
 
+def run_mutation_lab_command(args: argparse.Namespace) -> int:
+    try:
+        report = run_mutation_lab(args.file.read_text(encoding="utf-8"), vendor=args.vendor, frameworks=normalize_frameworks(args.frameworks), max_mutations=args.max_mutations)
+        args.out.parent.mkdir(parents=True, exist_ok=True)
+        args.out.write_text(json.dumps(report, indent=2, sort_keys=True) + "\n", encoding="utf-8", newline="\n")
+    except (OSError, UnicodeDecodeError, ValueError, MutationError) as exc:
+        print(f"Mutation lab rejected: {exc}", file=sys.stderr)
+        return 2
+    print(f"mutation_lab={args.out} passed={report['summary']['passed']} mutations={report['summary']['mutation_count']}")
+    return 0 if report["summary"]["passed"] else 1
+
 def run_sensitive_scan(args: argparse.Namespace) -> int:
     try:
         text = args.file.read_text(encoding="utf-8")
@@ -710,6 +728,8 @@ def main(argv: list[str] | None = None) -> int:
         return run_attestation_verify(args)
     if args.command == "uncertainty-budget":
         return run_uncertainty_budget(args)
+    if args.command == "mutation-lab":
+        return run_mutation_lab_command(args)
     if args.command == "webhook-enqueue":
         return run_webhook_enqueue(args)
     if args.command == "ticket-export":

@@ -467,3 +467,14 @@ PYTHONPATH=src:. python -m configsentinel.cli uncertainty-budget reports/edge.js
 ```
 
 The budget distinguishes `VERIFIED`, `INFERRED`, `UNKNOWN`, and `CONTRADICTED` review categories. It records only evidence presence, redaction state, line-range validity, and digests; it does not copy raw configuration excerpts into the artifact. `verdict_boundary.verdicts_changed` is always `false`: the original deterministic `PASS`, `FAIL`, `UNKNOWN`, and `REVIEW_REQUIRED` statuses remain authoritative.
+
+
+## SentinelProof S3: Semantic Mutation Lab
+
+The Semantic Mutation Lab exercises supported parsers and controls with bounded deterministic mutations. Preservation mutations—trailing whitespace, ignored comments, and final-newline normalization—must keep the control-status map unchanged. Targeted mutations add an insecure management directive and must produce the expected deterministic failure for the affected control.
+
+```bash
+PYTHONPATH=src:. python -m configsentinel.cli mutation-lab ./configs/edge.cfg --vendor cisco_ios --max-mutations 5 --out reports/edge.mutation.json
+```
+
+The artifact contains source hashes, changed control IDs, expected and observed statuses, and pass/fail mutation results, but never raw configuration text. The lab requires an explicit vendor, enforces a mutation count limit, uses no network access, and does not change the source audit verdict or apply a configuration.
