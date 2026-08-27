@@ -1,6 +1,6 @@
-# VEYRONIX local operator workbench
+# ConfigSentinel AI local operator workbench
 
-This directory contains the React/Tailwind frontend for the VEYRONIX SIH 26155 demonstration. It is an offline-first operator surface for audit posture, findings, source evidence, framework mappings, unknown-syntax review, and remediation previews.
+This directory contains the React/Tailwind frontend for the VEYRONIX SIH 26155 demonstration of ConfigSentinel AI. It is an offline-first operator surface for audit posture, findings, source evidence, framework mappings, unknown-syntax review, and remediation previews.
 
 ## Local run
 
@@ -23,11 +23,11 @@ The frontend is intentionally presentation and review oriented. It does not conn
 
 ## Design contract
 
-The interface follows the Operator’s Blueprint direction: a warm mineral canvas, graphite navigation rail, disciplined signal-orange attention states, mono evidence labels, ruled technical surfaces, source line references, and visible `OFFLINE MODE` / `LLM DISABLED` language. VEYRONIX is the only product name shown in the shipped UI.
+The interface follows the Operator’s Blueprint direction: a warm mineral canvas, graphite navigation rail, disciplined signal-orange attention states, mono evidence labels, ruled technical surfaces, source line references, and visible `OFFLINE MODE` / `LLM DISABLED` language. ConfigSentinel AI is the product name shown in the shipped UI; VEYRONIX is retained as the team attribution.
 
 ## Asset policy
 
-The small brand mark is stored at `client/public/veyronix-mark.png`. No remote image dependency is required for the primary workbench surface, which keeps the local demo reliable in an offline environment.
+The ConfigSentinel AI brand mark is stored at `client/public/brand/configsentinel-mark.png`, with `client/public/brand/favicon.png` used for browser tabs. No remote image dependency is required for the primary workbench surface, which keeps the local demo reliable in an offline environment.
 
 
 ## Live audit data and exports

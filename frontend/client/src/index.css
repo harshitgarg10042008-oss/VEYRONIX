@@ -59,10 +59,12 @@ button:focus-visible, a:focus-visible { outline: 2px solid var(--accent); outlin
 .app-shell { min-height: 100vh; display: flex; background: #f4f2ec; }
 .sidebar { width: 238px; min-height: 100vh; flex: 0 0 238px; display: flex; flex-direction: column; background: #272a26; color: #f5f2ea; padding: 27px 16px 18px; }
 .brand-lockup { display: flex; align-items: center; gap: 11px; padding: 0 10px 28px; }
-.brand-mark-wrap { width: 31px; height: 31px; display: grid; place-items: center; background: #e46b3a; }
-.brand-mark { width: 25px; height: 25px; object-fit: contain; filter: grayscale(1) brightness(0) invert(1); }
-.brand-name { font-weight: 700; font-size: 14px; letter-spacing: .19em; line-height: 1; }
-.brand-sub { margin-top: 6px; color: #9ca198; font: 9px/1 "IBM Plex Mono", ui-monospace, monospace; letter-spacing: .12em; }
+.brand-mark-wrap { width: 38px; height: 38px; display: grid; place-items: center; background: #10151c; border: 1px solid rgba(73,153,255,.5); }
+.brand-mark { width: 34px; height: 34px; object-fit: contain; }
+.brand-name { font-weight: 700; font-size: 13px; letter-spacing: .13em; line-height: 1; }
+.brand-sub { margin-top: 6px; color: #9ca198; font: 9px/1 "IBM Plex Mono", ui-monospace, monospace; letter-spacing: .1em; }
+.brand-team { margin-top: 5px; color: #e46b3a; font: 8px/1 "IBM Plex Mono", ui-monospace, monospace; letter-spacing: .12em; }
+.team-attribution { color: #e46b3a; }
 .workspace-switcher { border-top: 1px solid #454941; border-bottom: 1px solid #454941; padding: 17px 10px 16px; }
 .workspace-caption, .nav-section-label { color: #969c92; font: 9px/1 "IBM Plex Mono", ui-monospace, monospace; letter-spacing: .15em; }
 .workspace-button { margin-top: 12px; padding: 0; width: 100%; color: #f5f2ea; background: transparent; display: flex; align-items: center; gap: 8px; font-size: 11px; text-align: left; }

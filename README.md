@@ -1,4 +1,4 @@
-# VEYRONIX ConfigSentinel AI
+# ConfigSentinel AI — VEYRONIX
 
 **ConfigSentinel AI** is an evidence-grounded, vendor-neutral network configuration compliance SDK and CLI. It parses supported configurations, normalizes security-relevant settings, evaluates deterministic controls, and generates review-only remediation previews. An optional LLM copilot can explain findings and help classify unfamiliar syntax, but it never replaces deterministic compliance evidence and never executes commands.
 
@@ -161,7 +161,7 @@ The dashboard loads the same evidence-backed report shape used by JSON and Markd
 
 The dashboard accepts `.cfg`, `.conf`, `.config`, and `.txt` configuration files up to 2 MB. Files are read in the browser and submitted only to the configured local API; no device connection is created by upload. The backend remains responsible for redaction and deterministic evaluation.
 
-Completed reports are stored in browser `localStorage` under a versioned VEYRONIX key, capped at the most recent 20 snapshots. History stays on the operator’s machine and is not uploaded or synchronized. The Finding trend panel derives its failure and unknown series exclusively from those saved report summaries. Selecting a point loads that historical snapshot back into the evidence workbench.
+Completed reports are stored in browser `localStorage` under a versioned ConfigSentinel AI key, capped at the most recent 20 snapshots. History stays on the operator’s machine and is not uploaded or synchronized. The Finding trend panel derives its failure and unknown series exclusively from those saved report summaries. Selecting a point loads that historical snapshot back into the evidence workbench.
 
 
 ## History management and vendor detection

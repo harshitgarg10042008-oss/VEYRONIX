@@ -27,3 +27,11 @@
 - [x] Add detailed chart hover tooltips and clickable/keyboard-selectable points.
 - [x] Validate and document the expanded workflows.
 - [x] Save a new checkpoint and push the repository update.
+
+## Follow-up: ConfigSentinel AI product branding
+
+- [x] Define a distinctive reference-inspired ConfigSentinel AI logo mark and required asset variants.
+- [x] Generate a clean logo asset and prepare repository-compatible copies.
+- [x] Integrate the ConfigSentinel AI mark into the dashboard, favicon, metadata, and report surfaces, with VEYRONIX as team attribution only.
+- [x] Validate visibility, contrast, responsive placement, and frontend build.
+- [x] Save a checkpoint and push the logo update to GitHub.
