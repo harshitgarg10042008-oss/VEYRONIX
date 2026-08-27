@@ -7,6 +7,7 @@ from .engine import DeterministicComplianceEngine
 from .ingestion import ConfigIngestionService, IngestedConfig, IngestionError, IngestionPolicy
 from .parsers import CiscoIOSParser, GenericFirewallParser, JunosParser, PARSER_REGISTRY, detect_and_parse
 from .llm import EXPLANATION_SCHEMA, LLMConfig, LLMCopilot, LLMError, OpenAICompatibleProvider
+from .remediation import RemediationBundle, RemediationError, RemediationStep, generate_bundle, previews
 from .models import (
     AuditRequest,
     AuditResult,
@@ -51,11 +52,16 @@ __all__ = [
     "ParseResult",
     "ParserError",
     "RedactionResult",
+    "RemediationBundle",
+    "RemediationError",
+    "RemediationStep",
     "RemediationPreview",
     "SecretRedactor",
     "evaluate",
     "Severity",
     "assert_safe_for_llm",
+    "generate_bundle",
+    "previews",
 ]
 
 __version__ = "0.2.0"

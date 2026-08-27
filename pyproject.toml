@@ -13,6 +13,9 @@ license = {text = "Proprietary hackathon prototype"}
 classifiers = ["Programming Language :: Python :: 3", "Typing :: Typed"]
 dependencies = []
 
+[project.scripts]
+configsentinel = "configsentinel.cli:main"
+
 [tool.setuptools]
 package-dir = {"" = "src"}
 
