@@ -534,3 +534,15 @@ PYTHONPATH=src:. python -m configsentinel.cli time-machine reports/snapshots.jso
 ```
 
 Each snapshot retains its audit ID, vendor, parser version, input hash, status, severity, confidence, and evidence count. The artifact never includes raw evidence excerpts. It is a historical replay aid only: it performs no live lookup, does not assert that a snapshot reflects current device state, and cannot change verdicts.
+
+
+## SentinelProof S9: Proof-Carrying Remediation
+
+Remediation previews can now be accompanied by proof metadata that binds each safe deterministic step to the source audit, redacted input hash, evidence-span hashes, command hash, rollback hash, preconditions, and a required post-change deterministic re-audit.
+
+```bash
+PYTHONPATH=src:. python -m configsentinel.cli remediation-proof reports/edge.json --out reports/edge.remediation-proof.json
+PYTHONPATH=src:. python -m configsentinel.cli remediation-proof-verify reports/edge.remediation-proof.json reports/edge.json --out reports/edge.remediation-proof.verify.json
+```
+
+Proof artifacts intentionally contain no executable command text or raw evidence excerpts. They are review metadata only: independent operator approval is required, commands are marked non-executable, no device connection occurs, and verification does not claim that a post-change state exists until a new audit supplies evidence.

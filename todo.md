@@ -92,7 +92,7 @@
 - [x] S6 Governed Unknown-Syntax Apprenticeship Contracts.
 - [x] S7 Cross-Vendor Semantic Differential Testing.
 - [x] S8 Compliance Time Machine.
-- [ ] S9 Proof-Carrying Remediation.
+- [x] S9 Proof-Carrying Remediation.
 - [ ] Final SentinelProof integrated acceptance and completion report.
 - [ ] S10 Privacy-Preserving Audit Exchange.
 - [ ] S11 Reviewer Disagreement Analytics.

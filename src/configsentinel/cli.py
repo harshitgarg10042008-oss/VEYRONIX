@@ -45,6 +45,7 @@ from .intent import IntentError, compile_resource_intent
 from .apprenticeship import ApprenticeshipError, create_contract, evaluate_contract, write_contract
 from .differential import DifferentialError, SEMANTIC_FIELDS, run_differential_test
 from .time_machine import TimeMachineError, build_time_machine, load_snapshot_source, write_time_machine_html
+from .proof import ProofError, build_proof_bundle, verify_proof_bundle
 from .controls import CONTROL_PACK_VERSION
 from .reporting import report_dict
 
@@ -166,6 +167,13 @@ def build_parser() -> argparse.ArgumentParser:
     time_machine.add_argument("--vendor")
     time_machine.add_argument("--out", type=Path, required=True)
     time_machine.add_argument("--html-out", type=Path)
+    proof = sub.add_parser("remediation-proof", help="create proof-carrying remediation metadata")
+    proof.add_argument("report_input", type=Path)
+    proof.add_argument("--out", type=Path, required=True)
+    proof_verify = sub.add_parser("remediation-proof-verify", help="verify proof-carrying remediation metadata")
+    proof_verify.add_argument("proof_input", type=Path)
+    proof_verify.add_argument("report_input", type=Path)
+    proof_verify.add_argument("--out", type=Path, required=True)
     sensitive.add_argument("file", type=Path)
     sensitive.add_argument("--format", choices=("markdown", "json"), default="markdown")
     sensitive.add_argument("--out", type=Path, required=True)
@@ -722,6 +730,28 @@ def run_time_machine(args: argparse.Namespace) -> int:
     print(f"time_machine={args.out} snapshots={machine['summary']['snapshot_count']} changes={machine['summary']['change_count']}")
     return 0
 
+def run_remediation_proof(args: argparse.Namespace) -> int:
+    try:
+        proof = build_proof_bundle(load_report(args.report_input))
+        args.out.parent.mkdir(parents=True, exist_ok=True)
+        args.out.write_text(json.dumps(proof, indent=2, sort_keys=True) + "\n", encoding="utf-8", newline="\n")
+    except (OSError, UnicodeDecodeError, ValueError, ProofError, EvidenceGraphError) as exc:
+        print(f"Remediation proof rejected: {exc}", file=sys.stderr)
+        return 2
+    print(f"remediation_proof={args.out} state={proof['summary']['state']} proofs={proof['summary']['proof_count']}")
+    return 0
+
+def run_remediation_proof_verify(args: argparse.Namespace) -> int:
+    try:
+        result = verify_proof_bundle(load_report(args.proof_input), load_report(args.report_input))
+        args.out.parent.mkdir(parents=True, exist_ok=True)
+        args.out.write_text(json.dumps(result, indent=2, sort_keys=True) + "\n", encoding="utf-8", newline="\n")
+    except (OSError, UnicodeDecodeError, ValueError, ProofError, EvidenceGraphError) as exc:
+        print(f"Remediation proof verification rejected: {exc}", file=sys.stderr)
+        return 2
+    print(f"remediation_proof_verify={args.out} verified={result['verified']} mismatches={len(result['mismatches'])}")
+    return 0 if result["verified"] else 1
+
 def run_sensitive_scan(args: argparse.Namespace) -> int:
     try:
         text = args.file.read_text(encoding="utf-8")
@@ -880,6 +910,10 @@ def main(argv: list[str] | None = None) -> int:
         return run_differential(args)
     if args.command == "time-machine":
         return run_time_machine(args)
+    if args.command == "remediation-proof":
+        return run_remediation_proof(args)
+    if args.command == "remediation-proof-verify":
+        return run_remediation_proof_verify(args)
     if args.command == "webhook-enqueue":
         return run_webhook_enqueue(args)
     if args.command == "ticket-export":
