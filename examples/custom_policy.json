@@ -1,0 +1,16 @@
+{
+  "pack_id": "example-network-baseline",
+  "version": "1.0.0",
+  "controls": [
+    {
+      "control_id": "ORG-MGMT-001",
+      "title": "Require approved management banner",
+      "intent": "Every device must declare the approved operations banner.",
+      "severity": "MEDIUM",
+      "match": {"mode": "require", "regex": "banner motd"},
+      "applies_to": ["cisco_ios", "arista_eos"],
+      "framework_mappings": {"cis-network": ["ORG-MGMT-001"]},
+      "remediation": "Add the approved banner after operator review."
+    }
+  ]
+}

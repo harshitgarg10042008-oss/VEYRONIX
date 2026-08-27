@@ -204,3 +204,14 @@ curl -s http://127.0.0.1:8000/api/detect \
   -H 'Content-Type: application/json' \
   -d '{"config_text":"management api http-commands\ninterface Ethernet1\n"}'
 ```
+
+
+## Custom policy authoring
+
+Organizations can extend the built-in control pack with a validated local JSON policy file. Each rule declares a control ID, intent, severity, bounded regular expression, `require` or `forbid` mode, vendor applicability, framework mappings, and a review-only remediation message. The loader limits pack size, control count, field lengths, and regex size; matching is performed only against redacted configuration text, and PASS/FAIL findings retain source-line evidence.
+
+```bash
+configsentinel audit ./configs/edge.conf --vendor cisco_ios --policy examples/custom_policy.json --json-out reports/custom.json
+```
+
+Custom packs are additive and do not replace the built-in deterministic controls. The engine never executes policy content, and a missing required pattern remains `UNKNOWN` rather than being promoted to a passing verdict without evidence.

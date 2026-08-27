@@ -13,6 +13,7 @@ from .ingestion import ConfigIngestionService
 from .remediation import RemediationError, generate_bundle
 from .reporting import write_report
 from .sources import SourceDiscoveryError
+from .policies import CustomPolicyPack
 
 
 def build_parser() -> argparse.ArgumentParser:
@@ -27,11 +28,13 @@ def build_parser() -> argparse.ArgumentParser:
     audit.add_argument("--remediation-out", type=Path, help="write a non-executable remediation preview")
     audit.add_argument("--approve", action="store_true", help="acknowledge operator review; still requires --dry-run")
     audit.add_argument("--dry-run", action="store_true", help="required safety flag; never applies changes")
+    audit.add_argument("--policy", type=Path, help="validated local JSON custom policy pack")
     batch = sub.add_parser("batch", help="audit a file, directory, ZIP, or tar archive")
     batch.add_argument("source", type=Path)
     batch.add_argument("--vendor", default="auto", choices=("auto", "cisco_ios", "junos", "firewall_generic", "arista_eos", "linux_nftables"))
     batch.add_argument("--framework", action="append", dest="frameworks", default=None, help="framework id; repeat for multiple frameworks")
     batch.add_argument("--json-out", type=Path, help="write a JSON array of audit reports")
+    batch.add_argument("--policy", type=Path, help="validated local JSON custom policy pack")
     return parser
 
 
@@ -43,7 +46,8 @@ def run_audit(args: argparse.Namespace) -> int:
         frameworks = normalize_frameworks(args.frameworks)
         service = ConfigIngestionService()
         ingested = service.ingest_file(args.file)
-        client = ConfigSentinelClient(engine=DeterministicComplianceEngine(), ingestion=service)
+        packs = (CustomPolicyPack.from_file(args.policy),) if args.policy else ()
+        client = ConfigSentinelClient(engine=DeterministicComplianceEngine(packs), ingestion=service)
         result = client.audit_text(ingested.redacted_text, vendor=args.vendor, frameworks=frameworks)
     except (OSError, ValueError, RuntimeError) as exc:
         print(f"Input rejected: {exc}", file=sys.stderr)
@@ -74,7 +78,8 @@ def run_audit(args: argparse.Namespace) -> int:
 def run_batch(args: argparse.Namespace) -> int:
     try:
         frameworks = normalize_frameworks(args.frameworks)
-        client = ConfigSentinelClient(engine=DeterministicComplianceEngine())
+        packs = (CustomPolicyPack.from_file(args.policy),) if args.policy else ()
+        client = ConfigSentinelClient(engine=DeterministicComplianceEngine(packs))
         reports = client.audit_sources(str(args.source), vendor=args.vendor, frameworks=frameworks, project_id=str(args.source))
     except (OSError, ValueError, RuntimeError, SourceDiscoveryError) as exc:
         print(f"Source rejected: {exc}", file=sys.stderr)
