@@ -48,6 +48,7 @@ from .time_machine import TimeMachineError, build_time_machine, load_snapshot_so
 from .proof import ProofError, build_proof_bundle, verify_proof_bundle
 from .exchange import ExchangeError, build_exchange_capsule, verify_exchange_capsule
 from .reviewers import ReviewAnalyticsError, build_reviewer_analytics, load_reviews
+from .freshness import FreshnessError, build_freshness_assessment, load_report_for_freshness
 from .controls import CONTROL_PACK_VERSION
 from .reporting import report_dict
 
@@ -190,6 +191,13 @@ def build_parser() -> argparse.ArgumentParser:
     reviews.add_argument("report_input", type=Path)
     reviews.add_argument("reviews_input", type=Path)
     reviews.add_argument("--out", type=Path, required=True)
+    freshness = sub.add_parser("assurance-freshness", help="assess assurance freshness decay and semantic drift")
+    freshness.add_argument("report_input", type=Path)
+    freshness.add_argument("--observed-at")
+    freshness.add_argument("--as-of", required=True)
+    freshness.add_argument("--ttl-hours", type=float, default=24.0)
+    freshness.add_argument("--baseline", type=Path)
+    freshness.add_argument("--out", type=Path, required=True)
     sensitive.add_argument("file", type=Path)
     sensitive.add_argument("--format", choices=("markdown", "json"), default="markdown")
     sensitive.add_argument("--out", type=Path, required=True)
@@ -796,6 +804,21 @@ def run_reviewer_analytics(args: argparse.Namespace) -> int:
     return 0
 
 
+def run_assurance_freshness(args: argparse.Namespace) -> int:
+    try:
+        report = load_report_for_freshness(args.report_input)
+        baseline = load_report_for_freshness(args.baseline) if args.baseline else None
+        ttl_seconds = int(args.ttl_hours * 60 * 60)
+        assessment = build_freshness_assessment(report, observed_at=args.observed_at, as_of=args.as_of, ttl_seconds=ttl_seconds, baseline=baseline)
+        args.out.parent.mkdir(parents=True, exist_ok=True)
+        args.out.write_text(json.dumps(assessment, indent=2, sort_keys=True) + "\n", encoding="utf-8", newline="\n")
+    except (OSError, UnicodeDecodeError, json.JSONDecodeError, ValueError, FreshnessError) as exc:
+        print(f"Assurance freshness rejected: {exc}", file=sys.stderr)
+        return 2
+    print(f"assurance_freshness={args.out} state={assessment['assurance']['state']} freshness={assessment['freshness']['state']} drifted={assessment['drift']['drifted']} verdicts_changed={assessment['safety']['verdicts_changed']}")
+    return 0
+
+
 def run_remediation_proof(args: argparse.Namespace) -> int:
     try:
         proof = build_proof_bundle(load_report(args.report_input))
@@ -984,6 +1007,8 @@ def main(argv: list[str] | None = None) -> int:
         return run_audit_exchange_verify(args)
     if args.command == "reviewer-analytics":
         return run_reviewer_analytics(args)
+    if args.command == "assurance-freshness":
+        return run_assurance_freshness(args)
     if args.command == "remediation-proof-verify":
         return run_remediation_proof_verify(args)
     if args.command == "webhook-enqueue":

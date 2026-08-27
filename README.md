@@ -580,3 +580,14 @@ PYTHONPATH=src:. python -m configsentinel.cli reviewer-analytics reports/edge.js
 ```
 
 A tied vote never selects a winner: it is emitted as `CONTESTED` and counted as unresolved. The original deterministic audit status remains the authoritative verdict, including when reviewers agree. Reviewer notes and raw configuration evidence are not copied into the analytics artifact, no network request is made, and the command cannot approve, reject, or remediate a finding.
+
+
+## SentinelProof S12: Assurance Drift and Freshness Decay
+
+Freshness assessment prevents an old clean result from being mistaken for current assurance. The command requires an explicit `as-of` timestamp and uses the report’s `observed_at` value or an explicit override. A bounded TTL produces `FRESH`, `STALE`, or `EXPIRED` states with a transparent linear decay fraction. An optional baseline report is compared separately for vendor, parser, rule-pack, input-hash, and finding-attribute drift.
+
+```bash
+PYTHONPATH=src:. python -m configsentinel.cli assurance-freshness reports/edge.json --observed-at 2026-08-27T00:00:00Z --as-of 2026-08-27T12:00:00Z --ttl-hours 24 --baseline reports/edge.baseline-report.json --out reports/edge.freshness.json
+```
+
+Freshness and drift are assurance signals, not compliance verdicts. `AGING`, `EXPIRED`, and `DRIFTED` require a new review or deterministic re-audit, while `verdicts_changed` remains `false`. No live device query occurs, no raw configuration or evidence is copied, and the tool rejects ambiguous timestamps and future-dated evaluations.
