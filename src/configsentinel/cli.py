@@ -24,6 +24,7 @@ from .analytics import AnalyticsError, analyze_history, load_history, write_hist
 from .evidence_graph import EvidenceGraphError, build_evidence_graph, load_report, write_graph
 from .sensitive import render_sensitive_scan, scan_sensitive
 from .webhooks import LocalWebhookQueue, WebhookError, make_audit_event
+from .ticketing import TicketingError, build_ticket_payload, render_ticket_markdown
 
 
 def build_parser() -> argparse.ArgumentParser:
@@ -97,6 +98,11 @@ def build_parser() -> argparse.ArgumentParser:
     webhook = sub.add_parser("webhook-enqueue", help="enqueue a redacted audit-completed event locally")
     webhook.add_argument("json_input", type=Path)
     webhook.add_argument("--queue", type=Path, required=True)
+    ticket = sub.add_parser("ticket-export", help="write a review-only ticket artifact")
+    ticket.add_argument("json_input", type=Path)
+    ticket.add_argument("--adapter", choices=("generic", "jira", "github"), default="generic")
+    ticket.add_argument("--format", choices=("json", "markdown"), default="json")
+    ticket.add_argument("--out", type=Path, required=True)
     return parser
 
 
@@ -183,6 +189,19 @@ def run_batch(args: argparse.Namespace) -> int:
         args.json_out.parent.mkdir(parents=True, exist_ok=True)
         args.json_out.write_text(json.dumps(payload, indent=2, sort_keys=True) + "\n", encoding="utf-8")
         print(f"json_report={args.json_out}")
+    return 0
+
+
+def run_ticket_export(args: argparse.Namespace) -> int:
+    try:
+        report = load_report(args.json_input)
+        rendered = render_ticket_markdown(report) if args.format == "markdown" else json.dumps(build_ticket_payload(report, args.adapter), indent=2, sort_keys=True) + "\n"
+        args.out.parent.mkdir(parents=True, exist_ok=True)
+        args.out.write_text(rendered, encoding="utf-8", newline="\n")
+    except (OSError, ValueError, TicketingError, EvidenceGraphError) as exc:
+        print(f"Ticket export rejected: {exc}", file=sys.stderr)
+        return 2
+    print(f"ticket_export={args.out} adapter={args.adapter} format={args.format} submission=not_performed")
     return 0
 
 
@@ -337,6 +356,8 @@ def main(argv: list[str] | None = None) -> int:
         return run_sensitive_scan(args)
     if args.command == "webhook-enqueue":
         return run_webhook_enqueue(args)
+    if args.command == "ticket-export":
+        return run_ticket_export(args)
     if args.command == "approval-request":
         return run_approval_request(args)
     if args.command == "approval-decide":

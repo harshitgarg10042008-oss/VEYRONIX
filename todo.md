@@ -53,7 +53,7 @@
 - [x] 13 Expanded sensitive-data scanning.
 - [x] 14 Offline explanation-provider seam.
 - [x] 15 REST, OpenAPI, and local webhook contracts.
-- [ ] 16 Ticketing export adapters.
+- [x] 16 Ticketing export adapters.
 - [ ] 17 Topology and inventory import.
 - [ ] 18 Scalable batch-worker architecture.
 - [ ] 19 Formal verification fixtures and benchmark corpus.

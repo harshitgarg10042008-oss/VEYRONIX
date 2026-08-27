@@ -316,3 +316,13 @@ configsentinel sensitive-scan ./configs/edge.conf --format json --out reports/ed
 The local FastAPI adapter exposes the existing `/api/audit` and `/api/detect` routes plus stable `/api/v1/audit` and `/api/v1/health` aliases. The generated OpenAPI document is available at `/openapi.json` when the local server is running, and explicitly describes the deterministic, non-mutating audit surface.
 
 Audit completion events can be written to a local JSON Lines queue with `configsentinel webhook-enqueue REPORT.json --queue .configsentinel/webhooks.jsonl`. Each event contains only audit metadata, summary data, finding identifiers, and a SHA-256 digest of the canonical payload. The queue never performs outbound delivery; downstream ticketing or automation must consume it explicitly.
+
+## Ticketing export adapters
+
+The `ticket-export` command converts an evidence-backed JSON report into a review artifact for a generic consumer, Jira-compatible create payload, or GitHub-compatible issue payload. It includes only failed and unknown findings, control IDs, statuses, severities, and safe titles; raw configurations and secret-like fields are not forwarded. The adapter writes locally and never calls a ticketing service or submits an issue.
+
+```bash
+configsentinel ticket-export reports/edge.json --adapter jira --out reports/edge-jira.json
+configsentinel ticket-export reports/edge.json --adapter github --out reports/edge-github.json
+configsentinel ticket-export reports/edge.json --format markdown --out reports/edge-ticket.md
+```
