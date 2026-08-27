@@ -361,6 +361,16 @@ The `risk-prioritize` command ranks failed and review-required findings using de
 configsentinel risk-prioritize reports/edge.json --asset-criticality critical --out reports/edge-risk.json
 ```
 
+## Time-bound exception management
+
+Exceptions are local review records tied to a finding, owner, justification, and future ISO-8601 expiry. A new record is pending until an approver confirms it; expired records cannot be approved. Exceptions are never used to convert a deterministic failure into a pass and are marked with `verdict_impact: none`.
+
+```bash
+configsentinel exception-add ex-001 finding-123 --owner alice --justification "approved maintenance window" --expires-at 2099-01-01T00:00:00+00:00 --file .configsentinel/exceptions.json
+configsentinel exception-approve ex-001 --approver bob --file .configsentinel/exceptions.json
+configsentinel exception-list --file .configsentinel/exceptions.json --out reports/exceptions.json
+```
+
 ```bash
 configsentinel release-manifest . --out release-manifest.json
 configsentinel verify-manifest . release-manifest.json

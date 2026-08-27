@@ -63,7 +63,7 @@
 ## Next nine-upgrade expansion program
 
 - [x] 22 Enterprise risk prioritization and asset criticality.
-- [ ] 23 Time-bound exception management.
+- [x] 23 Time-bound exception management.
 - [ ] 24 Expanded compliance framework mappings.
 - [ ] 25 Interactive topology and blast-radius analysis.
 - [ ] 26 Guided SIH demonstration mode and audit comparison.

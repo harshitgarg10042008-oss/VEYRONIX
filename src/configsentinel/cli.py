@@ -29,6 +29,7 @@ from .inventory import InventoryError, import_inventory_file
 from .verification import verify_report, run_benchmark
 from .supplychain import SupplyChainError, build_manifest, verify_manifest, write_manifest
 from .risk import RiskError, risk_report
+from .exceptions import ExceptionError, approve_exception, create_exception, load_exceptions, save_exception
 
 
 def build_parser() -> argparse.ArgumentParser:
@@ -125,6 +126,20 @@ def build_parser() -> argparse.ArgumentParser:
     risk.add_argument("json_input", type=Path)
     risk.add_argument("--asset-criticality", choices=("low", "medium", "high", "critical"), default="medium")
     risk.add_argument("--out", type=Path, required=True)
+    exception_add = sub.add_parser("exception-add", help="create a time-bound review exception")
+    exception_add.add_argument("exception_id")
+    exception_add.add_argument("finding_id")
+    exception_add.add_argument("--owner", required=True)
+    exception_add.add_argument("--justification", required=True)
+    exception_add.add_argument("--expires-at", required=True)
+    exception_add.add_argument("--file", type=Path, required=True)
+    exception_approve = sub.add_parser("exception-approve", help="approve a pending time-bound exception")
+    exception_approve.add_argument("exception_id")
+    exception_approve.add_argument("--approver", required=True)
+    exception_approve.add_argument("--file", type=Path, required=True)
+    exception_list = sub.add_parser("exception-list", help="list local exceptions and their current status")
+    exception_list.add_argument("--file", type=Path, required=True)
+    exception_list.add_argument("--out", type=Path, required=True)
     return parser
 
 
@@ -211,6 +226,39 @@ def run_batch(args: argparse.Namespace) -> int:
         args.json_out.parent.mkdir(parents=True, exist_ok=True)
         args.json_out.write_text(json.dumps(payload, indent=2, sort_keys=True) + "\n", encoding="utf-8")
         print(f"json_report={args.json_out}")
+    return 0
+
+
+def run_exception_add(args: argparse.Namespace) -> int:
+    try:
+        record = create_exception(args.exception_id, args.finding_id, args.owner, args.justification, args.expires_at)
+        save_exception(record, args.file)
+    except (OSError, ValueError, ExceptionError) as exc:
+        print(f"Exception rejected: {exc}", file=sys.stderr)
+        return 2
+    print(f"exception={record.exception_id} status={record.status()} verdict_impact=none")
+    return 0
+
+
+def run_exception_approve(args: argparse.Namespace) -> int:
+    try:
+        record = approve_exception(args.exception_id, args.approver, args.file)
+    except (OSError, ValueError, ExceptionError) as exc:
+        print(f"Exception approval rejected: {exc}", file=sys.stderr)
+        return 2
+    print(f"exception={record.exception_id} status={record.status()} approved_by={record.approved_by}")
+    return 0
+
+
+def run_exception_list(args: argparse.Namespace) -> int:
+    try:
+        payload = {"schema": "configsentinel.exceptions.v1", "exceptions": [item.as_dict() for item in load_exceptions(args.file)]}
+        args.out.parent.mkdir(parents=True, exist_ok=True)
+        args.out.write_text(json.dumps(payload, indent=2, sort_keys=True) + "\n", encoding="utf-8", newline="\n")
+    except (OSError, ValueError, ExceptionError) as exc:
+        print(f"Exception listing rejected: {exc}", file=sys.stderr)
+        return 2
+    print(f"exceptions={args.out} count={len(payload['exceptions'])}")
     return 0
 
 
@@ -459,6 +507,12 @@ def main(argv: list[str] | None = None) -> int:
         return run_verify_manifest(args)
     if args.command == "risk-prioritize":
         return run_risk_prioritize(args)
+    if args.command == "exception-add":
+        return run_exception_add(args)
+    if args.command == "exception-approve":
+        return run_exception_approve(args)
+    if args.command == "exception-list":
+        return run_exception_list(args)
     if args.command == "approval-request":
         return run_approval_request(args)
     if args.command == "approval-decide":
