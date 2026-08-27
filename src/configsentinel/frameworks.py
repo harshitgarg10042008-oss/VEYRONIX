@@ -33,6 +33,41 @@ FRAMEWORKS: tuple[FrameworkDefinition, ...] = (
         "https://csrc.nist.gov/publications/detail/sp/800-53/rev-5/final",
         "Informative mapping; assessor or system-owner verification is required.",
     ),
+    FrameworkDefinition(
+        "nist-csf-2",
+        "NIST Cybersecurity Framework",
+        "2.0",
+        "https://www.nist.gov/cyberframework",
+        "Informative mapping; CSF profiles and organizational outcomes require owner validation.",
+    ),
+    FrameworkDefinition(
+        "pci-dss-4-0-1",
+        "Payment Card Industry Data Security Standard",
+        "4.0.1",
+        "https://www.pcisecuritystandards.org/standards/pci-dss/",
+        "Informative mapping; does not establish PCI compliance or replace a QSA assessment.",
+    ),
+    FrameworkDefinition(
+        "iso-27001-2022",
+        "ISO/IEC 27001 information security management systems",
+        "2022",
+        "https://www.iso.org/obp/ui/#iso:std:iso-iec:27001:ed-3:v1:en",
+        "Informative mapping; certification assessment remains independent.",
+    ),
+    FrameworkDefinition(
+        "hipaa-security-rule",
+        "HIPAA Security Rule",
+        "current-rule",
+        "https://www.hhs.gov/hipaa/for-professionals/security/laws-regulations/index.html",
+        "Informative mapping; covered-entity and business-associate obligations require legal review.",
+    ),
+    FrameworkDefinition(
+        "soc-2-tsc",
+        "AICPA SOC 2 Trust Services Criteria",
+        "current-criteria",
+        "https://www.aicpa-cima.com/topic/audit-assurance/soc",
+        "Informative mapping; SOC 2 reports are issued through an independent examination.",
+    ),
 )
 
 FRAMEWORK_BY_ID = {item.framework_id: item for item in FRAMEWORKS}
@@ -41,7 +76,7 @@ REGISTRY_VERSION = "8.0.0"
 
 
 def normalize_framework_id(value: str) -> str:
-    aliases = {"cis": "cis-network", "nist": "nist-800-53", "nist_800_53": "nist-800-53"}
+    aliases = {"cis": "cis-network", "nist": "nist-800-53", "nist_800_53": "nist-800-53", "csf": "nist-csf-2", "nist-csf": "nist-csf-2", "pci": "pci-dss-4-0-1", "pci-dss": "pci-dss-4-0-1", "iso27001": "iso-27001-2022", "iso-27001": "iso-27001-2022", "hipaa": "hipaa-security-rule", "soc2": "soc-2-tsc", "soc-2": "soc-2-tsc"}
     normalized = aliases.get(value.strip().lower(), value.strip().lower())
     if normalized not in FRAMEWORK_BY_ID:
         raise ValueError(f"unsupported framework: {value}")

@@ -365,6 +365,14 @@ configsentinel risk-prioritize reports/edge.json --asset-criticality critical --
 
 Exceptions are local review records tied to a finding, owner, justification, and future ISO-8601 expiry. A new record is pending until an approver confirms it; expired records cannot be approved. Exceptions are never used to convert a deterministic failure into a pass and are marked with `verdict_impact: none`.
 
+## Expanded compliance framework mappings
+
+The framework registry now recognizes aliases and metadata for NIST CSF 2.0, PCI DSS 4.0.1, ISO/IEC 27001:2022, the HIPAA Security Rule, and AICPA SOC 2 Trust Services Criteria, in addition to CIS and NIST SP 800-53. These are informative cross-framework references only; the registry does not claim certification or replace an independent assessor, QSA, auditor, or legal review.
+
+```bash
+configsentinel audit ./configs/edge.conf --vendor cisco_ios --framework csf --framework pci-dss --json-out reports/edge-frameworks.json
+```
+
 ```bash
 configsentinel exception-add ex-001 finding-123 --owner alice --justification "approved maintenance window" --expires-at 2099-01-01T00:00:00+00:00 --file .configsentinel/exceptions.json
 configsentinel exception-approve ex-001 --approver bob --file .configsentinel/exceptions.json
