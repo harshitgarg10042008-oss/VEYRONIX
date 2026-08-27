@@ -55,7 +55,7 @@
 - [x] 15 REST, OpenAPI, and local webhook contracts.
 - [x] 16 Ticketing export adapters.
 - [x] 17 Topology and inventory import.
-- [ ] 18 Scalable batch-worker architecture.
+- [x] 18 Scalable batch-worker architecture.
 - [ ] 19 Formal verification fixtures and benchmark corpus.
 - [ ] 20 Deployment hardening and supply-chain artifacts.
 - [ ] Final integrated acceptance and completion report.

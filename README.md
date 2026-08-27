@@ -335,3 +335,7 @@ The `inventory-import` command accepts bounded local JSON or CSV inventory files
 configsentinel inventory-import inventory.json --out reports/topology.json
 configsentinel inventory-import inventory.csv --out reports/topology.json
 ```
+
+## Scalable batch-worker architecture
+
+Independent local jobs can use `run_bounded()` from `configsentinel.workers` to execute with a bounded pool of up to 16 workers and a configurable job limit. Results are returned in input order even when completion order differs, and worker exceptions become explicit per-job errors instead of being silently discarded. The worker layer performs no remote dispatch and does not alter the deterministic verdict engine.
