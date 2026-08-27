@@ -36,6 +36,7 @@ from .demo import DemoError, compare_reports, render_guided_demo
 from .cache import AuditCache, CacheError
 from .siem import SiemError, render_siem
 from .backup import BackupError, backup_file, restore_file
+from .release import ReleaseError, write_release_artifacts
 from .controls import CONTROL_PACK_VERSION
 from .reporting import report_dict
 
@@ -180,6 +181,11 @@ def build_parser() -> argparse.ArgumentParser:
     backup_restore.add_argument("encrypted_input", type=Path)
     backup_restore.add_argument("--out", type=Path, required=True)
     backup_restore.add_argument("--passphrase-env", default="CONFIGSENTINEL_BACKUP_PASSPHRASE")
+    release = sub.add_parser("release-artifacts", help="write deterministic SBOM and release metadata")
+    release.add_argument("root", type=Path)
+    release.add_argument("--sbom-out", type=Path, required=True)
+    release.add_argument("--metadata-out", type=Path, required=True)
+    release.add_argument("--manifest", type=Path)
     return parser
 
 
@@ -266,6 +272,17 @@ def run_batch(args: argparse.Namespace) -> int:
         args.json_out.parent.mkdir(parents=True, exist_ok=True)
         args.json_out.write_text(json.dumps(payload, indent=2, sort_keys=True) + "\n", encoding="utf-8")
         print(f"json_report={args.json_out}")
+    return 0
+
+
+def run_release_artifacts(args: argparse.Namespace) -> int:
+    try:
+        manifest = json.loads(args.manifest.read_text(encoding="utf-8")) if args.manifest else None
+        write_release_artifacts(args.root, args.sbom_out, args.metadata_out, manifest=manifest)
+    except (OSError, ValueError, ReleaseError) as exc:
+        print(f"Release artifacts rejected: {exc}", file=sys.stderr)
+        return 2
+    print(f"sbom={args.sbom_out} metadata={args.metadata_out}")
     return 0
 
 
@@ -666,6 +683,8 @@ def main(argv: list[str] | None = None) -> int:
         return run_backup_create(args)
     if args.command == "backup-restore":
         return run_backup_restore(args)
+    if args.command == "release-artifacts":
+        return run_release_artifacts(args)
     if args.command == "approval-request":
         return run_approval_request(args)
     if args.command == "approval-decide":

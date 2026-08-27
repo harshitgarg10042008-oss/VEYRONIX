@@ -389,6 +389,14 @@ The `siem-export` command writes failed and review-required findings as local JS
 
 The optional `backup` package extra enables authenticated encrypted backups for JSON artifacts. A versioned envelope uses Fernet authenticated encryption with a PBKDF2-HMAC-SHA256-derived key and a random salt. Passphrases are read from an environment variable rather than placed directly in shell history; wrong or short passphrases fail closed.
 
+## SBOM and reproducible release metadata
+
+The `release-artifacts` command generates an SPDX-style software bill of materials and a deterministic release metadata document from `pyproject.toml`. The metadata records the project version, declared Python requirement, source declaration hash, and an optional release-manifest digest. `SOURCE_DATE_EPOCH` can be set by a release pipeline; it defaults to zero for stable local output.
+
+```bash
+configsentinel release-artifacts . --manifest release-manifest.json --sbom-out release-sbom.json --metadata-out release-metadata.json
+```
+
 ```bash
 python -m pip install -e ".[backup]"
 export CONFIGSENTINEL_BACKUP_PASSPHRASE='use-a-secret-manager-or-protected-shell'

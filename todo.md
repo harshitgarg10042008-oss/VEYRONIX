@@ -70,5 +70,5 @@
 - [x] 27 Content-addressed incremental audit cache.
 - [x] 28 SIEM and structured event export adapters.
 - [x] 29 Encrypted backup and restore manifests.
-- [ ] 30 SBOM and reproducible release metadata.
+- [x] 30 SBOM and reproducible release metadata.
 - [ ] Final nine-upgrade completion report.
