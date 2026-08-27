@@ -35,3 +35,10 @@ The small brand mark is stored at `client/public/veyronix-mark.png`. No remote i
 The dashboard uses `VITE_API_BASE_URL` to reach the local FastAPI adapter. Start `PYTHONPATH=src python examples/api_server.py` from the repository root, then run `VITE_API_BASE_URL=http://127.0.0.1:8000 pnpm dev` inside `frontend/`. The page loads `/api/health` and posts redacted demo configuration to `/api/audit`; the returned report is rendered without replacing deterministic statuses with LLM text.
 
 Operators can open the Filters control to narrow findings by severity, status, and framework mapping. Export PDF downloads the current metrics and filtered findings, including audit ID, input hash, evidence excerpts, observed/expected state, mappings, confidence, and the non-execution safety note.
+
+
+## Uploads, local history, and trends
+
+Use **Upload config** to submit a local `.cfg`, `.conf`, `.config`, or `.txt` file up to 2 MB. The browser validates the extension and size, then sends the file contents to the configured API for the same redaction and deterministic evaluation path as the bundled fixture.
+
+Each successful report is saved in browser storage as a versioned snapshot, limited to the latest 20 audits. The **Finding trend** panel draws failures and unknown results from those snapshots. Hover or focus a point for its audit metadata, and select it to reload that historical report into the evidence panel. Clearing site data removes the local history.

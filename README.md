@@ -155,3 +155,10 @@ VITE_API_BASE_URL=http://127.0.0.1:8000 pnpm dev
 ```
 
 The dashboard loads the same evidence-backed report shape used by JSON and Markdown exports. Its filters narrow the visible set by severity, status, and framework mapping; the PDF action exports the current posture metrics plus the currently visible findings, evidence excerpts, input hash, mappings, and safety note. If the API is unavailable, the interface stays explicit about the offline state instead of displaying fabricated audit data.
+
+
+## Configuration uploads and audit history
+
+The dashboard accepts `.cfg`, `.conf`, `.config`, and `.txt` configuration files up to 2 MB. Files are read in the browser and submitted only to the configured local API; no device connection is created by upload. The backend remains responsible for redaction and deterministic evaluation.
+
+Completed reports are stored in browser `localStorage` under a versioned VEYRONIX key, capped at the most recent 20 snapshots. History stays on the operator’s machine and is not uploaded or synchronized. The Finding trend panel derives its failure and unknown series exclusively from those saved report summaries. Selecting a point loads that historical snapshot back into the evidence workbench.

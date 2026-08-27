@@ -1,5 +1,15 @@
 # Live dashboard integration task
 
+## Follow-up: upload, history, and trends
+
+- [x] Define safe file-upload and local-history data contracts.
+- [x] Add configuration-file selection, parsing, size/type guardrails, and audit submission.
+- [x] Persist completed audit summaries and findings in browser storage across sessions.
+- [x] Add an interactive findings trend chart derived from persisted audit history.
+- [x] Validate upload, persistence, chart rendering, backend regression, and frontend build.
+- [x] Update operator documentation and save a new checkpoint.
+
+
 - [x] Inspect the Python backend entrypoint, audit result models, and current frontend state shape.
 - [x] Define a safe local API endpoint and CORS policy for audit execution.
 - [x] Add frontend API client, loading/error/empty states, and live audit refresh behavior.
