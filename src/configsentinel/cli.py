@@ -42,6 +42,7 @@ from .uncertainty import UncertaintyError, build_uncertainty_budget
 from .mutation import MutationError, run_mutation_lab
 from .assurance_twin import AssuranceTwinError, build_assurance_twin, write_assurance_twin_html
 from .intent import IntentError, compile_resource_intent
+from .apprenticeship import ApprenticeshipError, create_contract, evaluate_contract, write_contract
 from .controls import CONTROL_PACK_VERSION
 from .reporting import report_dict
 
@@ -144,6 +145,14 @@ def build_parser() -> argparse.ArgumentParser:
     intent.add_argument("--report", type=Path)
     intent.add_argument("--topology", type=Path)
     intent.add_argument("--out", type=Path, required=True)
+    apprenticeship = sub.add_parser("apprenticeship-contract", help="create a governed unknown-syntax parser contract")
+    apprenticeship.add_argument("mapping_input", type=Path)
+    apprenticeship.add_argument("--positive", action="append", required=True)
+    apprenticeship.add_argument("--counterexample", action="append", required=True)
+    apprenticeship.add_argument("--out", type=Path, required=True)
+    apprenticeship_test = sub.add_parser("apprenticeship-test", help="test a parser contract without promoting it")
+    apprenticeship_test.add_argument("contract_input", type=Path)
+    apprenticeship_test.add_argument("--out", type=Path, required=True)
     sensitive.add_argument("file", type=Path)
     sensitive.add_argument("--format", choices=("markdown", "json"), default="markdown")
     sensitive.add_argument("--out", type=Path, required=True)
@@ -646,6 +655,27 @@ def run_intent_compile(args: argparse.Namespace) -> int:
     print(f"intent_compile={args.out} state={compiled['summary']['state']} checks={compiled['summary']['check_count']}")
     return 0
 
+def run_apprenticeship_contract(args: argparse.Namespace) -> int:
+    try:
+        contract = create_contract(load_report(args.mapping_input), positive_examples=args.positive, counterexamples=args.counterexample)
+        write_contract(contract, args.out)
+    except (OSError, UnicodeDecodeError, ValueError, ApprenticeshipError, EvidenceGraphError) as exc:
+        print(f"Apprenticeship contract rejected: {exc}", file=sys.stderr)
+        return 2
+    print(f"apprenticeship_contract={args.out} status={contract['promotion']['status']} promoted={contract['promotion']['promoted_into_parser']}")
+    return 0
+
+def run_apprenticeship_test(args: argparse.Namespace) -> int:
+    try:
+        result = evaluate_contract(load_report(args.contract_input))
+        args.out.parent.mkdir(parents=True, exist_ok=True)
+        args.out.write_text(json.dumps(result, indent=2, sort_keys=True) + "\n", encoding="utf-8", newline="\n")
+    except (OSError, UnicodeDecodeError, ValueError, ApprenticeshipError, EvidenceGraphError) as exc:
+        print(f"Apprenticeship test rejected: {exc}", file=sys.stderr)
+        return 2
+    print(f"apprenticeship_test={args.out} status={result['promotion']['status']} promoted={result['promotion']['promoted_into_parser']}")
+    return 0 if result["promotion"]["status"] == "READY_FOR_HUMAN_REVIEW" else 1
+
 def run_sensitive_scan(args: argparse.Namespace) -> int:
     try:
         text = args.file.read_text(encoding="utf-8")
@@ -796,6 +826,10 @@ def main(argv: list[str] | None = None) -> int:
         return run_assurance_twin(args)
     if args.command == "intent-compile":
         return run_intent_compile(args)
+    if args.command == "apprenticeship-contract":
+        return run_apprenticeship_contract(args)
+    if args.command == "apprenticeship-test":
+        return run_apprenticeship_test(args)
     if args.command == "webhook-enqueue":
         return run_webhook_enqueue(args)
     if args.command == "ticket-export":

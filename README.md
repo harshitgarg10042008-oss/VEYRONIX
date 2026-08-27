@@ -500,3 +500,15 @@ PYTHONPATH=src:. python -m configsentinel.cli intent-compile intent.json --repor
 ```
 
 The compiler reports `SATISFIED`, `VIOLATED`, or `REVIEW_REQUIRED` based on supplied evidence. Missing report evidence remains unknown. It emits no vendor configuration, no executable commands, and no live-network requests; it does not prove reachability or change the underlying compliance verdicts.
+
+
+## SentinelProof S6: Governed Unknown-Syntax Apprenticeship
+
+Unknown syntax can now be packaged as a governed parser contract after an approved mapping exists. The contract stores bounded redacted positive examples, counterexamples, syntax fingerprints, mapping provenance, and deterministic contract-test results.
+
+```bash
+PYTHONPATH=src:. python -m configsentinel.cli apprenticeship-contract approved-mapping.json --positive "transport input telnet" --counterexample "transport input ssh" --out reports/telnet.contract.json
+PYTHONPATH=src:. python -m configsentinel.cli apprenticeship-test reports/telnet.contract.json --out reports/telnet.contract-test.json
+```
+
+A passing contract reports `READY_FOR_HUMAN_REVIEW`; it never promotes a parser mapping, changes the parser registry, or alters compliance verdicts automatically. Examples are redacted before storage, secret-like values are not retained, and contract testing remains local and network-free.
