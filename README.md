@@ -523,3 +523,14 @@ PYTHONPATH=src:. python -m configsentinel.cli differential-test --variant cisco_
 ```
 
 Only selected normalized fields and their associated controls are compared. Results contain no raw configuration, perform no network access, never select an authoritative vendor, and do not alter compliance verdicts.
+
+
+## SentinelProof S8: Compliance Time Machine
+
+The Compliance Time Machine replays a bounded JSON collection of operator-supplied report snapshots, orders them by ISO-8601 observation time, and records control-status transitions without interpolating missing periods.
+
+```bash
+PYTHONPATH=src:. python -m configsentinel.cli time-machine reports/snapshots.json --control-id NET-MGMT-SSH-001 --out reports/ssh.timeline.json --html-out reports/ssh.timeline.html
+```
+
+Each snapshot retains its audit ID, vendor, parser version, input hash, status, severity, confidence, and evidence count. The artifact never includes raw evidence excerpts. It is a historical replay aid only: it performs no live lookup, does not assert that a snapshot reflects current device state, and cannot change verdicts.

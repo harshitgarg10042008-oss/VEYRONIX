@@ -91,7 +91,7 @@
 - [x] S5 Resource-Level Least-Privilege Compiler.
 - [x] S6 Governed Unknown-Syntax Apprenticeship Contracts.
 - [x] S7 Cross-Vendor Semantic Differential Testing.
-- [ ] S8 Compliance Time Machine.
+- [x] S8 Compliance Time Machine.
 - [ ] S9 Proof-Carrying Remediation.
 - [ ] Final SentinelProof integrated acceptance and completion report.
 - [ ] S10 Privacy-Preserving Audit Exchange.

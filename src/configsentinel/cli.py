@@ -44,6 +44,7 @@ from .assurance_twin import AssuranceTwinError, build_assurance_twin, write_assu
 from .intent import IntentError, compile_resource_intent
 from .apprenticeship import ApprenticeshipError, create_contract, evaluate_contract, write_contract
 from .differential import DifferentialError, SEMANTIC_FIELDS, run_differential_test
+from .time_machine import TimeMachineError, build_time_machine, load_snapshot_source, write_time_machine_html
 from .controls import CONTROL_PACK_VERSION
 from .reporting import report_dict
 
@@ -159,6 +160,12 @@ def build_parser() -> argparse.ArgumentParser:
     differential.add_argument("--field", action="append", dest="fields", default=None, choices=SEMANTIC_FIELDS)
     differential.add_argument("--case-id", default="case-local")
     differential.add_argument("--out", type=Path, required=True)
+    time_machine = sub.add_parser("time-machine", help="replay supplied compliance report snapshots")
+    time_machine.add_argument("snapshots_input", type=Path)
+    time_machine.add_argument("--control-id")
+    time_machine.add_argument("--vendor")
+    time_machine.add_argument("--out", type=Path, required=True)
+    time_machine.add_argument("--html-out", type=Path)
     sensitive.add_argument("file", type=Path)
     sensitive.add_argument("--format", choices=("markdown", "json"), default="markdown")
     sensitive.add_argument("--out", type=Path, required=True)
@@ -702,6 +709,19 @@ def run_differential(args: argparse.Namespace) -> int:
     print(f"differential_test={args.out} equivalent={comparison['equivalent']} semantic_disagreements={comparison['semantic_disagreement_count']} control_disagreements={comparison['control_disagreement_count']}")
     return 0
 
+def run_time_machine(args: argparse.Namespace) -> int:
+    try:
+        machine = build_time_machine(load_snapshot_source(args.snapshots_input), control_id=args.control_id, vendor=args.vendor)
+        args.out.parent.mkdir(parents=True, exist_ok=True)
+        args.out.write_text(json.dumps(machine, indent=2, sort_keys=True) + "\n", encoding="utf-8", newline="\n")
+        if args.html_out:
+            write_time_machine_html(machine, args.html_out)
+    except (OSError, UnicodeDecodeError, ValueError, TimeMachineError, EvidenceGraphError) as exc:
+        print(f"Time machine rejected: {exc}", file=sys.stderr)
+        return 2
+    print(f"time_machine={args.out} snapshots={machine['summary']['snapshot_count']} changes={machine['summary']['change_count']}")
+    return 0
+
 def run_sensitive_scan(args: argparse.Namespace) -> int:
     try:
         text = args.file.read_text(encoding="utf-8")
@@ -858,6 +878,8 @@ def main(argv: list[str] | None = None) -> int:
         return run_apprenticeship_test(args)
     if args.command == "differential-test":
         return run_differential(args)
+    if args.command == "time-machine":
+        return run_time_machine(args)
     if args.command == "webhook-enqueue":
         return run_webhook_enqueue(args)
     if args.command == "ticket-export":
