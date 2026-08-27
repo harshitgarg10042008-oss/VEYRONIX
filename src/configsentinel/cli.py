@@ -21,6 +21,7 @@ from .governance import ApprovalLedger, GovernanceError, Role
 from .auditlog import AuditLogError, AuditTrail, sign_envelope
 from .executive import build_executive_report, render_executive_json, render_executive_markdown
 from .analytics import AnalyticsError, analyze_history, load_history, write_history_analytics
+from .evidence_graph import EvidenceGraphError, build_evidence_graph, load_report, write_graph
 
 
 def build_parser() -> argparse.ArgumentParser:
@@ -84,6 +85,9 @@ def build_parser() -> argparse.ArgumentParser:
     history = sub.add_parser("history-analyze", help="analyze a JSON array of serialized audit reports")
     history.add_argument("json_input", type=Path)
     history.add_argument("--out", type=Path, required=True)
+    graph = sub.add_parser("evidence-graph", help="project an audit report into an evidence graph")
+    graph.add_argument("json_input", type=Path)
+    graph.add_argument("--out", type=Path, required=True)
     return parser
 
 
@@ -170,6 +174,17 @@ def run_batch(args: argparse.Namespace) -> int:
         args.json_out.parent.mkdir(parents=True, exist_ok=True)
         args.json_out.write_text(json.dumps(payload, indent=2, sort_keys=True) + "\n", encoding="utf-8")
         print(f"json_report={args.json_out}")
+    return 0
+
+
+def run_evidence_graph(args: argparse.Namespace) -> int:
+    try:
+        graph = build_evidence_graph(load_report(args.json_input))
+        write_graph(graph, args.out)
+    except (OSError, ValueError, EvidenceGraphError) as exc:
+        print(f"Evidence graph rejected: {exc}", file=sys.stderr)
+        return 2
+    print(f"evidence_graph={args.out} nodes={len(graph['nodes'])} edges={len(graph['edges'])}")
     return 0
 
 
@@ -282,6 +297,8 @@ def main(argv: list[str] | None = None) -> int:
         return run_executive_report(args)
     if args.command == "history-analyze":
         return run_history_analyze(args)
+    if args.command == "evidence-graph":
+        return run_evidence_graph(args)
     if args.command == "approval-request":
         return run_approval_request(args)
     if args.command == "approval-decide":

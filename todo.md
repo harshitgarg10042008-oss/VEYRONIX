@@ -49,7 +49,7 @@
 - [x] 09 Tamper-evident audit trail and signed bundles.
 - [x] 10 Executive and enterprise reporting.
 - [x] 11 Multidimensional historical analytics.
-- [ ] 12 Evidence graph view.
+- [x] 12 Evidence graph view.
 - [ ] 13 Expanded sensitive-data scanning.
 - [ ] 14 Offline explanation-provider seam.
 - [ ] 15 REST, OpenAPI, and local webhook contracts.

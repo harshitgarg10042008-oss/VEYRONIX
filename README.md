@@ -286,3 +286,12 @@ Saved serialized audit reports can be analyzed locally across vendor, severity, 
 ```bash
 configsentinel history-analyze reports/history.json --out reports/history-analytics.json
 ```
+
+
+## Evidence graph
+
+The `evidence-graph` command projects a JSON audit report into a deterministic graph of audit, finding, control, framework, and redacted evidence nodes. Edges show which audit produced a finding, which control was evaluated, which framework requirements are mapped, and which source spans support the result. This artifact is designed for explainability and review; it does not infer relationships from untrusted external data.
+
+```bash
+configsentinel evidence-graph reports/edge.json --out reports/edge-evidence-graph.json
+```
