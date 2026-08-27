@@ -72,3 +72,25 @@
 - [x] 29 Encrypted backup and restore manifests.
 - [x] 30 SBOM and reproducible release metadata.
 - [x] Final nine-upgrade completion report.
+
+## Differentiated-feature research blueprint
+
+- [x] Map enterprise network-compliance and security-assurance baselines.
+- [x] Review SIH judging expectations and publicly documented winning patterns.
+- [x] Validate concepts against authoritative security standards and research.
+- [x] Design defensible evidence-first differentiators.
+- [x] Score feasibility, demo impact, defensibility, and safety.
+- [x] Deliver the differentiated-feature blueprint and implementation order.
+
+## SentinelProof nine-feature implementation program
+
+- [x] S1 Configuration Attestation Tokens.
+- [ ] S2 Evidence coverage and uncertainty budgets.
+- [ ] S3 Semantic Mutation Lab.
+- [ ] S4 Evidence-First Network Assurance Twin.
+- [ ] S5 Resource-Level Least-Privilege Compiler.
+- [ ] S6 Governed Unknown-Syntax Apprenticeship Contracts.
+- [ ] S7 Cross-Vendor Semantic Differential Testing.
+- [ ] S8 Compliance Time Machine.
+- [ ] S9 Proof-Carrying Remediation.
+- [ ] Final SentinelProof integrated acceptance and completion report.

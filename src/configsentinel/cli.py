@@ -37,6 +37,7 @@ from .cache import AuditCache, CacheError
 from .siem import SiemError, render_siem
 from .backup import BackupError, backup_file, restore_file
 from .release import ReleaseError, write_release_artifacts
+from .attestation import AttestationError, build_attestation, load_attestation, verify_attestation
 from .controls import CONTROL_PACK_VERSION
 from .reporting import report_dict
 
@@ -106,6 +107,16 @@ def build_parser() -> argparse.ArgumentParser:
     graph.add_argument("json_input", type=Path)
     graph.add_argument("--out", type=Path, required=True)
     sensitive = sub.add_parser("sensitive-scan", help="scan a configuration for sensitive markers")
+    attest_create = sub.add_parser("attestation-create", help="create a signed configuration attestation")
+    attest_create.add_argument("json_input", type=Path)
+    attest_create.add_argument("--key-file", type=Path, required=True)
+    attest_create.add_argument("--out", type=Path, required=True)
+    attest_create.add_argument("--reviewer-status", choices=("REVIEW_REQUIRED", "APPROVED", "REJECTED"), default="REVIEW_REQUIRED")
+    attest_create.add_argument("--issued-at")
+    attest_verify = sub.add_parser("attestation-verify", help="verify and replay a signed configuration attestation")
+    attest_verify.add_argument("json_input", type=Path)
+    attest_verify.add_argument("attestation", type=Path)
+    attest_verify.add_argument("--key-file", type=Path, required=True)
     sensitive.add_argument("file", type=Path)
     sensitive.add_argument("--format", choices=("markdown", "json"), default="markdown")
     sensitive.add_argument("--out", type=Path, required=True)
@@ -509,6 +520,36 @@ def run_webhook_enqueue(args: argparse.Namespace) -> int:
     return 0
 
 
+def _read_attestation_key(path: Path) -> bytes:
+    if path.is_symlink() or not path.is_file() or path.stat().st_size > 4096:
+        raise AttestationError("attestation key path is invalid")
+    key = path.read_bytes()
+    if not key:
+        raise AttestationError("attestation key cannot be empty")
+    return key
+
+def run_attestation_create(args: argparse.Namespace) -> int:
+    try:
+        report = load_report(args.json_input)
+        attestation = build_attestation(report, _read_attestation_key(args.key_file), reviewer_status=args.reviewer_status, issued_at=args.issued_at)
+        args.out.parent.mkdir(parents=True, exist_ok=True)
+        args.out.write_text(json.dumps(attestation, indent=2, sort_keys=True) + "\n", encoding="utf-8", newline="\n")
+    except (OSError, UnicodeDecodeError, ValueError, AttestationError, EvidenceGraphError) as exc:
+        print(f"Attestation creation rejected: {exc}", file=sys.stderr)
+        return 2
+    print(f"attestation={args.out} schema={attestation['schema']} reviewer_status={args.reviewer_status}")
+    return 0
+
+def run_attestation_verify(args: argparse.Namespace) -> int:
+    try:
+        report = load_report(args.json_input)
+        valid, reason = verify_attestation(load_attestation(args.attestation), report, _read_attestation_key(args.key_file))
+    except (OSError, UnicodeDecodeError, ValueError, AttestationError, EvidenceGraphError) as exc:
+        print(f"Attestation verification rejected: {exc}", file=sys.stderr)
+        return 2
+    print(f"attestation_verification={'VALID' if valid else 'INVALID'} reason={reason}")
+    return 0 if valid else 1
+
 def run_sensitive_scan(args: argparse.Namespace) -> int:
     try:
         text = args.file.read_text(encoding="utf-8")
@@ -647,6 +688,10 @@ def main(argv: list[str] | None = None) -> int:
         return run_evidence_graph(args)
     if args.command == "sensitive-scan":
         return run_sensitive_scan(args)
+    if args.command == "attestation-create":
+        return run_attestation_create(args)
+    if args.command == "attestation-verify":
+        return run_attestation_verify(args)
     if args.command == "webhook-enqueue":
         return run_webhook_enqueue(args)
     if args.command == "ticket-export":

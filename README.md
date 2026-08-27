@@ -437,3 +437,22 @@ configsentinel exception-list --file .configsentinel/exceptions.json --out repor
 configsentinel release-manifest . --out release-manifest.json
 configsentinel verify-manifest . release-manifest.json
 ```
+
+
+## SentinelProof S1: Configuration Attestation Tokens
+
+ConfigSentinel AI can create a portable, HMAC-SHA256-signed configuration attestation from a serialized redacted audit report. The token binds the report version, audit identity, vendor, parser and rule-pack versions, selected frameworks, input SHA-256, finding identifiers, evidence digest, reconciliation digest, and reviewer status without embedding raw configuration evidence.
+
+Create an attestation locally with:
+
+```bash
+PYTHONPATH=src:. python -m configsentinel.cli attestation-create report.json --key-file local-signing-key.bin --out attestation.json
+```
+
+Replay and verify the token against the exact report with:
+
+```bash
+PYTHONPATH=src:. python -m configsentinel.cli attestation-verify report.json attestation.json --key-file local-signing-key.bin
+```
+
+The default status is `REVIEW_REQUIRED`. Verification fails when the key, report, serialized claim, or signature changes. This is an application-level assurance artifact inspired by provenance and attestation standards; it is not hardware attestation and does not authorize device changes. Keep signing keys outside source control and use a separate protected key for each environment.
