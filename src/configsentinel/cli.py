@@ -14,6 +14,7 @@ from .remediation import RemediationError, generate_bundle
 from .reporting import write_report
 from .sources import SourceDiscoveryError
 from .policies import CustomPolicyPack
+from .gitops import run_gitops_gate, write_gate_result
 
 
 def build_parser() -> argparse.ArgumentParser:
@@ -35,6 +36,13 @@ def build_parser() -> argparse.ArgumentParser:
     batch.add_argument("--framework", action="append", dest="frameworks", default=None, help="framework id; repeat for multiple frameworks")
     batch.add_argument("--json-out", type=Path, help="write a JSON array of audit reports")
     batch.add_argument("--policy", type=Path, help="validated local JSON custom policy pack")
+    gate = sub.add_parser("gitops-check", help="audit configuration files changed between Git revisions")
+    gate.add_argument("--repo", type=Path, default=Path("."))
+    gate.add_argument("--base", required=True, help="base Git revision")
+    gate.add_argument("--head", default="HEAD", help="head Git revision")
+    gate.add_argument("--vendor", default="auto", choices=("auto", "cisco_ios", "junos", "firewall_generic", "arista_eos", "linux_nftables"))
+    gate.add_argument("--framework", action="append", dest="frameworks", default=None)
+    gate.add_argument("--json-out", type=Path)
     return parser
 
 
@@ -96,12 +104,33 @@ def run_batch(args: argparse.Namespace) -> int:
     return 0
 
 
+def run_gitops(args: argparse.Namespace) -> int:
+    try:
+        frameworks = normalize_frameworks(args.frameworks)
+        result = run_gitops_gate(args.repo, args.base, args.head, vendor=args.vendor, frameworks=frameworks)
+    except (OSError, ValueError, RuntimeError, SourceDiscoveryError) as exc:
+        print(f"GitOps gate rejected: {exc}", file=sys.stderr)
+        return 2
+    decision = "PASS" if result.passed else "BLOCK"
+    print(f"gitops={decision} changed_files={len(result.changed_files)} findings={len(result.findings)} reason={result.reason}")
+    for finding in result.findings:
+        lines = ",".join(str(line) for line in finding.evidence_lines) or "none"
+        print(f"{finding.path}\t{finding.control_id}\t{finding.status}\t{finding.severity}\tevidence={lines}")
+    if args.json_out:
+        args.json_out.parent.mkdir(parents=True, exist_ok=True)
+        write_gate_result(result, args.json_out)
+        print(f"json_report={args.json_out}")
+    return 0 if result.passed else 1
+
+
 def main(argv: list[str] | None = None) -> int:
     args = build_parser().parse_args(argv)
     if args.command == "audit":
         return run_audit(args)
     if args.command == "batch":
         return run_batch(args)
+    if args.command == "gitops-check":
+        return run_gitops(args)
     return 2
 
 

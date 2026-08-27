@@ -1,0 +1,35 @@
+name: ConfigSentinel GitOps Gate
+
+on:
+  pull_request:
+    paths:
+      - '**/*.cfg'
+      - '**/*.conf'
+      - '**/*.config'
+      - '**/*.txt'
+      - '**/*.log'
+      - 'src/configsentinel/**'
+      - 'scripts/gitops_gate.sh'
+      - '.github/workflows/gitops-gate.yml'
+
+permissions:
+  contents: read
+
+jobs:
+  audit-config-changes:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Install package
+        run: python -m pip install --upgrade pip && python -m pip install -e .
+      - name: Run deterministic configuration gate
+        run: >-
+          scripts/gitops_gate.sh
+          "${{ github.event.pull_request.base.sha }}"
+          "${{ github.event.pull_request.head.sha }}"
+          auto

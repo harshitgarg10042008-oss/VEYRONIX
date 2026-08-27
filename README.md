@@ -215,3 +215,16 @@ configsentinel audit ./configs/edge.conf --vendor cisco_ios --policy examples/cu
 ```
 
 Custom packs are additive and do not replace the built-in deterministic controls. The engine never executes policy content, and a missing required pattern remains `UNKNOWN` rather than being promoted to a passing verdict without evidence.
+
+
+## GitOps security gate
+
+Pull requests that change supported configuration files can run a deterministic local gate before merge. The gate compares a base and head revision, audits only changed configuration paths, preserves evidence line numbers, emits JSON for CI artifacts, and returns a non-zero exit code when a critical or high-severity deterministic failure is introduced. It never posts comments, executes remediation, or modifies the repository.
+
+```bash
+scripts/gitops_gate.sh <BASE_SHA> HEAD auto
+# or:
+PYTHONPATH=src python -m configsentinel.cli gitops-check --repo . --base <BASE_SHA> --head HEAD --vendor auto --json-out gitops-report.json
+```
+
+The repository includes `.github/workflows/gitops-gate.yml` for pull-request execution. Ambiguous or unsupported vendor detection fails closed, so an operator must provide an explicit vendor in a local run when a change cannot be classified safely.

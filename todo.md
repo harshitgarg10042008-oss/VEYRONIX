@@ -42,7 +42,7 @@
 - [x] 02 Broader vendor coverage.
 - [x] 03 Confidence-aware vendor detection.
 - [x] 04 Custom policy authoring and control-pack validation.
-- [ ] 05 GitOps pull-request security gates.
+- [x] 05 GitOps pull-request security gates.
 - [ ] 06 Approved baseline and drift detection.
 - [ ] 07 Remediation diffs and rollback previews.
 - [ ] 08 Role-based governance and approvals.
