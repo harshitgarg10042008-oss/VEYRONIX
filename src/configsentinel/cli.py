@@ -20,7 +20,7 @@ def build_parser() -> argparse.ArgumentParser:
     sub = parser.add_subparsers(dest="command", required=True)
     audit = sub.add_parser("audit", help="audit a configuration file")
     audit.add_argument("file", type=Path)
-    audit.add_argument("--vendor", default="auto", choices=("auto", "cisco_ios", "junos", "firewall_generic"))
+    audit.add_argument("--vendor", default="auto", choices=("auto", "cisco_ios", "junos", "firewall_generic", "arista_eos", "linux_nftables"))
     audit.add_argument("--framework", action="append", dest="frameworks", default=None, help="framework id; repeat for multiple frameworks (cis-network or nist-800-53)")
     audit.add_argument("--report-out", type=Path, help="write a Markdown audit report")
     audit.add_argument("--json-out", type=Path, help="write a JSON audit report")
@@ -29,7 +29,7 @@ def build_parser() -> argparse.ArgumentParser:
     audit.add_argument("--dry-run", action="store_true", help="required safety flag; never applies changes")
     batch = sub.add_parser("batch", help="audit a file, directory, ZIP, or tar archive")
     batch.add_argument("source", type=Path)
-    batch.add_argument("--vendor", default="auto", choices=("auto", "cisco_ios", "junos", "firewall_generic"))
+    batch.add_argument("--vendor", default="auto", choices=("auto", "cisco_ios", "junos", "firewall_generic", "arista_eos", "linux_nftables"))
     batch.add_argument("--framework", action="append", dest="frameworks", default=None, help="framework id; repeat for multiple frameworks")
     batch.add_argument("--json-out", type=Path, help="write a JSON array of audit reports")
     return parser

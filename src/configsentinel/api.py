@@ -49,7 +49,7 @@ class AuditApi:
 
 
 def create_app(*, allowed_origins: list[str] | None = None) -> FastAPI:
-    app = FastAPI(title="VEYRONIX Local Audit API", version="0.3.0")
+    app = FastAPI(title="ConfigSentinel AI Local Audit API", version="0.3.0")
     origins = allowed_origins or ["http://localhost:3000", "http://127.0.0.1:3000"]
     app.add_middleware(
         CORSMiddleware,

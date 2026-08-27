@@ -35,3 +35,27 @@
 - [x] Integrate the ConfigSentinel AI mark into the dashboard, favicon, metadata, and report surfaces, with VEYRONIX as team attribution only.
 - [x] Validate visibility, contrast, responsive placement, and frontend build.
 - [x] Save a checkpoint and push the logo update to GitHub.
+
+## Sequential 20-upgrade program
+
+- [x] 01 Multi-source configuration ingestion pipeline.
+- [x] 02 Broader vendor coverage.
+- [ ] 03 Confidence-aware vendor detection.
+- [ ] 04 Custom policy authoring and control-pack validation.
+- [ ] 05 GitOps pull-request security gates.
+- [ ] 06 Approved baseline and drift detection.
+- [ ] 07 Remediation diffs and rollback previews.
+- [ ] 08 Role-based governance and approvals.
+- [ ] 09 Tamper-evident audit trail and signed bundles.
+- [ ] 10 Executive and enterprise reporting.
+- [ ] 11 Multidimensional historical analytics.
+- [ ] 12 Evidence graph view.
+- [ ] 13 Expanded sensitive-data scanning.
+- [ ] 14 Offline explanation-provider seam.
+- [ ] 15 REST, OpenAPI, and local webhook contracts.
+- [ ] 16 Ticketing export adapters.
+- [ ] 17 Topology and inventory import.
+- [ ] 18 Scalable batch-worker architecture.
+- [ ] 19 Formal verification fixtures and benchmark corpus.
+- [ ] 20 Deployment hardening and supply-chain artifacts.
+- [ ] Final integrated acceptance and completion report.

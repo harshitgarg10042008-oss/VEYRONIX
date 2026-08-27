@@ -76,20 +76,20 @@ def _check_http(config: CanonicalConfig) -> tuple[FindingStatus, str, tuple[Evid
 CONTROL_PACK_VERSION = "3.0.0"
 
 CONTROL_PACK: tuple[ControlDefinition, ...] = (
-    ControlDefinition(Control("NET-MGMT-SSH-001", "Secure remote administration", "Require secure SSH management and SSHv2.", Severity.HIGH, {"cis": ("NET-MGMT-SSH-001",), "nist_800_53": ("AC-17", "SC-8")}, ("cisco_ios", "junos", "firewall_generic"), CONTROL_PACK_VERSION), _check_ssh, "Enable SSHv2 and remove legacy SSH versions after change review."),
-    ControlDefinition(Control("NET-MGMT-TELNET-001", "Disable Telnet management", "Prohibit insecure Telnet administration.", Severity.CRITICAL, {"cis": ("NET-MGMT-TELNET-001",), "nist_800_53": ("AC-17",)}, ("cisco_ios", "junos", "firewall_generic"), CONTROL_PACK_VERSION), _check_telnet, "Disable Telnet and retain secure management access."),
-    ControlDefinition(Control("NET-AUTH-AAA-001", "Centralized authentication", "Use AAA or an approved centralized access-control mechanism.", Severity.HIGH, {"nist_800_53": ("IA-2", "AC-2")}, ("cisco_ios", "junos"), CONTROL_PACK_VERSION), _check_aaa, "Configure approved AAA with a tested break-glass process."),
-    ControlDefinition(Control("NET-LOG-001", "Security logging", "Enable security-relevant logging for auditability.", Severity.MEDIUM, {"nist_800_53": ("AU-2", "AU-12")}, ("cisco_ios", "junos"), CONTROL_PACK_VERSION), _check_logging, "Enable approved logging and route events to a protected collector."),
-    ControlDefinition(Control("NET-TIME-001", "Consistent network time", "Configure network time for reliable event correlation.", Severity.MEDIUM, {"nist_800_53": ("AU-8",)}, ("cisco_ios", "junos"), CONTROL_PACK_VERSION), _check_ntp, "Configure approved NTP sources and authentication where supported."),
-    ControlDefinition(Control("NET-SNMP-001", "Secure monitoring protocol", "Avoid insecure SNMP configurations.", Severity.HIGH, {"nist_800_53": ("SC-8",)}, ("cisco_ios", "junos"), CONTROL_PACK_VERSION), _check_snmp, "Use SNMPv3 or an approved secure telemetry alternative."),
-    ControlDefinition(Control("NET-MGMT-HTTP-001", "Disable plain HTTP administration", "Prohibit unencrypted web management.", Severity.HIGH, {"cis": ("NET-MGMT-HTTP-001",), "nist_800_53": ("SC-8",)}, ("cisco_ios", "junos", "firewall_generic"), CONTROL_PACK_VERSION), _check_http, "Disable plain HTTP management and use approved TLS settings."),
+    ControlDefinition(Control("NET-MGMT-SSH-001", "Secure remote administration", "Require secure SSH management and SSHv2.", Severity.HIGH, {"cis": ("NET-MGMT-SSH-001",), "nist_800_53": ("AC-17", "SC-8")}, ("cisco_ios", "junos", "firewall_generic", "arista_eos", "linux_nftables"), CONTROL_PACK_VERSION), _check_ssh, "Enable SSHv2 and remove legacy SSH versions after change review."),
+    ControlDefinition(Control("NET-MGMT-TELNET-001", "Disable Telnet management", "Prohibit insecure Telnet administration.", Severity.CRITICAL, {"cis": ("NET-MGMT-TELNET-001",), "nist_800_53": ("AC-17",)}, ("cisco_ios", "junos", "firewall_generic", "arista_eos", "linux_nftables"), CONTROL_PACK_VERSION), _check_telnet, "Disable Telnet and retain secure management access."),
+    ControlDefinition(Control("NET-AUTH-AAA-001", "Centralized authentication", "Use AAA or an approved centralized access-control mechanism.", Severity.HIGH, {"nist_800_53": ("IA-2", "AC-2")}, ("cisco_ios", "junos", "arista_eos"), CONTROL_PACK_VERSION), _check_aaa, "Configure approved AAA with a tested break-glass process."),
+    ControlDefinition(Control("NET-LOG-001", "Security logging", "Enable security-relevant logging for auditability.", Severity.MEDIUM, {"nist_800_53": ("AU-2", "AU-12")}, ("cisco_ios", "junos", "arista_eos"), CONTROL_PACK_VERSION), _check_logging, "Enable approved logging and route events to a protected collector."),
+    ControlDefinition(Control("NET-TIME-001", "Consistent network time", "Configure network time for reliable event correlation.", Severity.MEDIUM, {"nist_800_53": ("AU-8",)}, ("cisco_ios", "junos", "arista_eos"), CONTROL_PACK_VERSION), _check_ntp, "Configure approved NTP sources and authentication where supported."),
+    ControlDefinition(Control("NET-SNMP-001", "Secure monitoring protocol", "Avoid insecure SNMP configurations.", Severity.HIGH, {"nist_800_53": ("SC-8",)}, ("cisco_ios", "junos", "arista_eos"), CONTROL_PACK_VERSION), _check_snmp, "Use SNMPv3 or an approved secure telemetry alternative."),
+    ControlDefinition(Control("NET-MGMT-HTTP-001", "Disable plain HTTP administration", "Prohibit unencrypted web management.", Severity.HIGH, {"cis": ("NET-MGMT-HTTP-001",), "nist_800_53": ("SC-8",)}, ("cisco_ios", "junos", "firewall_generic", "arista_eos", "linux_nftables"), CONTROL_PACK_VERSION), _check_http, "Disable plain HTTP management and use approved TLS settings."),
 )
 
 
 def evaluate(config: CanonicalConfig, audit_id: str) -> tuple[Finding, ...]:
     findings: list[Finding] = []
     for definition in CONTROL_PACK:
-        if config.platform not in {"ios", "junos", "generic"}:
+        if config.platform not in {"ios", "junos", "generic", "eos", "nftables"}:
             status = FindingStatus.NOT_APPLICABLE
             rationale = "Platform is outside the control pack applicability set."
             spans: tuple[EvidenceSpan, ...] = ()

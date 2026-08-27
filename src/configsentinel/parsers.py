@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import re
+from dataclasses import replace
 from typing import Protocol
 
 from .canonical import CanonicalConfig, ParseResult
@@ -175,7 +176,72 @@ class GenericFirewallParser:
         return ParseResult(config=config, warnings=tuple(f"Unsupported firewall line at {s.start_line}" for s in unknown), parser_version=self.parser_version)
 
 
-PARSER_REGISTRY: tuple[VendorParser, ...] = (CiscoIOSParser(), JunosParser(), GenericFirewallParser())
+class AristaEOSParser(CiscoIOSParser):
+    plugin_id = "arista_eos"
+    parser_version = "3.1.0"
+
+    def detect(self, text: str) -> float:
+        lowered = text.lower()
+        score = 0.0
+        if "management api http-commands" in lowered or "daemon terminattr" in lowered:
+            score += 0.6
+        if re.search(r"^interface ethernet", lowered, re.MULTILINE) or "arista" in lowered:
+            score += 0.3
+        if "router bgp" in lowered:
+            score += 0.1
+        return min(score, 1.0)
+
+    def parse(self, text: str) -> ParseResult:
+        result = super().parse(text)
+        config = replace(result.config, vendor="arista", platform="eos", metadata={"plugin_id": self.plugin_id})
+        return replace(result, config=config, parser_version=self.parser_version)
+
+
+class LinuxNftablesParser:
+    plugin_id = "linux_nftables"
+    parser_version = "3.1.0"
+
+    def detect(self, text: str) -> float:
+        lowered = text.lower()
+        score = 0.0
+        if "table inet " in lowered or "chain input" in lowered:
+            score += 0.55
+        if "nft add rule" in lowered or "tcp dport" in lowered:
+            score += 0.35
+        if "iptables" in lowered:
+            score += 0.1
+        return min(score, 1.0)
+
+    def parse(self, text: str) -> ParseResult:
+        evidence: dict[str, list[EvidenceSpan]] = {}
+        unknown: list[EvidenceSpan] = []
+        ssh = telnet = http = logging = None
+        for no, raw in enumerate(text.splitlines(), 1):
+            line = raw.strip().lower()
+            if not line or line.startswith(("#", "//")):
+                continue
+            if "tcp dport 22" in line and ("accept" in line or "allow" in line):
+                ssh = True; _add(evidence, "management_ssh_enabled", no, raw)
+            elif "tcp dport 23" in line and ("accept" in line or "allow" in line):
+                telnet = True; _add(evidence, "management_telnet_enabled", no, raw)
+            elif ("tcp dport 80" in line or "tcp dport 443" in line) and ("accept" in line or "allow" in line):
+                http = True; _add(evidence, "http_management_enabled", no, raw)
+            elif " log" in f" {line}" or line.startswith("log "):
+                logging = True; _add(evidence, "logging_enabled", no, raw)
+            elif line.startswith(("table ", "chain ", "type ", "policy ", "hook ", "priority ", "nft ", "flush ", "counter", "comment ", "ct ", "iif ", "oif ", "ip ", "ip6 ", "tcp ", "udp ", "accept", "drop", "return", "jump ", "include ", "}")):
+                continue
+            else:
+                unknown.append(_span(no, raw))
+        config = CanonicalConfig(
+            vendor="linux", platform="nftables", management_ssh_enabled=ssh,
+            management_telnet_enabled=telnet, logging_enabled=logging,
+            http_management_enabled=http, evidence={k: tuple(v) for k, v in evidence.items()},
+            unknown_blocks=tuple(unknown), metadata={"plugin_id": self.plugin_id},
+        )
+        return ParseResult(config=config, warnings=tuple(f"Unsupported nftables line at {s.start_line}" for s in unknown), parser_version=self.parser_version)
+
+
+PARSER_REGISTRY: tuple[VendorParser, ...] = (CiscoIOSParser(), JunosParser(), GenericFirewallParser(), AristaEOSParser(), LinuxNftablesParser())
 
 
 def detect_and_parse(text: str, vendor: str = "auto") -> ParseResult:

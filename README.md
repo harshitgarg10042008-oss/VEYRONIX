@@ -183,3 +183,13 @@ configsentinel batch ./incoming/configs.zip --vendor junos
 ```
 
 The current batch command preserves the existing explicit-vendor contract. Automatic vendor confidence and operator confirmation are delivered by the dedicated vendor-detection upgrade later in this roadmap.
+
+
+## Expanded vendor coverage
+
+The deterministic parser registry now includes **Arista EOS** and **Linux nftables** in addition to Cisco IOS, Junos, and the generic firewall adapter. Arista reuses the IOS-style normalized management controls with EOS-specific detection markers, while nftables maps explicit SSH, Telnet, HTTP, and logging rules into the canonical evidence model. Unsupported control families remain explicitly unknown or not applicable rather than being inferred.
+
+```bash
+configsentinel audit ./configs/edge.conf --vendor arista_eos --framework cis-network
+configsentinel batch ./configs/firewall-rules --vendor linux_nftables --json-out reports/nftables.json
+```
