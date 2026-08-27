@@ -27,6 +27,7 @@ from .webhooks import LocalWebhookQueue, WebhookError, make_audit_event
 from .ticketing import TicketingError, build_ticket_payload, render_ticket_markdown
 from .inventory import InventoryError, import_inventory_file
 from .verification import verify_report, run_benchmark
+from .supplychain import SupplyChainError, build_manifest, verify_manifest, write_manifest
 
 
 def build_parser() -> argparse.ArgumentParser:
@@ -113,6 +114,12 @@ def build_parser() -> argparse.ArgumentParser:
     verify.add_argument("--out", type=Path, required=True)
     benchmark = sub.add_parser("verification-benchmark", help="run built-in verification fixtures")
     benchmark.add_argument("--out", type=Path, required=True)
+    manifest = sub.add_parser("release-manifest", help="write a SHA-256 release manifest")
+    manifest.add_argument("root", type=Path)
+    manifest.add_argument("--out", type=Path, required=True)
+    manifest_check = sub.add_parser("verify-manifest", help="verify a SHA-256 release manifest")
+    manifest_check.add_argument("root", type=Path)
+    manifest_check.add_argument("manifest", type=Path)
     return parser
 
 
@@ -200,6 +207,29 @@ def run_batch(args: argparse.Namespace) -> int:
         args.json_out.write_text(json.dumps(payload, indent=2, sort_keys=True) + "\n", encoding="utf-8")
         print(f"json_report={args.json_out}")
     return 0
+
+
+def run_release_manifest(args: argparse.Namespace) -> int:
+    try:
+        write_manifest(args.root, args.out)
+    except (OSError, SupplyChainError) as exc:
+        print(f"Release manifest rejected: {exc}", file=sys.stderr)
+        return 2
+    print(f"release_manifest={args.out}")
+    return 0
+
+
+def run_verify_manifest(args: argparse.Namespace) -> int:
+    try:
+        manifest = json.loads(args.manifest.read_text(encoding="utf-8"))
+        failures = verify_manifest(args.root, manifest)
+    except (OSError, ValueError, SupplyChainError) as exc:
+        print(f"Manifest verification rejected: {exc}", file=sys.stderr)
+        return 2
+    print(f"manifest_verification={args.manifest} valid={not failures}")
+    if failures:
+        print("\n".join(failures), file=sys.stderr)
+    return 0 if not failures else 2
 
 
 def run_verification_benchmark(args: argparse.Namespace) -> int:
@@ -406,6 +436,10 @@ def main(argv: list[str] | None = None) -> int:
         return run_verify_report(args)
     if args.command == "verification-benchmark":
         return run_verification_benchmark(args)
+    if args.command == "release-manifest":
+        return run_release_manifest(args)
+    if args.command == "verify-manifest":
+        return run_verify_manifest(args)
     if args.command == "approval-request":
         return run_approval_request(args)
     if args.command == "approval-decide":
