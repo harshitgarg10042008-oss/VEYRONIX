@@ -93,8 +93,8 @@
 - [x] S7 Cross-Vendor Semantic Differential Testing.
 - [x] S8 Compliance Time Machine.
 - [x] S9 Proof-Carrying Remediation.
-- [ ] Final SentinelProof integrated acceptance and completion report.
-- [ ] S10 Privacy-Preserving Audit Exchange.
+- [x] Final SentinelProof integrated acceptance and completion report.
+- [x] S10 Privacy-Preserving Audit Exchange.
 - [ ] S11 Reviewer Disagreement Analytics.
 - [ ] S12 Assurance Drift and Freshness Decay.
 - [ ] S13 Adversarial Parser Robustness Pack.

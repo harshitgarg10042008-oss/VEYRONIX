@@ -546,3 +546,26 @@ PYTHONPATH=src:. python -m configsentinel.cli remediation-proof-verify reports/e
 ```
 
 Proof artifacts intentionally contain no executable command text or raw evidence excerpts. They are review metadata only: independent operator approval is required, commands are marked non-executable, no device connection occurs, and verification does not claim that a post-change state exists until a new audit supplies evidence.
+
+
+## SentinelProof S10: Privacy-Preserving Audit Exchange
+
+The privacy-preserving exchange capsule enables a reviewer or approved downstream process to receive audit claims without receiving the original configuration or raw evidence. It contains only bounded audit metadata, non-PASS finding summaries, evidence-span hashes, optional risk summaries, and a source-report digest. Passing findings, raw excerpts, command text, and network-submission behavior are excluded by construction.
+
+Create a local capsule with optional HMAC integrity:
+
+```bash
+PYTHONPATH=src:. python -m configsentinel.cli audit-exchange reports/edge.json --recipient security-review --purpose exception-review --key-file local-exchange-key.bin --out reports/edge.exchange.json
+```
+
+Verify the capsule locally before any operator-approved handoff:
+
+```bash
+PYTHONPATH=src:. python -m configsentinel.cli audit-exchange-verify reports/edge.exchange.json --key-file local-exchange-key.bin --out reports/edge.exchange.verify.json
+```
+
+The exchange artifact is a privacy boundary, not an authorization boundary. Verification checks the capsule hash and optional HMAC only; it does not approve findings, submit data, contact devices, or change deterministic verdicts. Keep exchange keys outside source control, use a separate key per environment, and treat `submission=not_performed` as a required operator handoff boundary.
+
+## SentinelProof safety invariant
+
+All SentinelProof artifacts are offline, deterministic review aids. They may summarize or bind evidence, but they cannot execute device changes, establish reachability, or turn an unknown result into a pass. AI-assisted explanations remain non-authoritative and are never used as the source of a compliance verdict.

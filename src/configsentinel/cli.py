@@ -46,6 +46,7 @@ from .apprenticeship import ApprenticeshipError, create_contract, evaluate_contr
 from .differential import DifferentialError, SEMANTIC_FIELDS, run_differential_test
 from .time_machine import TimeMachineError, build_time_machine, load_snapshot_source, write_time_machine_html
 from .proof import ProofError, build_proof_bundle, verify_proof_bundle
+from .exchange import ExchangeError, build_exchange_capsule, verify_exchange_capsule
 from .controls import CONTROL_PACK_VERSION
 from .reporting import report_dict
 
@@ -174,6 +175,16 @@ def build_parser() -> argparse.ArgumentParser:
     proof_verify.add_argument("proof_input", type=Path)
     proof_verify.add_argument("report_input", type=Path)
     proof_verify.add_argument("--out", type=Path, required=True)
+    exchange = sub.add_parser("audit-exchange", help="create a privacy-preserving audit exchange capsule")
+    exchange.add_argument("report_input", type=Path)
+    exchange.add_argument("--recipient", default="local-review")
+    exchange.add_argument("--purpose", default="audit-review")
+    exchange.add_argument("--key-file", type=Path)
+    exchange.add_argument("--out", type=Path, required=True)
+    exchange_verify = sub.add_parser("audit-exchange-verify", help="verify a privacy-preserving audit exchange capsule")
+    exchange_verify.add_argument("capsule_input", type=Path)
+    exchange_verify.add_argument("--key-file", type=Path)
+    exchange_verify.add_argument("--out", type=Path, required=True)
     sensitive.add_argument("file", type=Path)
     sensitive.add_argument("--format", choices=("markdown", "json"), default="markdown")
     sensitive.add_argument("--out", type=Path, required=True)
@@ -730,6 +741,42 @@ def run_time_machine(args: argparse.Namespace) -> int:
     print(f"time_machine={args.out} snapshots={machine['summary']['snapshot_count']} changes={machine['summary']['change_count']}")
     return 0
 
+def _read_exchange_key(path: Path | None) -> bytes | None:
+    if path is None:
+        return None
+    if path.is_symlink() or not path.is_file() or path.stat().st_size > 4096:
+        raise ExchangeError("exchange key path is invalid")
+    key = path.read_bytes()
+    if not key:
+        raise ExchangeError("exchange key cannot be empty")
+    return key
+
+
+def run_audit_exchange(args: argparse.Namespace) -> int:
+    try:
+        capsule = build_exchange_capsule(load_report(args.report_input), recipient=args.recipient, purpose=args.purpose, key=_read_exchange_key(args.key_file))
+        args.out.parent.mkdir(parents=True, exist_ok=True)
+        args.out.write_text(json.dumps(capsule, indent=2, sort_keys=True) + "\n", encoding="utf-8", newline="\n")
+    except (OSError, UnicodeDecodeError, ValueError, ExchangeError, EvidenceGraphError) as exc:
+        print(f"Audit exchange rejected: {exc}", file=sys.stderr)
+        return 2
+    print(f"audit_exchange={args.out} capsule_sha256={capsule['capsule_sha256']} submission=not_performed")
+    return 0
+
+
+def run_audit_exchange_verify(args: argparse.Namespace) -> int:
+    try:
+        capsule = json.loads(args.capsule_input.read_text(encoding="utf-8"))
+        result = verify_exchange_capsule(capsule, key=_read_exchange_key(args.key_file))
+        args.out.parent.mkdir(parents=True, exist_ok=True)
+        args.out.write_text(json.dumps(result, indent=2, sort_keys=True) + "\n", encoding="utf-8", newline="\n")
+    except (OSError, UnicodeDecodeError, json.JSONDecodeError, ValueError, ExchangeError) as exc:
+        print(f"Audit exchange verification rejected: {exc}", file=sys.stderr)
+        return 2
+    print(f"audit_exchange_verify={args.out} verified={result['verified']} mismatches={len(result['mismatches'])}")
+    return 0 if result["verified"] else 1
+
+
 def run_remediation_proof(args: argparse.Namespace) -> int:
     try:
         proof = build_proof_bundle(load_report(args.report_input))
@@ -912,6 +959,10 @@ def main(argv: list[str] | None = None) -> int:
         return run_time_machine(args)
     if args.command == "remediation-proof":
         return run_remediation_proof(args)
+    if args.command == "audit-exchange":
+        return run_audit_exchange(args)
+    if args.command == "audit-exchange-verify":
+        return run_audit_exchange_verify(args)
     if args.command == "remediation-proof-verify":
         return run_remediation_proof_verify(args)
     if args.command == "webhook-enqueue":
