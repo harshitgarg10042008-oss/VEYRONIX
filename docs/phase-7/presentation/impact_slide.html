@@ -1,0 +1,164 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Impact and Scale</title>
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css" rel="stylesheet">
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body { font-family: 'Inter', sans-serif; overflow: hidden; }
+        .slide-container {
+            width: 1280px;
+            min-height: 720px;
+            background: #F0F9FF;
+            color: #1E3A8A;
+            padding-top: 60px;
+            padding-left: 80px;
+            padding-right: 80px;
+            position: relative;
+        }
+        .accent-divider {
+            width: 100px;
+            height: 2px;
+            background: #FACC15;
+            margin-top: 12px;
+            margin-bottom: 20px;
+        }
+        h2 {
+            font-size: 56px;
+            font-weight: 900;
+            text-transform: uppercase;
+            letter-spacing: -2px;
+            line-height: 1;
+        }
+        .stakeholder-grid {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 30px;
+            margin-top: 40px;
+        }
+        .stakeholder-card {
+            border-top: 4px solid #FACC15;
+            padding-top: 20px;
+        }
+        .stakeholder-card i {
+            font-size: 32px;
+            color: #FACC15;
+            margin-bottom: 15px;
+        }
+        .stakeholder-card h3 {
+            font-size: 22px;
+            font-weight: 900;
+            text-transform: uppercase;
+            margin-bottom: 10px;
+        }
+        .stakeholder-card p {
+            font-size: 16px;
+            font-weight: 500;
+            line-height: 1.4;
+            color: rgba(30, 58, 138, 0.8);
+        }
+        .metrics-section {
+            margin-top: 55px;
+            border: 4px solid #1E3A8A;
+            background: white;
+            padding-top: 20px;
+            padding-left: 30px;
+            padding-right: 30px;
+            min-height: 200px;
+        }
+        .metrics-section h3 {
+            font-size: 24px;
+            font-weight: 900;
+            text-transform: uppercase;
+            margin-bottom: 18px;
+            text-align: center;
+        }
+        table {
+            width: 100%;
+            border-collapse: collapse;
+        }
+        th, td {
+            padding-top: 10px;
+            padding-left: 15px;
+            padding-right: 15px;
+            text-align: center;
+            border-bottom: 1px solid #F0F9FF;
+        }
+        th {
+            font-weight: 900;
+            text-transform: uppercase;
+            font-size: 14px;
+            color: #1E3A8A;
+        }
+        td {
+            font-size: 16px;
+            font-weight: 900;
+            color: #1E3A8A;
+        }
+        .metric-tag {
+            color: #FACC15;
+            background: #1E3A8A;
+            padding: 5px 8px;
+            display: inline-block;
+            text-transform: uppercase;
+            font-size: 13px;
+        }
+        .note {
+            text-align: center;
+            margin-top: 14px;
+            font-size: 14px;
+            font-weight: 500;
+            font-style: italic;
+            color: rgba(30, 58, 138, 0.8);
+        }
+    </style>
+</head>
+<body>
+    <div class="slide-container">
+        <h2>Impact and Scale</h2>
+        <div class="accent-divider"></div>
+        
+        <div class="stakeholder-grid">
+            <div class="stakeholder-card">
+                <i class="fas fa-network-wired"></i>
+                <h3>Network Teams</h3>
+                <p>Reduce manual review effort and standardize findings across heterogeneous multi-vendor environments.</p>
+            </div>
+            <div class="stakeholder-card">
+                <i class="fas fa-user-check"></i>
+                <h3>Auditors</h3>
+                <p>Produce reproducible, evidence-linked reports instead of opaque model answers, improving defensibility.</p>
+            </div>
+            <div class="stakeholder-card">
+                <i class="fas fa-chart-line"></i>
+                <h3>Security Leaders</h3>
+                <p>Prioritize high-risk misconfigurations and track remediation readiness across enterprise infrastructure.</p>
+            </div>
+        </div>
+        
+        <div class="metrics-section">
+            <h3>Pilot Evaluation Scorecard</h3>
+            <table>
+                <thead>
+                    <tr>
+                        <th>Parser correctness</th>
+                        <th>Control verdicts</th>
+                        <th>Evidence coverage</th>
+                        <th>Reproducibility</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <tr>
+                        <td><span class="metric-tag">Fixture-based</span></td>
+                        <td><span class="metric-tag">Expected outcomes</span></td>
+                        <td><span class="metric-tag">Every finding</span></td>
+                        <td><span class="metric-tag">Hash + versions</span></td>
+                    </tr>
+                </tbody>
+            </table>
+            <p class="note">Evaluation dimensions are defined for pilot validation; no unsupported performance claims are made.</p>
+        </div>
+    </div>
+</body>
+</html>

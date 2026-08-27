@@ -1,0 +1,165 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>End-to-End Architecture</title>
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css" rel="stylesheet">
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body { font-family: 'Inter', sans-serif; overflow: hidden; }
+        .slide-container {
+            width: 1280px;
+            min-height: 720px;
+            background: #F0F9FF;
+            color: #1E3A8A;
+            padding-top: 60px;
+            padding-left: 80px;
+            padding-right: 80px;
+            position: relative;
+        }
+        .accent-divider {
+            width: 100px;
+            height: 2px;
+            background: #FACC15;
+            margin-top: 12px;
+            margin-bottom: 20px;
+        }
+        h2 {
+            font-size: 56px;
+            font-weight: 900;
+            text-transform: uppercase;
+            letter-spacing: -2px;
+            line-height: 1;
+        }
+        .arch-container {
+            margin-top: 40px;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 30px;
+        }
+        .main-flow {
+            display: flex;
+            align-items: center;
+            gap: 15px;
+        }
+        .node {
+            border: 3px solid #1E3A8A;
+            background: white;
+            padding-top: 15px;
+            padding-left: 15px;
+            padding-right: 15px;
+            width: 160px;
+            min-height: 100px;
+            text-align: center;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+        }
+        .node i {
+            font-size: 20px;
+            color: #FACC15;
+            margin-bottom: 8px;
+        }
+        .node span {
+            font-size: 14px;
+            font-weight: 900;
+            text-transform: uppercase;
+        }
+        .arrow {
+            font-size: 24px;
+            color: #1E3A8A;
+        }
+        .side-branches {
+            display: flex;
+            justify-content: center;
+            gap: 200px;
+            width: 100%;
+            margin-top: 20px;
+        }
+        .branch-node {
+            border: 3px dashed #1E3A8A;
+            background: #E0F2FE;
+            padding-top: 15px;
+            padding-left: 15px;
+            padding-right: 15px;
+            width: 200px;
+            min-height: 80px;
+            text-align: center;
+            position: relative;
+        }
+        .branch-node::before {
+            content: '';
+            position: absolute;
+            top: -30px;
+            left: 50%;
+            width: 2px;
+            height: 30px;
+            background: #1E3A8A;
+        }
+        .branch-node span {
+            font-size: 14px;
+            font-weight: 900;
+            text-transform: uppercase;
+        }
+        .security-labels {
+            margin-top: 40px;
+            display: flex;
+            justify-content: space-between;
+            width: 100%;
+            border-top: 2px solid #FACC15;
+            padding-top: 20px;
+        }
+        .label-item {
+            font-size: 16px;
+            font-weight: 900;
+            text-transform: uppercase;
+            color: #1E3A8A;
+        }
+        .label-item i {
+            color: #FACC15;
+            margin-right: 8px;
+        }
+    </style>
+</head>
+<body>
+    <div class="slide-container">
+        <h2>End-to-End Architecture</h2>
+        <div class="accent-divider"></div>
+        
+        <div class="arch-container">
+            <div class="main-flow">
+                <div class="node"><i class="fas fa-user"></i><span>User / CI</span></div>
+                <i class="fas fa-long-arrow-alt-right arrow"></i>
+                <div class="node"><i class="fas fa-shield-alt"></i><span>Ingestion</span></div>
+                <i class="fas fa-long-arrow-alt-right arrow"></i>
+                <div class="node"><i class="fas fa-search"></i><span>Parser</span></div>
+                <i class="fas fa-long-arrow-alt-right arrow"></i>
+                <div class="node"><i class="fas fa-cube"></i><span>Canonical Model</span></div>
+                <i class="fas fa-long-arrow-alt-right arrow"></i>
+                <div class="node"><i class="fas fa-cogs"></i><span>Compliance Engine</span></div>
+                <i class="fas fa-long-arrow-alt-right arrow"></i>
+                <div class="node"><i class="fas fa-clipboard-list"></i><span>Findings</span></div>
+            </div>
+            
+            <div class="side-branches">
+                <div class="branch-node">
+                    <i class="fas fa-robot" style="color: #FACC15; margin-bottom: 5px;"></i><br>
+                    <span>Guarded LLM Copilot</span>
+                </div>
+                <div class="branch-node">
+                    <i class="fas fa-magic" style="color: #FACC15; margin-bottom: 5px;"></i><br>
+                    <span>Remediation Planner</span>
+                </div>
+            </div>
+            
+            <div class="security-labels">
+                <div class="label-item"><i class="fas fa-fingerprint"></i>SHA-256 Provenance</div>
+                <div class="label-item"><i class="fas fa-user-secret"></i>Secret Redaction</div>
+                <div class="label-item"><i class="fas fa-question-circle"></i>Explicit Unknowns</div>
+                <div class="label-item"><i class="fas fa-plug"></i>No Device Connection</div>
+            </div>
+        </div>
+    </div>
+</body>
+</html>

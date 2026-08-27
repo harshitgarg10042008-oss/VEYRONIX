@@ -1,0 +1,129 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>The Problem: Network Configuration Fragmentation</title>
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css" rel="stylesheet">
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body { font-family: 'Inter', sans-serif; overflow: hidden; }
+        .slide-container {
+            width: 1280px;
+            min-height: 720px;
+            background: #F0F9FF;
+            color: #1E3A8A;
+            padding-top: 60px; /* do not change */
+            padding-left: 80px;
+            padding-right: 80px;
+            position: relative;
+        }
+        .accent-divider {
+            width: 100px;
+            height: 2px;
+            background: #FACC15;
+            margin-top: 12px; /* reduced */
+            margin-bottom: 20px; /* reduced */
+        }
+        h2 {
+            font-size: 56px;
+            font-weight: 900;
+            text-transform: uppercase;
+            letter-spacing: -2px;
+            line-height: 1;
+            text-align: left;
+        }
+        .grid {
+            display: grid;
+            grid-template-columns: 400px 1fr;
+            gap: 24px; /* reduced */
+            margin-top: 40px;
+        }
+        .main-text {
+            font-size: 24px;
+            font-weight: 500;
+            line-height: 1.4;
+        }
+        .challenges-list {
+            list-style: none;
+        }
+        .challenge-item {
+            display: flex;
+            align-items: flex-start;
+            margin-top: 12px; /* reduced spacing between items */
+        }
+        .challenge-item i {
+            font-size: 24px;
+            color: #FACC15;
+            margin-right: 20px;
+            margin-top: 2px;
+        }
+        .challenge-content h3 {
+            font-size: 28px;
+            font-weight: 900;
+            text-transform: uppercase;
+            margin-bottom: 8px;
+        }
+        .challenge-content p {
+            font-size: 20px;
+            font-weight: 500;
+            color: rgba(30, 58, 138, 0.8);
+        }
+        .callout-box {
+            grid-column: 1 / span 2;
+            border: 4px solid #1E3A8A;
+            padding-top: 20px; /* reduced */
+            padding-left: 20px;
+            padding-right: 20px;
+            margin-top: 0; /* removed extra gap */
+            min-height: 88px; /* reduced */
+            background: #1E3A8A;
+            color: #FACC15;
+        }
+        .callout-text {
+            font-size: 32px;
+            font-weight: 900;
+            text-transform: uppercase;
+            text-align: center;
+        }
+    </style>
+</head>
+<body>
+    <div class="slide-container">
+        <h2>The Problem:<br>Configuration Fragmentation</h2>
+        <div class="accent-divider"></div>
+        
+        <div class="grid">
+            <div class="main-text">
+                Network security breaks at the configuration boundary. Organizations operate firewalls, routers, and switches from different vendors, each with unique syntax and security defaults.
+            </div>
+            <div class="challenges-list">
+                <div class="challenge-item">
+                    <i class="fas fa-layer-group"></i>
+                    <div class="challenge-content">
+                        <h3>Multi-Vendor Complexity</h3>
+                        <p>Inconsistent syntax and semantics across Cisco, Juniper, and cloud platforms make unified auditing nearly impossible.</p>
+                    </div>
+                </div>
+                <div class="challenge-item">
+                    <i class="fas fa-clock"></i>
+                    <div class="challenge-content">
+                        <h3>Manual Audit Gaps</h3>
+                        <p>Human reviews are slow, inconsistent, and difficult to reproduce at enterprise scale.</p>
+                    </div>
+                </div>
+                <div class="challenge-item">
+                    <i class="fas fa-shield-virus"></i>
+                    <div class="challenge-content">
+                        <h3>Safety Risks</h3>
+                        <p>Opaque AI models lack deterministic evidence, while direct automation risks destructive device changes.</p>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="callout-box">
+                <p class="callout-text">A generic chatbot is not enough. A secure audit needs deterministic evidence.</p>
+            </div>
+        </div>
+    </div>
+</body>
+</html>

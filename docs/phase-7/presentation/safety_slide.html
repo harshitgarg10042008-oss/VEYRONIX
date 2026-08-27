@@ -1,0 +1,169 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Trust and Safety by Design</title>
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css" rel="stylesheet">
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body { font-family: 'Inter', sans-serif; overflow: hidden; }
+        .slide-container {
+            width: 1280px;
+            min-height: 720px;
+            background: #1E3A8A;
+            color: #F0F9FF;
+            padding-top: 60px;
+            padding-left: 80px;
+            padding-right: 80px;
+            position: relative;
+        }
+        .accent-divider {
+            width: 100px;
+            height: 2px;
+            background: #FACC15;
+            margin-top: 12px;
+            margin-bottom: 30px;
+        }
+        h2 {
+            font-size: 56px;
+            font-weight: 900;
+            text-transform: uppercase;
+            letter-spacing: -2px;
+            line-height: 1;
+            color: #FACC15;
+        }
+        .content-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 60px;
+            margin-top: 40px;
+        }
+        .principles-list {
+            list-style: none;
+        }
+        .principle-item {
+            display: flex;
+            align-items: flex-start;
+            margin-top: 25px;
+        }
+        .principle-item i {
+            font-size: 24px;
+            color: #FACC15;
+            margin-right: 20px;
+            margin-top: 5px;
+        }
+        .principle-text h3 {
+            font-size: 24px;
+            font-weight: 900;
+            text-transform: uppercase;
+            margin-bottom: 5px;
+        }
+        .principle-text p {
+            font-size: 18px;
+            font-weight: 500;
+            color: rgba(240, 249, 255, 0.8);
+            line-height: 1.4;
+        }
+        .trust-boundary-box {
+            border: 4px solid #FACC15;
+            padding-top: 40px;
+            padding-left: 40px;
+            padding-right: 40px;
+            background: rgba(255, 255, 255, 0.05);
+            min-height: 400px;
+            position: relative;
+        }
+        .boundary-title {
+            font-size: 28px;
+            font-weight: 900;
+            text-transform: uppercase;
+            color: #FACC15;
+            margin-bottom: 30px;
+            text-align: center;
+        }
+        .component-box {
+            border: 2px solid #F0F9FF;
+            padding-top: 15px;
+            padding-left: 15px;
+            padding-right: 15px;
+            margin-top: 20px;
+            text-align: center;
+            min-height: 80px;
+        }
+        .component-box.highlight {
+            background: #FACC15;
+            color: #1E3A8A;
+            border: none;
+        }
+        .arrow {
+            text-align: center;
+            margin-top: 10px;
+            font-size: 20px;
+        }
+        .diagonal-motif {
+            position: absolute;
+            width: 150px;
+            height: 2px;
+            background: rgba(250, 204, 21, 0.3);
+            transform: rotate(-45deg);
+            bottom: 40px;
+            right: -20px;
+        }
+    </style>
+</head>
+<body>
+    <div class="slide-container">
+        <h2>Trust and Safety<br>by Design</h2>
+        <div class="accent-divider"></div>
+        
+        <div class="content-grid">
+            <div class="principles-list">
+                <div class="principle-item">
+                    <i class="fas fa-gavel"></i>
+                    <div class="principle-text">
+                        <h3>Deterministic Authority</h3>
+                        <p>Compliance verdicts are derived from hard-coded control logic and parser evidence, not probabilistic model guesses.</p>
+                    </div>
+                </div>
+                <div class="principle-item">
+                    <i class="fas fa-user-lock"></i>
+                    <div class="principle-text">
+                        <h3>LLM Trust Boundary</h3>
+                        <p>Inputs are redacted and hashed; outputs are schema-validated. The LLM assists interpretation but never decides alone.</p>
+                    </div>
+                </div>
+                <div class="principle-item">
+                    <i class="fas fa-exclamation-triangle"></i>
+                    <div class="principle-text">
+                        <h3>Fail-Closed Semantics</h3>
+                        <p>Unknown syntax or parser ambiguity results in a "REVIEW REQUIRED" status, never a silent pass.</p>
+                    </div>
+                </div>
+                <div class="principle-item">
+                    <i class="fas fa-hand-paper"></i>
+                    <div class="principle-text">
+                        <h3>No Excessive Agency</h3>
+                        <p>The system generates non-executable previews. It has no path to connect to or modify live network devices.</p>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="trust-boundary-box">
+                <div class="boundary-title">The VEYRONIX Safety Stack</div>
+                <div class="component-box highlight">
+                    <strong>DETERMINISTIC ENGINE</strong><br>Verdict & Evidence
+                </div>
+                <div class="arrow"><i class="fas fa-arrow-down"></i></div>
+                <div class="component-box">
+                    <strong>GUARDED LLM GATEWAY</strong><br>Explanation & Assistance
+                </div>
+                <div class="arrow"><i class="fas fa-arrow-down"></i></div>
+                <div class="component-box">
+                    <strong>HUMAN OPERATOR</strong><br>Final Approval & Action
+                </div>
+                <div class="diagonal-motif"></div>
+            </div>
+        </div>
+    </div>
+</body>
+</html>

@@ -1,0 +1,134 @@
+{
+  "project_info": {
+    "title": "VEYRONIX — ConfigSentinel AI",
+    "created": 1787830404.57,
+    "last_updated": 1787830670.832,
+    "total_slides": 12
+  },
+  "slides": [
+    {
+      "id": "title_slide",
+      "state": "edited",
+      "pageNum": 1
+    },
+    {
+      "id": "problem_slide",
+      "state": "edited",
+      "pageNum": 2
+    },
+    {
+      "id": "solution_slide",
+      "state": "edited",
+      "pageNum": 3
+    },
+    {
+      "id": "architecture_slide",
+      "state": "edited",
+      "pageNum": 4
+    },
+    {
+      "id": "implementation_slide",
+      "state": "edited",
+      "pageNum": 5
+    },
+    {
+      "id": "safety_slide",
+      "state": "edited",
+      "pageNum": 6
+    },
+    {
+      "id": "demo_slide",
+      "state": "edited",
+      "pageNum": 7
+    },
+    {
+      "id": "sdk_slide",
+      "state": "edited",
+      "pageNum": 8
+    },
+    {
+      "id": "impact_slide",
+      "state": "edited",
+      "pageNum": 9
+    },
+    {
+      "id": "roadmap_slide",
+      "state": "edited",
+      "pageNum": 10
+    },
+    {
+      "id": "why_win_slide",
+      "state": "edited",
+      "pageNum": 11
+    },
+    {
+      "id": "closing_slide",
+      "state": "edited",
+      "pageNum": 12
+    }
+  ],
+  "outline": [
+    {
+      "id": "title_slide",
+      "title": "VEYRONIX — ConfigSentinel AI",
+      "summary": "Evidence-grounded, vendor-neutral network security compliance for SIH 2026 PS 26155."
+    },
+    {
+      "id": "problem_slide",
+      "title": "The Problem: Network Configuration Fragmentation",
+      "summary": "Network security breaks at the configuration boundary due to multi-vendor complexity and manual audit gaps."
+    },
+    {
+      "id": "solution_slide",
+      "title": "The Solution: ConfigSentinel AI",
+      "summary": "A hybrid compliance SDK and CLI combining deterministic evidence with guarded AI assistance."
+    },
+    {
+      "id": "architecture_slide",
+      "title": "End-to-End Architecture",
+      "summary": "A secure pipeline from raw configuration to defensible decision, featuring SHA-256 provenance and secret redaction."
+    },
+    {
+      "id": "implementation_slide",
+      "title": "What is Implemented Today",
+      "summary": "A working, testable foundation with Cisco/Juniper parsers, deterministic controls, and a guarded LLM gateway.",
+      "image_plan": "/home/ubuntu/upload/pasted_file_dIuucc_image.png - Shows project implementation environment, source tree, and terminal in VS Code matching implementation slide"
+    },
+    {
+      "id": "safety_slide",
+      "title": "Trust and Safety by Design",
+      "summary": "AI assists interpretation while deterministic authority decides, ensuring no excessive agency and full auditability."
+    },
+    {
+      "id": "demo_slide",
+      "title": "Live Demo: From Violation to Safe Action",
+      "summary": "A three-minute workflow demonstrating insecure Telnet detection, evidence tracing, and safe remediation preview.",
+      "image_plan": "/home/ubuntu/upload/pasted_file_3Uokna_image.png - Shows terminal output, dist files, and package installation matching live demo and working foundation"
+    },
+    {
+      "id": "sdk_slide",
+      "title": "SDK and Extensibility",
+      "summary": "A reusable Python SDK for CI/CD, GitOps, and enterprise integration, built for scale."
+    },
+    {
+      "id": "impact_slide",
+      "title": "Impact and Scale",
+      "summary": "Reducing manual review time and standardizing findings for network teams, auditors, and security leaders."
+    },
+    {
+      "id": "roadmap_slide",
+      "title": "Roadmap and Team Execution",
+      "summary": "A safe path from hackathon prototype to enterprise adoption with more vendors, controls, and advanced intelligence."
+    },
+    {
+      "id": "why_win_slide",
+      "title": "Why VEYRONIX Should Win",
+      "summary": "Combining multi-vendor understanding, deterministic evidence, and safe remediation to build trust at the point of action."
+    },
+    {
+      "id": "closing_slide",
+      "title": "VEYRONIX | ConfigSentinel AI",
+      "summary": "Secure every configuration. Trust every finding. github.com/harshitgarg10042008-oss/VEYRONIX"
+    }
+  ]
+}

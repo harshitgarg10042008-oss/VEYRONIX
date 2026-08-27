@@ -1,0 +1,144 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>The Solution: ConfigSentinel AI</title>
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css" rel="stylesheet">
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body { font-family: 'Inter', sans-serif; overflow: hidden; }
+        .slide-container {
+            width: 1280px;
+            min-height: 720px;
+            background: #F0F9FF;
+            color: #1E3A8A;
+            padding-top: 60px;
+            padding-left: 80px;
+            padding-right: 80px;
+            position: relative;
+        }
+        .accent-divider {
+            width: 100px;
+            height: 2px;
+            background: #FACC15;
+            margin-top: 12px;
+            margin-bottom: 20px;
+        }
+        h2 {
+            font-size: 56px;
+            font-weight: 900;
+            text-transform: uppercase;
+            letter-spacing: -2px;
+            line-height: 1;
+        }
+        .steps-grid {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 20px;
+            margin-top: 40px;
+        }
+        .step-card {
+            border: 2px solid #1E3A8A;
+            padding-top: 20px;
+            padding-left: 20px;
+            padding-right: 20px;
+            min-height: 160px;
+            background: white;
+        }
+        .step-header {
+            display: flex;
+            align-items: center;
+            margin-bottom: 12px;
+        }
+        .step-header i {
+            font-size: 24px;
+            color: #FACC15;
+            margin-right: 15px;
+        }
+        .step-header h3 {
+            font-size: 20px;
+            font-weight: 900;
+            text-transform: uppercase;
+        }
+        .step-card p {
+            font-size: 16px;
+            font-weight: 500;
+            line-height: 1.4;
+            color: rgba(30, 58, 138, 0.8);
+        }
+        .value-prop-box {
+            margin-top: 40px;
+            background: #1E3A8A;
+            color: #FACC15;
+            padding-top: 20px;
+            padding-left: 30px;
+            padding-right: 30px;
+            min-height: 80px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+        .value-prop-text {
+            font-size: 24px;
+            font-weight: 900;
+            text-transform: uppercase;
+            text-align: center;
+        }
+    </style>
+</head>
+<body>
+    <div class="slide-container">
+        <h2>The Solution:<br>ConfigSentinel AI</h2>
+        <div class="accent-divider"></div>
+        
+        <div class="steps-grid">
+            <div class="step-card">
+                <div class="step-header">
+                    <i class="fas fa-file-import"></i>
+                    <h3>1. Ingest</h3>
+                </div>
+                <p>Securely ingest and redact configuration files with SHA-256 provenance.</p>
+            </div>
+            <div class="step-card">
+                <div class="step-header">
+                    <i class="fas fa-microchip"></i>
+                    <h3>2. Parse</h3>
+                </div>
+                <p>Detect vendor and normalize settings into a canonical security model.</p>
+            </div>
+            <div class="step-card">
+                <div class="step-header">
+                    <i class="fas fa-check-double"></i>
+                    <h3>3. Evaluate</h3>
+                </div>
+                <p>Run deterministic compliance checks against extensible control packs.</p>
+            </div>
+            <div class="step-card">
+                <div class="step-header">
+                    <i class="fas fa-map-marked-alt"></i>
+                    <h3>4. Map</h3>
+                </div>
+                <p>Link findings to NIST/CIS standards with exact line-level evidence.</p>
+            </div>
+            <div class="step-card">
+                <div class="step-header">
+                    <i class="fas fa-user-shield"></i>
+                    <h3>5. Guard</h3>
+                </div>
+                <p>Use LLM for explanation and unknown-syntax review assistance only.</p>
+            </div>
+            <div class="step-card">
+                <div class="step-header">
+                    <i class="fas fa-file-code"></i>
+                    <h3>6. Generate</h3>
+                </div>
+                <p>Produce human-reviewed, non-executable remediation previews.</p>
+            </div>
+        </div>
+        
+        <div class="value-prop-box">
+            <p class="value-prop-text">Vendor-neutral normalization + deterministic verdicts + evidence-grounded AI + safe operator control</p>
+        </div>
+    </div>
+</body>
+</html>
