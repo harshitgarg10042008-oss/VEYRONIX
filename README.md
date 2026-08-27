@@ -162,3 +162,12 @@ The dashboard loads the same evidence-backed report shape used by JSON and Markd
 The dashboard accepts `.cfg`, `.conf`, `.config`, and `.txt` configuration files up to 2 MB. Files are read in the browser and submitted only to the configured local API; no device connection is created by upload. The backend remains responsible for redaction and deterministic evaluation.
 
 Completed reports are stored in browser `localStorage` under a versioned VEYRONIX key, capped at the most recent 20 snapshots. History stays on the operator’s machine and is not uploaded or synchronized. The Finding trend panel derives its failure and unknown series exclusively from those saved report summaries. Selecting a point loads that historical snapshot back into the evidence workbench.
+
+
+## History management and vendor detection
+
+The dashboard’s History control opens a local-only management panel. Operators can load a saved snapshot, export an individual PDF, or delete it from browser storage. The panel retains the latest 20 reports and never sends history to a remote service.
+
+Configuration uploads now infer the parser from content before submission: Junos-style `set system`, `set interfaces`, or Juniper markers select `junos`; common firewall markers select `firewall_generic`; other supported text defaults to `cisco_ios`. The selected vendor is sent to the same deterministic API endpoint and remains visible in the audit metadata.
+
+The Finding trend chart exposes failures and unknown counts per saved snapshot. Hovering or focusing a point shows the filename, timestamp, counts, and an explicit load instruction; clicking or pressing Enter/Space loads that historical report into the workbench.

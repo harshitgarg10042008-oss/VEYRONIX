@@ -42,3 +42,10 @@ Operators can open the Filters control to narrow findings by severity, status, a
 Use **Upload config** to submit a local `.cfg`, `.conf`, `.config`, or `.txt` file up to 2 MB. The browser validates the extension and size, then sends the file contents to the configured API for the same redaction and deterministic evaluation path as the bundled fixture.
 
 Each successful report is saved in browser storage as a versioned snapshot, limited to the latest 20 audits. The **Finding trend** panel draws failures and unknown results from those snapshots. Hover or focus a point for its audit metadata, and select it to reload that historical report into the evidence panel. Clearing site data removes the local history.
+
+
+## Managing audit history
+
+Open **History** to review snapshots saved in this browser. Select a row to load its findings, use the download control to export that report as a standalone PDF, or use the close control to delete it locally. The chart points use the same snapshots; hover/focus reveals exact counts and click/Enter/Space loads the selected audit.
+
+Uploads use content heuristics before the API call. Junos markers select `junos`, firewall markers select `firewall_generic`, and remaining supported configuration text selects `cisco_ios`. This is a parser hint, not an LLM decision; the backend still owns normalization and verdicts.

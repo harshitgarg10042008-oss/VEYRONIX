@@ -260,3 +260,19 @@ button:focus-visible, a:focus-visible { outline: 2px solid var(--accent); outlin
 .trend-chart g:hover .trend-point, .trend-chart g:focus .trend-point { r: 3.8; stroke: #262923; outline: none; }
 .trend-labels { display: flex; justify-content: space-between; color: #92978e; font: 9px "IBM Plex Mono", ui-monospace, monospace; }
 @media (max-width: 760px) { .heading-actions { flex-wrap: wrap; justify-content: flex-start; }.trend-legend { display: none; }.trend-labels span:nth-child(2) { display: none; } }
+
+/* Local history controls: reversible, explicit, and scoped to this browser. */
+.history-panel { margin-top: 18px; background: #fbfaf6; border-top: 2px solid #30352f; }
+.history-retention { color: #8a9087; font: 9px "IBM Plex Mono", ui-monospace, monospace; }
+.history-list { border-top: 1px solid #e2e1da; }
+.history-row { display: flex; align-items: center; gap: 8px; padding: 11px 18px; border-bottom: 1px solid #e3e2db; }
+.history-row:hover { background: #f5f3ec; }
+.history-select { min-width: 0; flex: 1; display: grid; gap: 4px; padding: 0; background: transparent; color: #333a31; text-align: left; }
+.history-select strong { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 11px; }
+.history-select small, .history-date { color: #858b82; font: 9px "IBM Plex Mono", ui-monospace, monospace; }
+.history-action { width: 28px; height: 28px; display: grid; place-items: center; background: transparent; color: #7d8479; }
+.history-action:hover { color: #e46b3a; }.history-delete:hover { color: #be4b37; }
+.trend-chart-wrap { position: relative; }
+.trend-tooltip { position: absolute; top: 12px; right: 18px; z-index: 2; display: grid; gap: 4px; min-width: 190px; padding: 10px 12px; border: 1px solid #d7d6ce; background: rgba(251,250,246,.96); box-shadow: 6px 6px 0 rgba(38,41,35,.07); color: #3d443c; }
+.trend-tooltip strong { font-size: 11px; }.trend-tooltip span, .trend-tooltip small { color: #7e857b; font: 9px "IBM Plex Mono", ui-monospace, monospace; }.trend-tooltip b { color: #e46b3a; font-weight: 500; }
+@media (max-width: 760px) { .history-row { padding: 10px 12px; }.history-action { width: 25px; }.trend-tooltip { right: 10px; min-width: 165px; } }

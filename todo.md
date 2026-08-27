@@ -18,3 +18,12 @@
 - [x] Validate backend tests, frontend typecheck/build, API smoke flow, and export flow.
 - [x] Update README and local-demo documentation.
 - [x] Save checkpoint and deliver the updated project.
+
+## Follow-up: history management, vendor detection, and chart inspection
+
+- [x] Define history management, vendor detection, and chart interaction contracts.
+- [x] Add local history panel with per-report delete and export actions.
+- [x] Detect Cisco, Juniper, and generic firewall syntax during upload.
+- [x] Add detailed chart hover tooltips and clickable/keyboard-selectable points.
+- [x] Validate and document the expanded workflows.
+- [x] Save a new checkpoint and push the repository update.
