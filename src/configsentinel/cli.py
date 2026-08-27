@@ -47,6 +47,7 @@ from .differential import DifferentialError, SEMANTIC_FIELDS, run_differential_t
 from .time_machine import TimeMachineError, build_time_machine, load_snapshot_source, write_time_machine_html
 from .proof import ProofError, build_proof_bundle, verify_proof_bundle
 from .exchange import ExchangeError, build_exchange_capsule, verify_exchange_capsule
+from .reviewers import ReviewAnalyticsError, build_reviewer_analytics, load_reviews
 from .controls import CONTROL_PACK_VERSION
 from .reporting import report_dict
 
@@ -185,6 +186,10 @@ def build_parser() -> argparse.ArgumentParser:
     exchange_verify.add_argument("capsule_input", type=Path)
     exchange_verify.add_argument("--key-file", type=Path)
     exchange_verify.add_argument("--out", type=Path, required=True)
+    reviews = sub.add_parser("reviewer-analytics", help="analyze deterministic disagreement across reviewer decisions")
+    reviews.add_argument("report_input", type=Path)
+    reviews.add_argument("reviews_input", type=Path)
+    reviews.add_argument("--out", type=Path, required=True)
     sensitive.add_argument("file", type=Path)
     sensitive.add_argument("--format", choices=("markdown", "json"), default="markdown")
     sensitive.add_argument("--out", type=Path, required=True)
@@ -777,6 +782,20 @@ def run_audit_exchange_verify(args: argparse.Namespace) -> int:
     return 0 if result["verified"] else 1
 
 
+def run_reviewer_analytics(args: argparse.Namespace) -> int:
+    try:
+        review_source = load_reviews(args.reviews_input)
+        report = load_report(args.report_input)
+        analytics = build_reviewer_analytics(report, review_source["reviews"])
+        args.out.parent.mkdir(parents=True, exist_ok=True)
+        args.out.write_text(json.dumps(analytics, indent=2, sort_keys=True) + "\n", encoding="utf-8", newline="\n")
+    except (OSError, UnicodeDecodeError, json.JSONDecodeError, ValueError, ReviewAnalyticsError, EvidenceGraphError) as exc:
+        print(f"Reviewer analytics rejected: {exc}", file=sys.stderr)
+        return 2
+    print(f"reviewer_analytics={args.out} reviewers={analytics['summary']['reviewer_count']} disputed={analytics['summary']['disputed_finding_count']} verdicts_changed={analytics['safety']['verdicts_changed']}")
+    return 0
+
+
 def run_remediation_proof(args: argparse.Namespace) -> int:
     try:
         proof = build_proof_bundle(load_report(args.report_input))
@@ -963,6 +982,8 @@ def main(argv: list[str] | None = None) -> int:
         return run_audit_exchange(args)
     if args.command == "audit-exchange-verify":
         return run_audit_exchange_verify(args)
+    if args.command == "reviewer-analytics":
+        return run_reviewer_analytics(args)
     if args.command == "remediation-proof-verify":
         return run_remediation_proof_verify(args)
     if args.command == "webhook-enqueue":

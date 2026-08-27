@@ -569,3 +569,14 @@ The exchange artifact is a privacy boundary, not an authorization boundary. Veri
 ## SentinelProof safety invariant
 
 All SentinelProof artifacts are offline, deterministic review aids. They may summarize or bind evidence, but they cannot execute device changes, establish reachability, or turn an unknown result into a pass. AI-assisted explanations remain non-authoritative and are never used as the source of a compliance verdict.
+
+
+## SentinelProof S11: Reviewer Disagreement Analytics
+
+Reviewer disagreement analytics makes human review measurable without pretending that consensus is compliance truth. Operators provide a bounded JSON file of reviewer IDs and structured decisions (`ACCEPT`, `CHALLENGE`, or `UNABLE`) for finding IDs. The analyzer reports per-finding vote counts, explicit `CONTESTED` ties, consensus strength, pairwise agreement, evidence-quality signals, and hash-only reviewer-note references.
+
+```bash
+PYTHONPATH=src:. python -m configsentinel.cli reviewer-analytics reports/edge.json reviews/edge.reviewers.json --out reports/edge.reviewer-analytics.json
+```
+
+A tied vote never selects a winner: it is emitted as `CONTESTED` and counted as unresolved. The original deterministic audit status remains the authoritative verdict, including when reviewers agree. Reviewer notes and raw configuration evidence are not copied into the analytics artifact, no network request is made, and the command cannot approve, reject, or remediate a finding.

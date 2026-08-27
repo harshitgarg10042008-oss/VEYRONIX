@@ -95,7 +95,7 @@
 - [x] S9 Proof-Carrying Remediation.
 - [x] Final SentinelProof integrated acceptance and completion report.
 - [x] S10 Privacy-Preserving Audit Exchange.
-- [ ] S11 Reviewer Disagreement Analytics.
+- [x] S11 Reviewer Disagreement Analytics.
 - [ ] S12 Assurance Drift and Freshness Decay.
 - [ ] S13 Adversarial Parser Robustness Pack.
 - [ ] S14 Policy Provenance Compiler.
