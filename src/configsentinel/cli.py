@@ -43,6 +43,7 @@ from .mutation import MutationError, run_mutation_lab
 from .assurance_twin import AssuranceTwinError, build_assurance_twin, write_assurance_twin_html
 from .intent import IntentError, compile_resource_intent
 from .apprenticeship import ApprenticeshipError, create_contract, evaluate_contract, write_contract
+from .differential import DifferentialError, SEMANTIC_FIELDS, run_differential_test
 from .controls import CONTROL_PACK_VERSION
 from .reporting import report_dict
 
@@ -153,6 +154,11 @@ def build_parser() -> argparse.ArgumentParser:
     apprenticeship_test = sub.add_parser("apprenticeship-test", help="test a parser contract without promoting it")
     apprenticeship_test.add_argument("contract_input", type=Path)
     apprenticeship_test.add_argument("--out", type=Path, required=True)
+    differential = sub.add_parser("differential-test", help="compare explicit vendor variants")
+    differential.add_argument("--variant", action="append", required=True, metavar="VENDOR=FILE")
+    differential.add_argument("--field", action="append", dest="fields", default=None, choices=SEMANTIC_FIELDS)
+    differential.add_argument("--case-id", default="case-local")
+    differential.add_argument("--out", type=Path, required=True)
     sensitive.add_argument("file", type=Path)
     sensitive.add_argument("--format", choices=("markdown", "json"), default="markdown")
     sensitive.add_argument("--out", type=Path, required=True)
@@ -676,6 +682,26 @@ def run_apprenticeship_test(args: argparse.Namespace) -> int:
     print(f"apprenticeship_test={args.out} status={result['promotion']['status']} promoted={result['promotion']['promoted_into_parser']}")
     return 0 if result["promotion"]["status"] == "READY_FOR_HUMAN_REVIEW" else 1
 
+def run_differential(args: argparse.Namespace) -> int:
+    try:
+        variants: dict[str, str] = {}
+        for item in args.variant:
+            if "=" not in item:
+                raise DifferentialError("variant must use VENDOR=FILE")
+            vendor, filename = (part.strip() for part in item.split("=", 1))
+            if vendor in variants:
+                raise DifferentialError(f"duplicate vendor variant: {vendor}")
+            variants[vendor] = Path(filename).read_text(encoding="utf-8")
+        report = run_differential_test(variants, fields=args.fields or SEMANTIC_FIELDS, case_id=args.case_id)
+        args.out.parent.mkdir(parents=True, exist_ok=True)
+        args.out.write_text(json.dumps(report, indent=2, sort_keys=True) + "\n", encoding="utf-8", newline="\n")
+    except (OSError, UnicodeDecodeError, ValueError, DifferentialError) as exc:
+        print(f"Differential test rejected: {exc}", file=sys.stderr)
+        return 2
+    comparison = report["comparison"]
+    print(f"differential_test={args.out} equivalent={comparison['equivalent']} semantic_disagreements={comparison['semantic_disagreement_count']} control_disagreements={comparison['control_disagreement_count']}")
+    return 0
+
 def run_sensitive_scan(args: argparse.Namespace) -> int:
     try:
         text = args.file.read_text(encoding="utf-8")
@@ -830,6 +856,8 @@ def main(argv: list[str] | None = None) -> int:
         return run_apprenticeship_contract(args)
     if args.command == "apprenticeship-test":
         return run_apprenticeship_test(args)
+    if args.command == "differential-test":
+        return run_differential(args)
     if args.command == "webhook-enqueue":
         return run_webhook_enqueue(args)
     if args.command == "ticket-export":

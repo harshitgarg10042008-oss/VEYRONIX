@@ -90,7 +90,7 @@
 - [x] S4 Evidence-First Network Assurance Twin.
 - [x] S5 Resource-Level Least-Privilege Compiler.
 - [x] S6 Governed Unknown-Syntax Apprenticeship Contracts.
-- [ ] S7 Cross-Vendor Semantic Differential Testing.
+- [x] S7 Cross-Vendor Semantic Differential Testing.
 - [ ] S8 Compliance Time Machine.
 - [ ] S9 Proof-Carrying Remediation.
 - [ ] Final SentinelProof integrated acceptance and completion report.

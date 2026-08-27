@@ -512,3 +512,14 @@ PYTHONPATH=src:. python -m configsentinel.cli apprenticeship-test reports/telnet
 ```
 
 A passing contract reports `READY_FOR_HUMAN_REVIEW`; it never promotes a parser mapping, changes the parser registry, or alters compliance verdicts automatically. Examples are redacted before storage, secret-like values are not retained, and contract testing remains local and network-free.
+
+
+## SentinelProof S7: Cross-Vendor Semantic Differential Testing
+
+The differential tester compares explicit vendor variants of the same intended configuration at the canonical semantic-field and deterministic-control levels. It surfaces semantic and control disagreements with per-variant parser versions and input hashes rather than choosing one vendor parser as correct.
+
+```bash
+PYTHONPATH=src:. python -m configsentinel.cli differential-test --variant cisco_ios=configs/edge.cfg --variant junos=configs/edge.set --field management_ssh_enabled --field management_ssh_version --case-id secure-management --out reports/secure-management.differential.json
+```
+
+Only selected normalized fields and their associated controls are compared. Results contain no raw configuration, perform no network access, never select an authoritative vendor, and do not alter compliance verdicts.
