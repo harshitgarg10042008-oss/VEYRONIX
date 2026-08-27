@@ -66,7 +66,7 @@
 - [x] 23 Time-bound exception management.
 - [x] 24 Expanded compliance framework mappings.
 - [x] 25 Interactive topology and blast-radius analysis.
-- [ ] 26 Guided SIH demonstration mode and audit comparison.
+- [x] 26 Guided SIH demonstration mode and audit comparison.
 - [ ] 27 Content-addressed incremental audit cache.
 - [ ] 28 SIEM and structured event export adapters.
 - [ ] 29 Encrypted backup and restore manifests.

@@ -373,6 +373,15 @@ The framework registry now recognizes aliases and metadata for NIST CSF 2.0, PCI
 
 The `topology-analyze` command consumes an imported topology graph, links operator-supplied finding IDs to assets, calculates a bounded graph neighborhood, and can render a self-contained HTML explorer. The result is a review aid: it does not infer traffic flows or exploitability, perform discovery, or apply remediation.
 
+## Guided SIH demonstration and audit comparison
+
+The `demo-mode` command renders a self-contained, step-by-step HTML artifact for presenting an operator-provided report: inspect posture, review findings, compare results, and explain the safety boundary. `audit-compare` produces a deterministic control-status delta between two serialized reports and does not claim causality.
+
+```bash
+configsentinel audit-compare reports/before.json reports/after.json --out reports/comparison.json
+configsentinel demo-mode reports/before.json --after reports/after.json --out reports/sih-demo.html
+```
+
 ```bash
 configsentinel topology-analyze reports/topology.json --finding-asset finding-123=edge-1 --depth 2 --out reports/blast-radius.json --html-out reports/topology-review.html
 ```

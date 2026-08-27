@@ -31,6 +31,7 @@ from .supplychain import SupplyChainError, build_manifest, verify_manifest, writ
 from .risk import RiskError, risk_report
 from .exceptions import ExceptionError, approve_exception, create_exception, load_exceptions, save_exception
 from .topology import TopologyError, analyze_topology, write_topology_html
+from .demo import DemoError, compare_reports, render_guided_demo
 
 
 def build_parser() -> argparse.ArgumentParser:
@@ -147,6 +148,14 @@ def build_parser() -> argparse.ArgumentParser:
     topology.add_argument("--depth", type=int, default=1)
     topology.add_argument("--out", type=Path, required=True)
     topology.add_argument("--html-out", type=Path)
+    demo = sub.add_parser("demo-mode", help="render a guided local SIH demonstration artifact")
+    demo.add_argument("json_input", type=Path)
+    demo.add_argument("--after", type=Path)
+    demo.add_argument("--out", type=Path, required=True)
+    compare = sub.add_parser("audit-compare", help="compare two serialized audit reports")
+    compare.add_argument("before", type=Path)
+    compare.add_argument("after", type=Path)
+    compare.add_argument("--out", type=Path, required=True)
     return parser
 
 
@@ -233,6 +242,31 @@ def run_batch(args: argparse.Namespace) -> int:
         args.json_out.parent.mkdir(parents=True, exist_ok=True)
         args.json_out.write_text(json.dumps(payload, indent=2, sort_keys=True) + "\n", encoding="utf-8")
         print(f"json_report={args.json_out}")
+    return 0
+
+
+def run_audit_compare(args: argparse.Namespace) -> int:
+    try:
+        result = compare_reports(load_report(args.before), load_report(args.after))
+        args.out.parent.mkdir(parents=True, exist_ok=True)
+        args.out.write_text(json.dumps(result, indent=2, sort_keys=True) + "\n", encoding="utf-8", newline="\n")
+    except (OSError, ValueError, DemoError, EvidenceGraphError) as exc:
+        print(f"Audit comparison rejected: {exc}", file=sys.stderr)
+        return 2
+    print(f"audit_comparison={args.out} changed={result['changed_count']}")
+    return 0
+
+
+def run_demo_mode(args: argparse.Namespace) -> int:
+    try:
+        report = load_report(args.json_input)
+        comparison = compare_reports(report, load_report(args.after)) if args.after else None
+        args.out.parent.mkdir(parents=True, exist_ok=True)
+        args.out.write_text(render_guided_demo(report, comparison=comparison), encoding="utf-8", newline="\n")
+    except (OSError, ValueError, DemoError, EvidenceGraphError) as exc:
+        print(f"Demo artifact rejected: {exc}", file=sys.stderr)
+        return 2
+    print(f"demo_artifact={args.out} comparison={bool(args.after)}")
     return 0
 
 
@@ -545,6 +579,10 @@ def main(argv: list[str] | None = None) -> int:
         return run_exception_list(args)
     if args.command == "topology-analyze":
         return run_topology_analyze(args)
+    if args.command == "audit-compare":
+        return run_audit_compare(args)
+    if args.command == "demo-mode":
+        return run_demo_mode(args)
     if args.command == "approval-request":
         return run_approval_request(args)
     if args.command == "approval-decide":
