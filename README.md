@@ -369,6 +369,14 @@ Exceptions are local review records tied to a finding, owner, justification, and
 
 The framework registry now recognizes aliases and metadata for NIST CSF 2.0, PCI DSS 4.0.1, ISO/IEC 27001:2022, the HIPAA Security Rule, and AICPA SOC 2 Trust Services Criteria, in addition to CIS and NIST SP 800-53. These are informative cross-framework references only; the registry does not claim certification or replace an independent assessor, QSA, auditor, or legal review.
 
+## Interactive topology and blast-radius analysis
+
+The `topology-analyze` command consumes an imported topology graph, links operator-supplied finding IDs to assets, calculates a bounded graph neighborhood, and can render a self-contained HTML explorer. The result is a review aid: it does not infer traffic flows or exploitability, perform discovery, or apply remediation.
+
+```bash
+configsentinel topology-analyze reports/topology.json --finding-asset finding-123=edge-1 --depth 2 --out reports/blast-radius.json --html-out reports/topology-review.html
+```
+
 ```bash
 configsentinel audit ./configs/edge.conf --vendor cisco_ios --framework csf --framework pci-dss --json-out reports/edge-frameworks.json
 ```

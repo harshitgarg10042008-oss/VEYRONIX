@@ -65,7 +65,7 @@
 - [x] 22 Enterprise risk prioritization and asset criticality.
 - [x] 23 Time-bound exception management.
 - [x] 24 Expanded compliance framework mappings.
-- [ ] 25 Interactive topology and blast-radius analysis.
+- [x] 25 Interactive topology and blast-radius analysis.
 - [ ] 26 Guided SIH demonstration mode and audit comparison.
 - [ ] 27 Content-addressed incremental audit cache.
 - [ ] 28 SIEM and structured event export adapters.

@@ -30,6 +30,7 @@ from .verification import verify_report, run_benchmark
 from .supplychain import SupplyChainError, build_manifest, verify_manifest, write_manifest
 from .risk import RiskError, risk_report
 from .exceptions import ExceptionError, approve_exception, create_exception, load_exceptions, save_exception
+from .topology import TopologyError, analyze_topology, write_topology_html
 
 
 def build_parser() -> argparse.ArgumentParser:
@@ -140,6 +141,12 @@ def build_parser() -> argparse.ArgumentParser:
     exception_list = sub.add_parser("exception-list", help="list local exceptions and their current status")
     exception_list.add_argument("--file", type=Path, required=True)
     exception_list.add_argument("--out", type=Path, required=True)
+    topology = sub.add_parser("topology-analyze", help="analyze imported topology and render a local explorer")
+    topology.add_argument("json_input", type=Path)
+    topology.add_argument("--finding-asset", action="append", default=[], metavar="FINDING=ASSET")
+    topology.add_argument("--depth", type=int, default=1)
+    topology.add_argument("--out", type=Path, required=True)
+    topology.add_argument("--html-out", type=Path)
     return parser
 
 
@@ -226,6 +233,29 @@ def run_batch(args: argparse.Namespace) -> int:
         args.json_out.parent.mkdir(parents=True, exist_ok=True)
         args.json_out.write_text(json.dumps(payload, indent=2, sort_keys=True) + "\n", encoding="utf-8")
         print(f"json_report={args.json_out}")
+    return 0
+
+
+def run_topology_analyze(args: argparse.Namespace) -> int:
+    try:
+        graph = json.loads(args.json_input.read_text(encoding="utf-8"))
+        finding_assets: dict[str, str] = {}
+        for pair in args.finding_asset:
+            finding_id, separator, asset_id = pair.partition("=")
+            if not separator or not finding_id or not asset_id:
+                raise TopologyError("--finding-asset must use FINDING=ASSET")
+            finding_assets[finding_id] = asset_id
+        payload = analyze_topology(graph, finding_assets=finding_assets, depth=args.depth)
+        args.out.parent.mkdir(parents=True, exist_ok=True)
+        args.out.write_text(json.dumps(payload, indent=2, sort_keys=True) + "\n", encoding="utf-8", newline="\n")
+        if args.html_out:
+            write_topology_html(graph, args.html_out, payload)
+    except (OSError, ValueError, TopologyError) as exc:
+        print(f"Topology analysis rejected: {exc}", file=sys.stderr)
+        return 2
+    print(f"topology_analysis={args.out} impacted={len(payload['impacted_node_ids'])}")
+    if args.html_out:
+        print(f"topology_html={args.html_out}")
     return 0
 
 
@@ -513,6 +543,8 @@ def main(argv: list[str] | None = None) -> int:
         return run_exception_approve(args)
     if args.command == "exception-list":
         return run_exception_list(args)
+    if args.command == "topology-analyze":
+        return run_topology_analyze(args)
     if args.command == "approval-request":
         return run_approval_request(args)
     if args.command == "approval-decide":
