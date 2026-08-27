@@ -1,4 +1,4 @@
-"""Command-line interface for safe audit and remediation previews."""
+"""Command-line interface for safe audits, reports, and remediation previews."""
 
 from __future__ import annotations
 
@@ -8,8 +8,10 @@ from pathlib import Path
 
 from .client import ConfigSentinelClient
 from .engine import DeterministicComplianceEngine
+from .frameworks import normalize_frameworks
 from .ingestion import ConfigIngestionService
 from .remediation import RemediationError, generate_bundle
+from .reporting import write_report
 
 
 def build_parser() -> argparse.ArgumentParser:
@@ -18,6 +20,9 @@ def build_parser() -> argparse.ArgumentParser:
     audit = sub.add_parser("audit", help="audit a configuration file")
     audit.add_argument("file", type=Path)
     audit.add_argument("--vendor", default="auto", choices=("auto", "cisco_ios", "junos", "firewall_generic"))
+    audit.add_argument("--framework", action="append", dest="frameworks", default=None, help="framework id; repeat for multiple frameworks (cis-network or nist-800-53)")
+    audit.add_argument("--report-out", type=Path, help="write a Markdown audit report")
+    audit.add_argument("--json-out", type=Path, help="write a JSON audit report")
     audit.add_argument("--remediation-out", type=Path, help="write a non-executable remediation preview")
     audit.add_argument("--approve", action="store_true", help="acknowledge operator review; still requires --dry-run")
     audit.add_argument("--dry-run", action="store_true", help="required safety flag; never applies changes")
@@ -28,18 +33,25 @@ def run_audit(args: argparse.Namespace) -> int:
     if args.approve and not args.dry_run:
         print("Refusing to proceed: --approve requires --dry-run; no live apply mode exists.", file=sys.stderr)
         return 2
-    service = ConfigIngestionService()
     try:
+        frameworks = normalize_frameworks(args.frameworks)
+        service = ConfigIngestionService()
         ingested = service.ingest_file(args.file)
         client = ConfigSentinelClient(engine=DeterministicComplianceEngine(), ingestion=service)
-        result = client.audit_text(ingested.redacted_text, vendor=args.vendor)
+        result = client.audit_text(ingested.redacted_text, vendor=args.vendor, frameworks=frameworks)
     except (OSError, ValueError, RuntimeError) as exc:
         print(f"Input rejected: {exc}", file=sys.stderr)
         return 2
     print(f"audit_id={result.audit_id}")
-    print(f"vendor={result.vendor} findings={len(result.findings)} failed={result.failed_count} unknown={len(result.unknown_blocks)}")
+    print(f"vendor={result.vendor} findings={len(result.findings)} failed={result.failed_count} unknown={len(result.unknown_blocks)} frameworks={','.join(frameworks)}")
     for finding in result.findings:
         print(f"{finding.control_id}\t{finding.status.value}\t{finding.severity.value}")
+    if args.report_out:
+        write_report(result, str(args.report_out), format="markdown", frameworks=frameworks)
+        print(f"report={args.report_out}")
+    if args.json_out:
+        write_report(result, str(args.json_out), format="json", frameworks=frameworks)
+        print(f"json_report={args.json_out}")
     if args.remediation_out:
         try:
             bundle = generate_bundle(result)

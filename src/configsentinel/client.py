@@ -15,6 +15,8 @@ from typing import Any, Protocol
 from .ingestion import ConfigIngestionService, IngestedConfig
 from .models import AuditRequest, AuditResult, Finding, FindingStatus, Severity
 from .security import SecretRedactor
+from .reporting import render_json, render_markdown
+from .frameworks import normalize_frameworks
 
 
 class AuditEngine(Protocol):
@@ -65,6 +67,14 @@ class ConfigSentinelClient:
         ingested = self.ingestion.ingest_file(path)
         request = AuditRequest(config_text=ingested.redacted_text, vendor=vendor, frameworks=tuple(frameworks), project_id=project_id)
         return self.audit(request)
+
+    def report_markdown(self, result: AuditResult, *, frameworks: Iterable[str] = ("cis-network",)) -> str:
+        """Render a deterministic, evidence-linked Markdown report."""
+        return render_markdown(result, normalize_frameworks(frameworks))
+
+    def report_json(self, result: AuditResult, *, frameworks: Iterable[str] = ("cis-network",)) -> str:
+        """Render a deterministic JSON report with reconciliation metadata."""
+        return render_json(result, normalize_frameworks(frameworks))
 
 
 class FixtureAuditEngine:
