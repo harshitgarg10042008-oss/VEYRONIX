@@ -59,3 +59,16 @@
 - [x] 19 Formal verification fixtures and benchmark corpus.
 - [x] 20 Deployment hardening and supply-chain artifacts.
 - [x] Final integrated acceptance and completion report.
+
+## Next nine-upgrade expansion program
+
+- [x] 22 Enterprise risk prioritization and asset criticality.
+- [ ] 23 Time-bound exception management.
+- [ ] 24 Expanded compliance framework mappings.
+- [ ] 25 Interactive topology and blast-radius analysis.
+- [ ] 26 Guided SIH demonstration mode and audit comparison.
+- [ ] 27 Content-addressed incremental audit cache.
+- [ ] 28 SIEM and structured event export adapters.
+- [ ] 29 Encrypted backup and restore manifests.
+- [ ] 30 SBOM and reproducible release metadata.
+- [ ] Final nine-upgrade completion report.

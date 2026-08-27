@@ -353,6 +353,14 @@ configsentinel verify-report reports/edge.json --out reports/edge-verification.j
 
 Release checks can generate a SHA-256 manifest for tracked source and configuration artifacts, then verify it before packaging or local demonstration. The verifier rejects path traversal and reports missing or changed files. GitHub Actions runs the backend tests, Python compilation, and manifest generation on pushes and pull requests with read-only repository permissions.
 
+## Risk prioritization and asset criticality
+
+The `risk-prioritize` command ranks failed and review-required findings using deterministic severity, status, confidence, and an operator-supplied asset criticality level. The score is a review aid only; it never changes the underlying compliance verdict, promotes an unknown result to pass, or authorizes remediation.
+
+```bash
+configsentinel risk-prioritize reports/edge.json --asset-criticality critical --out reports/edge-risk.json
+```
+
 ```bash
 configsentinel release-manifest . --out release-manifest.json
 configsentinel verify-manifest . release-manifest.json

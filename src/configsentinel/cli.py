@@ -28,6 +28,7 @@ from .ticketing import TicketingError, build_ticket_payload, render_ticket_markd
 from .inventory import InventoryError, import_inventory_file
 from .verification import verify_report, run_benchmark
 from .supplychain import SupplyChainError, build_manifest, verify_manifest, write_manifest
+from .risk import RiskError, risk_report
 
 
 def build_parser() -> argparse.ArgumentParser:
@@ -120,6 +121,10 @@ def build_parser() -> argparse.ArgumentParser:
     manifest_check = sub.add_parser("verify-manifest", help="verify a SHA-256 release manifest")
     manifest_check.add_argument("root", type=Path)
     manifest_check.add_argument("manifest", type=Path)
+    risk = sub.add_parser("risk-prioritize", help="rank review findings using deterministic risk factors")
+    risk.add_argument("json_input", type=Path)
+    risk.add_argument("--asset-criticality", choices=("low", "medium", "high", "critical"), default="medium")
+    risk.add_argument("--out", type=Path, required=True)
     return parser
 
 
@@ -206,6 +211,18 @@ def run_batch(args: argparse.Namespace) -> int:
         args.json_out.parent.mkdir(parents=True, exist_ok=True)
         args.json_out.write_text(json.dumps(payload, indent=2, sort_keys=True) + "\n", encoding="utf-8")
         print(f"json_report={args.json_out}")
+    return 0
+
+
+def run_risk_prioritize(args: argparse.Namespace) -> int:
+    try:
+        payload = risk_report(load_report(args.json_input), asset_criticality=args.asset_criticality)
+        args.out.parent.mkdir(parents=True, exist_ok=True)
+        args.out.write_text(json.dumps(payload, indent=2, sort_keys=True) + "\n", encoding="utf-8", newline="\n")
+    except (OSError, ValueError, RiskError, EvidenceGraphError) as exc:
+        print(f"Risk prioritization rejected: {exc}", file=sys.stderr)
+        return 2
+    print(f"risk_report={args.out} items={len(payload['items'])} verdict_source={payload['verdict_source']}")
     return 0
 
 
@@ -440,6 +457,8 @@ def main(argv: list[str] | None = None) -> int:
         return run_release_manifest(args)
     if args.command == "verify-manifest":
         return run_verify_manifest(args)
+    if args.command == "risk-prioritize":
+        return run_risk_prioritize(args)
     if args.command == "approval-request":
         return run_approval_request(args)
     if args.command == "approval-decide":
