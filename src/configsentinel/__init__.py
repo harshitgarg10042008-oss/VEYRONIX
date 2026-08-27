@@ -4,6 +4,7 @@ from .canonical import CanonicalConfig, ParseResult, ParserError
 from .client import ConfigSentinelClient, FixtureAuditEngine
 from .controls import CONTROL_PACK, CONTROL_PACK_VERSION, evaluate
 from .engine import DeterministicComplianceEngine
+from .ingestion import ConfigIngestionService, IngestedConfig, IngestionError, IngestionPolicy
 from .parsers import CiscoIOSParser, GenericFirewallParser, JunosParser, PARSER_REGISTRY, detect_and_parse
 from .llm import EXPLANATION_SCHEMA, LLMConfig, LLMCopilot, LLMError, OpenAICompatibleProvider
 from .models import (
@@ -27,6 +28,7 @@ __all__ = [
     "CONTROL_PACK_VERSION",
     "AuditResult",
     "ConfigSentinelClient",
+    "ConfigIngestionService",
     "DeterministicComplianceEngine",
     "detect_and_parse",
     "Control",
@@ -34,6 +36,9 @@ __all__ = [
     "EXPLANATION_SCHEMA",
     "Finding",
     "FindingStatus",
+    "IngestedConfig",
+    "IngestionError",
+    "IngestionPolicy",
     "GenericFirewallParser",
     "FixtureAuditEngine",
     "LLMConfig",

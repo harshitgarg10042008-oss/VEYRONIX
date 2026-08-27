@@ -12,6 +12,7 @@ import uuid
 from collections.abc import Callable, Iterable
 from typing import Any, Protocol
 
+from .ingestion import ConfigIngestionService, IngestedConfig
 from .models import AuditRequest, AuditResult, Finding, FindingStatus, Severity
 from .security import SecretRedactor
 
@@ -24,9 +25,10 @@ class AuditEngine(Protocol):
 class ConfigSentinelClient:
     """Stable SDK facade for local or remote audit implementations."""
 
-    def __init__(self, engine: AuditEngine | None = None, *, redactor: SecretRedactor | None = None) -> None:
+    def __init__(self, engine: AuditEngine | None = None, *, redactor: SecretRedactor | None = None, ingestion: ConfigIngestionService | None = None) -> None:
         self.engine = engine
         self.redactor = redactor or SecretRedactor()
+        self.ingestion = ingestion or ConfigIngestionService(redactor=self.redactor)
         self._controls: dict[str, Any] = {}
         self._plugins: dict[str, Any] = {}
 
@@ -53,6 +55,16 @@ class ConfigSentinelClient:
 
     def audit_text(self, config_text: str, *, vendor: str = "auto", frameworks: Iterable[str] = ("cis-network",), project_id: str = "local") -> AuditResult:
         return self.audit(AuditRequest(config_text=config_text, vendor=vendor, frameworks=tuple(frameworks), project_id=project_id))
+
+    def ingest(self, filename: str, content: bytes) -> IngestedConfig:
+        """Validate, hash, redact, and optionally quarantine configuration bytes."""
+        return self.ingestion.ingest_bytes(filename, content)
+
+    def audit_file(self, path: str, *, vendor: str = "auto", frameworks: Iterable[str] = ("cis-network",), project_id: str = "local") -> AuditResult:
+        """Audit a validated file; only redacted content reaches the engine."""
+        ingested = self.ingestion.ingest_file(path)
+        request = AuditRequest(config_text=ingested.redacted_text, vendor=vendor, frameworks=tuple(frameworks), project_id=project_id)
+        return self.audit(request)
 
 
 class FixtureAuditEngine:
