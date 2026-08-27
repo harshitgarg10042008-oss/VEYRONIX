@@ -67,7 +67,7 @@
 - [x] 24 Expanded compliance framework mappings.
 - [x] 25 Interactive topology and blast-radius analysis.
 - [x] 26 Guided SIH demonstration mode and audit comparison.
-- [ ] 27 Content-addressed incremental audit cache.
+- [x] 27 Content-addressed incremental audit cache.
 - [ ] 28 SIEM and structured event export adapters.
 - [ ] 29 Encrypted backup and restore manifests.
 - [ ] 30 SBOM and reproducible release metadata.

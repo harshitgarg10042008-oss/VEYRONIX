@@ -32,6 +32,9 @@ from .risk import RiskError, risk_report
 from .exceptions import ExceptionError, approve_exception, create_exception, load_exceptions, save_exception
 from .topology import TopologyError, analyze_topology, write_topology_html
 from .demo import DemoError, compare_reports, render_guided_demo
+from .cache import AuditCache, CacheError
+from .controls import CONTROL_PACK_VERSION
+from .reporting import report_dict
 
 
 def build_parser() -> argparse.ArgumentParser:
@@ -156,6 +159,12 @@ def build_parser() -> argparse.ArgumentParser:
     compare.add_argument("before", type=Path)
     compare.add_argument("after", type=Path)
     compare.add_argument("--out", type=Path, required=True)
+    cached = sub.add_parser("cache-audit", help="audit with a content-addressed local cache")
+    cached.add_argument("file", type=Path)
+    cached.add_argument("--vendor", default="auto", choices=("auto", "cisco_ios", "junos", "firewall_generic", "arista_eos", "linux_nftables"))
+    cached.add_argument("--framework", action="append", dest="frameworks", default=None)
+    cached.add_argument("--cache-dir", type=Path, required=True)
+    cached.add_argument("--json-out", type=Path, required=True)
     return parser
 
 
@@ -242,6 +251,23 @@ def run_batch(args: argparse.Namespace) -> int:
         args.json_out.parent.mkdir(parents=True, exist_ok=True)
         args.json_out.write_text(json.dumps(payload, indent=2, sort_keys=True) + "\n", encoding="utf-8")
         print(f"json_report={args.json_out}")
+    return 0
+
+
+def run_cached_audit(args: argparse.Namespace) -> int:
+    try:
+        frameworks = normalize_frameworks(args.frameworks)
+        service = ConfigIngestionService()
+        ingested = service.ingest_file(args.file)
+        client = ConfigSentinelClient(engine=DeterministicComplianceEngine(), ingestion=service)
+        key = AuditCache.key(ingested.redacted_text, vendor=args.vendor, frameworks=frameworks, rule_pack_version=CONTROL_PACK_VERSION)
+        report, hit = AuditCache(args.cache_dir).get_or_compute(key, lambda: report_dict(client.audit_text(ingested.redacted_text, vendor=args.vendor, frameworks=frameworks), frameworks))
+        args.json_out.parent.mkdir(parents=True, exist_ok=True)
+        args.json_out.write_text(json.dumps(report, indent=2, sort_keys=True) + "\n", encoding="utf-8", newline="\n")
+    except (OSError, ValueError, RuntimeError, CacheError) as exc:
+        print(f"Cached audit rejected: {exc}", file=sys.stderr)
+        return 2
+    print(f"cached_audit={args.json_out} cache_hit={hit} cache_key={key}")
     return 0
 
 
@@ -583,6 +609,8 @@ def main(argv: list[str] | None = None) -> int:
         return run_audit_compare(args)
     if args.command == "demo-mode":
         return run_demo_mode(args)
+    if args.command == "cache-audit":
+        return run_cached_audit(args)
     if args.command == "approval-request":
         return run_approval_request(args)
     if args.command == "approval-decide":

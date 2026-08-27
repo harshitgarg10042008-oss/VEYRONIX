@@ -377,6 +377,14 @@ The `topology-analyze` command consumes an imported topology graph, links operat
 
 The `demo-mode` command renders a self-contained, step-by-step HTML artifact for presenting an operator-provided report: inspect posture, review findings, compare results, and explain the safety boundary. `audit-compare` produces a deterministic control-status delta between two serialized reports and does not claim causality.
 
+## Content-addressed incremental audit cache
+
+The `cache-audit` command stores serialized deterministic reports under a SHA-256 content key derived from the redacted configuration, vendor selection, framework selection, and rule-pack version. Repeating an unchanged audit produces a cache hit; changing any of those inputs produces a new entry. Cache writes are local, bounded, integrity-checked, and never contain the original unredacted input.
+
+```bash
+configsentinel cache-audit ./configs/edge.conf --vendor cisco_ios --cache-dir .configsentinel/cache --json-out reports/edge-cached.json
+```
+
 ```bash
 configsentinel audit-compare reports/before.json reports/after.json --out reports/comparison.json
 configsentinel demo-mode reports/before.json --after reports/after.json --out reports/sih-demo.html
