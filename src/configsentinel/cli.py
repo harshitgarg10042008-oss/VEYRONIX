@@ -41,6 +41,7 @@ from .attestation import AttestationError, build_attestation, load_attestation, 
 from .uncertainty import UncertaintyError, build_uncertainty_budget
 from .mutation import MutationError, run_mutation_lab
 from .assurance_twin import AssuranceTwinError, build_assurance_twin, write_assurance_twin_html
+from .intent import IntentError, compile_resource_intent
 from .controls import CONTROL_PACK_VERSION
 from .reporting import report_dict
 
@@ -138,6 +139,11 @@ def build_parser() -> argparse.ArgumentParser:
     twin.add_argument("--depth", type=int, default=1)
     twin.add_argument("--out", type=Path, required=True)
     twin.add_argument("--html-out", type=Path)
+    intent = sub.add_parser("intent-compile", help="compile resource-level least-privilege intent")
+    intent.add_argument("intent_input", type=Path)
+    intent.add_argument("--report", type=Path)
+    intent.add_argument("--topology", type=Path)
+    intent.add_argument("--out", type=Path, required=True)
     sensitive.add_argument("file", type=Path)
     sensitive.add_argument("--format", choices=("markdown", "json"), default="markdown")
     sensitive.add_argument("--out", type=Path, required=True)
@@ -626,6 +632,20 @@ def run_assurance_twin(args: argparse.Namespace) -> int:
     print(f"assurance_twin={args.out} nodes={twin['facts']['node_count']} links={twin['facts']['link_count']} derived_impacts={len(twin['analyses'])}")
     return 0
 
+def run_intent_compile(args: argparse.Namespace) -> int:
+    try:
+        intent = load_report(args.intent_input)
+        report = load_report(args.report) if args.report else None
+        topology = load_report(args.topology) if args.topology else None
+        compiled = compile_resource_intent(intent, report=report, topology=topology)
+        args.out.parent.mkdir(parents=True, exist_ok=True)
+        args.out.write_text(json.dumps(compiled, indent=2, sort_keys=True) + "\n", encoding="utf-8", newline="\n")
+    except (OSError, UnicodeDecodeError, ValueError, IntentError, EvidenceGraphError) as exc:
+        print(f"Intent compilation rejected: {exc}", file=sys.stderr)
+        return 2
+    print(f"intent_compile={args.out} state={compiled['summary']['state']} checks={compiled['summary']['check_count']}")
+    return 0
+
 def run_sensitive_scan(args: argparse.Namespace) -> int:
     try:
         text = args.file.read_text(encoding="utf-8")
@@ -774,6 +794,8 @@ def main(argv: list[str] | None = None) -> int:
         return run_mutation_lab_command(args)
     if args.command == "assurance-twin":
         return run_assurance_twin(args)
+    if args.command == "intent-compile":
+        return run_intent_compile(args)
     if args.command == "webhook-enqueue":
         return run_webhook_enqueue(args)
     if args.command == "ticket-export":

@@ -88,7 +88,7 @@
 - [x] S2 Evidence coverage and uncertainty budgets.
 - [x] S3 Semantic Mutation Lab.
 - [x] S4 Evidence-First Network Assurance Twin.
-- [ ] S5 Resource-Level Least-Privilege Compiler.
+- [x] S5 Resource-Level Least-Privilege Compiler.
 - [ ] S6 Governed Unknown-Syntax Apprenticeship Contracts.
 - [ ] S7 Cross-Vendor Semantic Differential Testing.
 - [ ] S8 Compliance Time Machine.

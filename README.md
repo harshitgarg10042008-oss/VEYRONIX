@@ -489,3 +489,14 @@ PYTHONPATH=src:. python -m configsentinel.cli assurance-twin topology.json --rep
 ```
 
 Graph nodes and links are labeled as `imported`; operator finding links and graph neighborhoods are labeled with their provenance. Missing links are not treated as proof of isolation, and unlinked findings remain visible. The HTML explorer is self-contained and loads no external resources.
+
+
+## SentinelProof S5: Resource-Level Least-Privilege Intent Compiler
+
+The intent compiler translates an operator-declared resource policy into vendor-neutral checks over deterministic audit findings. It supports subjects, named resources, approved intermediary assets, protocols, and bounded requirements such as secure SSH management, no Telnet, and no plain HTTP.
+
+```bash
+PYTHONPATH=src:. python -m configsentinel.cli intent-compile intent.json --report reports/edge.json --topology topology.json --out reports/edge.intent.json
+```
+
+The compiler reports `SATISFIED`, `VIOLATED`, or `REVIEW_REQUIRED` based on supplied evidence. Missing report evidence remains unknown. It emits no vendor configuration, no executable commands, and no live-network requests; it does not prove reachability or change the underlying compliance verdicts.
