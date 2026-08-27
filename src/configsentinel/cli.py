@@ -12,6 +12,7 @@ from .frameworks import normalize_frameworks
 from .ingestion import ConfigIngestionService
 from .remediation import RemediationError, generate_bundle
 from .reporting import write_report
+from .sources import SourceDiscoveryError
 
 
 def build_parser() -> argparse.ArgumentParser:
@@ -26,6 +27,11 @@ def build_parser() -> argparse.ArgumentParser:
     audit.add_argument("--remediation-out", type=Path, help="write a non-executable remediation preview")
     audit.add_argument("--approve", action="store_true", help="acknowledge operator review; still requires --dry-run")
     audit.add_argument("--dry-run", action="store_true", help="required safety flag; never applies changes")
+    batch = sub.add_parser("batch", help="audit a file, directory, ZIP, or tar archive")
+    batch.add_argument("source", type=Path)
+    batch.add_argument("--vendor", default="auto", choices=("auto", "cisco_ios", "junos", "firewall_generic"))
+    batch.add_argument("--framework", action="append", dest="frameworks", default=None, help="framework id; repeat for multiple frameworks")
+    batch.add_argument("--json-out", type=Path, help="write a JSON array of audit reports")
     return parser
 
 
@@ -65,10 +71,32 @@ def run_audit(args: argparse.Namespace) -> int:
     return 0
 
 
+def run_batch(args: argparse.Namespace) -> int:
+    try:
+        frameworks = normalize_frameworks(args.frameworks)
+        client = ConfigSentinelClient(engine=DeterministicComplianceEngine())
+        reports = client.audit_sources(str(args.source), vendor=args.vendor, frameworks=frameworks, project_id=str(args.source))
+    except (OSError, ValueError, RuntimeError, SourceDiscoveryError) as exc:
+        print(f"Source rejected: {exc}", file=sys.stderr)
+        return 2
+    print(f"source={args.source} documents={len(reports)}")
+    for filename, result in reports:
+        print(f"{filename}\taudit_id={result.audit_id}\tvendor={result.vendor}\tfindings={len(result.findings)}\tfailed={result.failed_count}\tunknown={len(result.unknown_blocks)}")
+    if args.json_out:
+        import json
+        payload = [json.loads(client.report_json(result, frameworks=frameworks)) for _, result in reports]
+        args.json_out.parent.mkdir(parents=True, exist_ok=True)
+        args.json_out.write_text(json.dumps(payload, indent=2, sort_keys=True) + "\n", encoding="utf-8")
+        print(f"json_report={args.json_out}")
+    return 0
+
+
 def main(argv: list[str] | None = None) -> int:
     args = build_parser().parse_args(argv)
     if args.command == "audit":
         return run_audit(args)
+    if args.command == "batch":
+        return run_batch(args)
     return 2
 
 

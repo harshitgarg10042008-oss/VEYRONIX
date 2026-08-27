@@ -17,6 +17,7 @@ from .models import AuditRequest, AuditResult, Finding, FindingStatus, Severity
 from .security import SecretRedactor
 from .reporting import render_json, render_markdown
 from .frameworks import normalize_frameworks
+from .sources import discover_sources
 
 
 class AuditEngine(Protocol):
@@ -67,6 +68,11 @@ class ConfigSentinelClient:
         ingested = self.ingestion.ingest_file(path)
         request = AuditRequest(config_text=ingested.redacted_text, vendor=vendor, frameworks=tuple(frameworks), project_id=project_id)
         return self.audit(request)
+
+    def audit_sources(self, path: str, *, vendor: str = "auto", frameworks: Iterable[str] = ("cis-network",), project_id: str = "local") -> list[tuple[str, AuditResult]]:
+        """Audit every supported configuration discovered under a file, directory, or archive."""
+        framework_tuple = tuple(frameworks)
+        return [(document.name, self.audit_text(document.content.decode("utf-8"), vendor=vendor, frameworks=framework_tuple, project_id=project_id)) for document in discover_sources(path, ingestion=self.ingestion)]
 
     def report_markdown(self, result: AuditResult, *, frameworks: Iterable[str] = ("cis-network",)) -> str:
         """Render a deterministic, evidence-linked Markdown report."""

@@ -171,3 +171,15 @@ The dashboard’s History control opens a local-only management panel. Operators
 Configuration uploads now infer the parser from content before submission: Junos-style `set system`, `set interfaces`, or Juniper markers select `junos`; common firewall markers select `firewall_generic`; other supported text defaults to `cisco_ios`. The selected vendor is sent to the same deterministic API endpoint and remains visible in the audit metadata.
 
 The Finding trend chart exposes failures and unknown counts per saved snapshot. Hovering or focusing a point shows the filename, timestamp, counts, and an explicit load instruction; clicking or pressing Enter/Space loads that historical report into the workbench.
+
+
+## Multi-source ingestion
+
+ConfigSentinel AI supports auditing a single configuration file, a directory tree, a ZIP archive, or a tar/tar.gz archive through the `batch` CLI command. Only supported configuration extensions are admitted; symbolic links, archive traversal paths, empty or invalid files, oversized files, and aggregate source sets beyond the safety limits are rejected or skipped fail-closed. The SDK exposes the same capability through `ConfigSentinelClient.audit_sources()`.
+
+```bash
+configsentinel batch ./configs --vendor cisco_ios --framework cis-network --json-out reports/batch.json
+configsentinel batch ./incoming/configs.zip --vendor junos
+```
+
+The current batch command preserves the existing explicit-vendor contract. Automatic vendor confidence and operator confirmation are delivered by the dedicated vendor-detection upgrade later in this roadmap.
