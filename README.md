@@ -228,3 +228,13 @@ PYTHONPATH=src python -m configsentinel.cli gitops-check --repo . --base <BASE_S
 ```
 
 The repository includes `.github/workflows/gitops-gate.yml` for pull-request execution. Ambiguous or unsupported vendor detection fails closed, so an operator must provide an explicit vendor in a local run when a change cannot be classified safely.
+
+
+## Approved baselines and drift detection
+
+Operators can save an approved baseline containing only metadata, the redacted input hash, parser identity, and control-status map. Raw configuration is never written into the baseline. A later drift check compares the current hash, vendor, and normalized control statuses, reports added/removed/changed controls, and returns a non-zero exit code when drift is detected.
+
+```bash
+configsentinel baseline-save ./configs/edge.conf --vendor cisco_ios --label production-approved --out baselines/edge.json
+configsentinel drift-check ./configs/edge.conf --vendor cisco_ios --baseline baselines/edge.json --json-out reports/edge-drift.json
+```

@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import argparse
+import json
 import sys
 from pathlib import Path
 
@@ -15,6 +16,7 @@ from .reporting import write_report
 from .sources import SourceDiscoveryError
 from .policies import CustomPolicyPack
 from .gitops import run_gitops_gate, write_gate_result
+from .baseline import BaselineError, compare_baseline, load_baseline, save_baseline
 
 
 def build_parser() -> argparse.ArgumentParser:
@@ -43,6 +45,16 @@ def build_parser() -> argparse.ArgumentParser:
     gate.add_argument("--vendor", default="auto", choices=("auto", "cisco_ios", "junos", "firewall_generic", "arista_eos", "linux_nftables"))
     gate.add_argument("--framework", action="append", dest="frameworks", default=None)
     gate.add_argument("--json-out", type=Path)
+    baseline = sub.add_parser("baseline-save", help="save an approved audit baseline")
+    baseline.add_argument("file", type=Path)
+    baseline.add_argument("--vendor", default="auto", choices=("auto", "cisco_ios", "junos", "firewall_generic", "arista_eos", "linux_nftables"))
+    baseline.add_argument("--label", default="approved")
+    baseline.add_argument("--out", type=Path, required=True)
+    drift = sub.add_parser("drift-check", help="compare a configuration against an approved baseline")
+    drift.add_argument("file", type=Path)
+    drift.add_argument("--baseline", type=Path, required=True)
+    drift.add_argument("--vendor", default="auto", choices=("auto", "cisco_ios", "junos", "firewall_generic", "arista_eos", "linux_nftables"))
+    drift.add_argument("--json-out", type=Path)
     return parser
 
 
@@ -104,6 +116,34 @@ def run_batch(args: argparse.Namespace) -> int:
     return 0
 
 
+def run_baseline_save(args: argparse.Namespace) -> int:
+    try:
+        client = ConfigSentinelClient(engine=DeterministicComplianceEngine())
+        result = client.audit_file(str(args.file), vendor=args.vendor)
+        save_baseline(result, args.out, label=args.label)
+    except (OSError, ValueError, RuntimeError, BaselineError) as exc:
+        print(f"Baseline rejected: {exc}", file=sys.stderr)
+        return 2
+    print(f"baseline={args.out} input_sha256={result.input_sha256} vendor={result.vendor} findings={len(result.findings)}")
+    return 0
+
+
+def run_drift(args: argparse.Namespace) -> int:
+    try:
+        client = ConfigSentinelClient(engine=DeterministicComplianceEngine())
+        result = client.audit_file(str(args.file), vendor=args.vendor)
+        comparison = compare_baseline(load_baseline(args.baseline), result)
+    except (OSError, ValueError, RuntimeError, BaselineError) as exc:
+        print(f"Drift check rejected: {exc}", file=sys.stderr)
+        return 2
+    decision = "DRIFTED" if comparison["drifted"] else "CLEAN"
+    print(f"drift={decision} hash_changed={comparison['hash_changed']} changed_controls={len(comparison['changed_controls'])}")
+    if args.json_out:
+        args.json_out.parent.mkdir(parents=True, exist_ok=True)
+        args.json_out.write_text(json.dumps(comparison, indent=2, sort_keys=True) + "\n", encoding="utf-8")
+    return 1 if comparison["drifted"] else 0
+
+
 def run_gitops(args: argparse.Namespace) -> int:
     try:
         frameworks = normalize_frameworks(args.frameworks)
@@ -131,6 +171,10 @@ def main(argv: list[str] | None = None) -> int:
         return run_batch(args)
     if args.command == "gitops-check":
         return run_gitops(args)
+    if args.command == "baseline-save":
+        return run_baseline_save(args)
+    if args.command == "drift-check":
+        return run_drift(args)
     return 2
 
 
