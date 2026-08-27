@@ -193,3 +193,14 @@ The deterministic parser registry now includes **Arista EOS** and **Linux nftabl
 configsentinel audit ./configs/edge.conf --vendor arista_eos --framework cis-network
 configsentinel batch ./configs/firewall-rules --vendor linux_nftables --json-out reports/nftables.json
 ```
+
+
+## Confidence-aware vendor detection
+
+Automatic vendor selection now returns ranked deterministic candidates with parser confidence, a minimum threshold, and a minimum separation margin. Configurations that are unknown or too close between candidates fail closed instead of silently selecting a parser. The local API exposes the same inspection contract at `POST /api/detect`, allowing the dashboard or an operator workflow to show the selected parser and confidence before audit submission.
+
+```bash
+curl -s http://127.0.0.1:8000/api/detect \
+  -H 'Content-Type: application/json' \
+  -d '{"config_text":"management api http-commands\ninterface Ethernet1\n"}'
+```

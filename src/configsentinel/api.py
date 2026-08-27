@@ -11,6 +11,7 @@ from __future__ import annotations
 from typing import Any
 
 from .client import ConfigSentinelClient
+from .detection import detect_vendor
 from .engine import DeterministicComplianceEngine
 from .frameworks import normalize_frameworks
 from .reporting import report_dict
@@ -67,6 +68,11 @@ def create_app(*, allowed_origins: list[str] | None = None) -> FastAPI:
     @app.post("/api/audit")
     def audit(payload: AuditPayload) -> dict[str, Any]:
         return service.audit(payload)
+
+    @app.post("/api/detect")
+    def detect(payload: dict[str, str]) -> dict[str, Any]:
+        result = detect_vendor(payload.get("config_text", ""))
+        return {"selected_vendor": result.selected_vendor, "confidence": result.confidence, "ambiguous": result.ambiguous, "reason": result.reason, "candidates": [candidate.__dict__ for candidate in result.candidates]}
 
     return app
 

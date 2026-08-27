@@ -40,7 +40,7 @@
 
 - [x] 01 Multi-source configuration ingestion pipeline.
 - [x] 02 Broader vendor coverage.
-- [ ] 03 Confidence-aware vendor detection.
+- [x] 03 Confidence-aware vendor detection.
 - [ ] 04 Custom policy authoring and control-pack validation.
 - [ ] 05 GitOps pull-request security gates.
 - [ ] 06 Approved baseline and drift detection.

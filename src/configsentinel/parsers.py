@@ -100,6 +100,8 @@ class JunosParser:
             score += 0.55
         if "set system services ssh" in lowered or "set system services telnet" in lowered:
             score += 0.35
+        if any(line.strip().lower().startswith(("set ", "delete ", "replace ")) for line in text.splitlines()):
+            score += 0.2
         if "set system authentication-order" in lowered:
             score += 0.1
         return min(score, 1.0)
@@ -248,7 +250,12 @@ def detect_and_parse(text: str, vendor: str = "auto") -> ParseResult:
     candidates = [p for p in PARSER_REGISTRY if vendor == "auto" or p.plugin_id == vendor]
     if not candidates:
         raise ValueError(f"unsupported vendor parser: {vendor}")
-    parser = max(candidates, key=lambda p: p.detect(text))
-    if parser.detect(text) < 0.5 and vendor == "auto":
-        raise ValueError("unable to identify vendor with sufficient confidence")
+    if vendor == "auto":
+        from .detection import detect_vendor
+        detection = detect_vendor(text)
+        if detection.selected_vendor is None:
+            raise ValueError(f"unable to identify vendor safely: {detection.reason}")
+        parser = next(item for item in candidates if item.plugin_id == detection.selected_vendor)
+    else:
+        parser = max(candidates, key=lambda p: p.detect(text))
     return parser.parse(text)
