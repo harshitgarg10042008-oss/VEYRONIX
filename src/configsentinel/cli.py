@@ -20,6 +20,7 @@ from .baseline import BaselineError, compare_baseline, load_baseline, save_basel
 from .governance import ApprovalLedger, GovernanceError, Role
 from .auditlog import AuditLogError, AuditTrail, sign_envelope
 from .executive import build_executive_report, render_executive_json, render_executive_markdown
+from .analytics import AnalyticsError, analyze_history, load_history, write_history_analytics
 
 
 def build_parser() -> argparse.ArgumentParser:
@@ -80,6 +81,9 @@ def build_parser() -> argparse.ArgumentParser:
     executive.add_argument("--vendor", default="auto", choices=("auto", "cisco_ios", "junos", "firewall_generic", "arista_eos", "linux_nftables"))
     executive.add_argument("--format", choices=("markdown", "json"), default="markdown")
     executive.add_argument("--out", type=Path, required=True)
+    history = sub.add_parser("history-analyze", help="analyze a JSON array of serialized audit reports")
+    history.add_argument("json_input", type=Path)
+    history.add_argument("--out", type=Path, required=True)
     return parser
 
 
@@ -166,6 +170,17 @@ def run_batch(args: argparse.Namespace) -> int:
         args.json_out.parent.mkdir(parents=True, exist_ok=True)
         args.json_out.write_text(json.dumps(payload, indent=2, sort_keys=True) + "\n", encoding="utf-8")
         print(f"json_report={args.json_out}")
+    return 0
+
+
+def run_history_analyze(args: argparse.Namespace) -> int:
+    try:
+        analytics = analyze_history(load_history(args.json_input))
+        write_history_analytics(analytics, args.out)
+    except (OSError, ValueError, AnalyticsError) as exc:
+        print(f"History analytics rejected: {exc}", file=sys.stderr)
+        return 2
+    print(f"history_analytics={args.out} reports={analytics['report_count']} dates={len(analytics['timeline'])}")
     return 0
 
 
@@ -265,6 +280,8 @@ def main(argv: list[str] | None = None) -> int:
         return run_drift(args)
     if args.command == "enterprise-report":
         return run_executive_report(args)
+    if args.command == "history-analyze":
+        return run_history_analyze(args)
     if args.command == "approval-request":
         return run_approval_request(args)
     if args.command == "approval-decide":

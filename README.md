@@ -277,3 +277,12 @@ The `enterprise-report` command creates a concise executive posture artifact fro
 configsentinel enterprise-report ./configs/edge.conf --vendor cisco_ios --format markdown --out reports/executive.md
 configsentinel enterprise-report ./configs/edge.conf --vendor cisco_ios --format json --out reports/executive.json
 ```
+
+
+## Multidimensional historical analytics
+
+Saved serialized audit reports can be analyzed locally across vendor, severity, status, control, and ISO-date dimensions. The analytics output contains deterministic counters and a timeline suitable for dashboards or downstream reporting; it does not infer risk beyond the statuses and findings already present in each evidence-backed report.
+
+```bash
+configsentinel history-analyze reports/history.json --out reports/history-analytics.json
+```
