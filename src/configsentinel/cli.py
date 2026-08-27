@@ -19,6 +19,7 @@ from .gitops import run_gitops_gate, write_gate_result
 from .baseline import BaselineError, compare_baseline, load_baseline, save_baseline
 from .governance import ApprovalLedger, GovernanceError, Role
 from .auditlog import AuditLogError, AuditTrail, sign_envelope
+from .executive import build_executive_report, render_executive_json, render_executive_markdown
 
 
 def build_parser() -> argparse.ArgumentParser:
@@ -74,6 +75,11 @@ def build_parser() -> argparse.ArgumentParser:
     gov_decide.add_argument("--approve", action="store_true")
     gov_decide.add_argument("--reason", default="")
     gov_decide.add_argument("--ledger", type=Path, required=True)
+    executive = sub.add_parser("enterprise-report", help="write an executive posture report")
+    executive.add_argument("file", type=Path)
+    executive.add_argument("--vendor", default="auto", choices=("auto", "cisco_ios", "junos", "firewall_generic", "arista_eos", "linux_nftables"))
+    executive.add_argument("--format", choices=("markdown", "json"), default="markdown")
+    executive.add_argument("--out", type=Path, required=True)
     return parser
 
 
@@ -163,6 +169,20 @@ def run_batch(args: argparse.Namespace) -> int:
     return 0
 
 
+def run_executive_report(args: argparse.Namespace) -> int:
+    try:
+        result = ConfigSentinelClient(engine=DeterministicComplianceEngine()).audit_file(str(args.file), vendor=args.vendor)
+        report = build_executive_report(result)
+        rendered = render_executive_json(report) if args.format == "json" else render_executive_markdown(report)
+        args.out.parent.mkdir(parents=True, exist_ok=True)
+        args.out.write_text(rendered, encoding="utf-8")
+    except (OSError, ValueError, RuntimeError) as exc:
+        print(f"Executive report rejected: {exc}", file=sys.stderr)
+        return 2
+    print(f"enterprise_report={args.out} posture={report.posture} failed={report.failed} unknown={report.unknown}")
+    return 0
+
+
 def run_approval_request(args: argparse.Namespace) -> int:
     try:
         event = ApprovalLedger(args.ledger).request(args.resource_id, args.actor, role=Role(args.role), reason=args.reason)
@@ -243,6 +263,8 @@ def main(argv: list[str] | None = None) -> int:
         return run_baseline_save(args)
     if args.command == "drift-check":
         return run_drift(args)
+    if args.command == "enterprise-report":
+        return run_executive_report(args)
     if args.command == "approval-request":
         return run_approval_request(args)
     if args.command == "approval-decide":

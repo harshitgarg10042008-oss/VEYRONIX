@@ -267,3 +267,13 @@ ConfigSentinel AI can append audit metadata to a local JSONL hash chain. Each ev
 configsentinel audit ./configs/edge.conf --vendor cisco_ios --trail .configsentinel/audit.jsonl
 configsentinel audit ./configs/edge.conf --vendor cisco_ios --signed-out reports/edge.signed.json --signing-key-file .configsentinel/signing.key
 ```
+
+
+## Executive and enterprise reporting
+
+The `enterprise-report` command creates a concise executive posture artifact from the same deterministic audit result used by the detailed report. It includes posture classification, failed and unknown controls, evaluated coverage, severity distribution, top evidence-backed risks, and the input hash. Markdown is intended for review meetings; JSON is intended for downstream systems. Neither format authorizes remediation or device changes.
+
+```bash
+configsentinel enterprise-report ./configs/edge.conf --vendor cisco_ios --format markdown --out reports/executive.md
+configsentinel enterprise-report ./configs/edge.conf --vendor cisco_ios --format json --out reports/executive.json
+```
