@@ -456,3 +456,14 @@ PYTHONPATH=src:. python -m configsentinel.cli attestation-verify report.json att
 ```
 
 The default status is `REVIEW_REQUIRED`. Verification fails when the key, report, serialized claim, or signature changes. This is an application-level assurance artifact inspired by provenance and attestation standards; it is not hardware attestation and does not authorize device changes. Keep signing keys outside source control and use a separate protected key for each environment.
+
+
+## SentinelProof S2: Evidence Coverage and Uncertainty Budget
+
+The uncertainty budget converts a serialized audit report into review metadata without recalculating or changing compliance statuses. It reports evidence coverage, framework-mapping coverage, mean finding confidence, unknown blocks, per-finding categories, and explicit gaps such as missing evidence or unverified mappings.
+
+```bash
+PYTHONPATH=src:. python -m configsentinel.cli uncertainty-budget reports/edge.json --out reports/edge.uncertainty.json
+```
+
+The budget distinguishes `VERIFIED`, `INFERRED`, `UNKNOWN`, and `CONTRADICTED` review categories. It records only evidence presence, redaction state, line-range validity, and digests; it does not copy raw configuration excerpts into the artifact. `verdict_boundary.verdicts_changed` is always `false`: the original deterministic `PASS`, `FAIL`, `UNKNOWN`, and `REVIEW_REQUIRED` statuses remain authoritative.

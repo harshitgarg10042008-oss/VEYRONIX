@@ -85,7 +85,7 @@
 ## SentinelProof nine-feature implementation program
 
 - [x] S1 Configuration Attestation Tokens.
-- [ ] S2 Evidence coverage and uncertainty budgets.
+- [x] S2 Evidence coverage and uncertainty budgets.
 - [ ] S3 Semantic Mutation Lab.
 - [ ] S4 Evidence-First Network Assurance Twin.
 - [ ] S5 Resource-Level Least-Privilege Compiler.

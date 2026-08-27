@@ -38,6 +38,7 @@ from .siem import SiemError, render_siem
 from .backup import BackupError, backup_file, restore_file
 from .release import ReleaseError, write_release_artifacts
 from .attestation import AttestationError, build_attestation, load_attestation, verify_attestation
+from .uncertainty import UncertaintyError, build_uncertainty_budget
 from .controls import CONTROL_PACK_VERSION
 from .reporting import report_dict
 
@@ -117,6 +118,9 @@ def build_parser() -> argparse.ArgumentParser:
     attest_verify.add_argument("json_input", type=Path)
     attest_verify.add_argument("attestation", type=Path)
     attest_verify.add_argument("--key-file", type=Path, required=True)
+    uncertainty = sub.add_parser("uncertainty-budget", help="build an evidence coverage and uncertainty budget")
+    uncertainty.add_argument("json_input", type=Path)
+    uncertainty.add_argument("--out", type=Path, required=True)
     sensitive.add_argument("file", type=Path)
     sensitive.add_argument("--format", choices=("markdown", "json"), default="markdown")
     sensitive.add_argument("--out", type=Path, required=True)
@@ -550,6 +554,18 @@ def run_attestation_verify(args: argparse.Namespace) -> int:
     print(f"attestation_verification={'VALID' if valid else 'INVALID'} reason={reason}")
     return 0 if valid else 1
 
+def run_uncertainty_budget(args: argparse.Namespace) -> int:
+    try:
+        budget = build_uncertainty_budget(load_report(args.json_input))
+        args.out.parent.mkdir(parents=True, exist_ok=True)
+        args.out.write_text(json.dumps(budget, indent=2, sort_keys=True) + "\n", encoding="utf-8", newline="\n")
+    except (OSError, UnicodeDecodeError, ValueError, UncertaintyError, EvidenceGraphError) as exc:
+        print(f"Uncertainty budget rejected: {exc}", file=sys.stderr)
+        return 2
+    assurance = budget["assurance"]
+    print(f"uncertainty_budget={args.out} state={assurance['state']} coverage={assurance['evidence_coverage']:.6f} gaps={len(assurance['gaps'])}")
+    return 0
+
 def run_sensitive_scan(args: argparse.Namespace) -> int:
     try:
         text = args.file.read_text(encoding="utf-8")
@@ -692,6 +708,8 @@ def main(argv: list[str] | None = None) -> int:
         return run_attestation_create(args)
     if args.command == "attestation-verify":
         return run_attestation_verify(args)
+    if args.command == "uncertainty-budget":
+        return run_uncertainty_budget(args)
     if args.command == "webhook-enqueue":
         return run_webhook_enqueue(args)
     if args.command == "ticket-export":
