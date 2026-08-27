@@ -98,5 +98,5 @@
 - [x] S11 Reviewer Disagreement Analytics.
 - [x] S12 Assurance Drift and Freshness Decay.
 - [x] S13 Adversarial Parser Robustness Pack.
-- [ ] S14 Policy Provenance Compiler.
+- [x] S14 Policy Provenance Compiler.
 - [ ] Final complete SentinelProof acceptance and completion report.

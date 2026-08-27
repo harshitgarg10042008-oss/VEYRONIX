@@ -15,7 +15,7 @@ from .ingestion import ConfigIngestionService
 from .remediation import RemediationError, generate_bundle, render_diffs
 from .reporting import write_report
 from .sources import SourceDiscoveryError
-from .policies import CustomPolicyPack
+from .policies import CustomPolicyPack, PolicyValidationError
 from .gitops import run_gitops_gate, write_gate_result
 from .baseline import BaselineError, compare_baseline, load_baseline, save_baseline
 from .governance import ApprovalLedger, GovernanceError, Role
@@ -50,6 +50,7 @@ from .exchange import ExchangeError, build_exchange_capsule, verify_exchange_cap
 from .reviewers import ReviewAnalyticsError, build_reviewer_analytics, load_reviews
 from .freshness import FreshnessError, build_freshness_assessment, load_report_for_freshness
 from .robustness import RobustnessError, run_robustness_pack
+from .provenance import ProvenanceError, build_policy_provenance, load_policy, verify_policy_provenance
 from .controls import CONTROL_PACK_VERSION
 from .reporting import report_dict
 
@@ -204,6 +205,16 @@ def build_parser() -> argparse.ArgumentParser:
     robustness.add_argument("--vendor", required=True, choices=("cisco_ios", "junos", "firewall_generic", "arista_eos", "linux_nftables"))
     robustness.add_argument("--max-cases", type=int, default=8)
     robustness.add_argument("--out", type=Path, required=True)
+    provenance = sub.add_parser("policy-provenance", help="compile hash-linked policy provenance")
+    provenance.add_argument("policy_input", type=Path)
+    provenance.add_argument("--report", type=Path)
+    provenance.add_argument("--source-label", default="local-policy-file")
+    provenance.add_argument("--out", type=Path, required=True)
+    provenance_verify = sub.add_parser("policy-provenance-verify", help="verify policy provenance against source inputs")
+    provenance_verify.add_argument("provenance_input", type=Path)
+    provenance_verify.add_argument("policy_input", type=Path)
+    provenance_verify.add_argument("--report", type=Path)
+    provenance_verify.add_argument("--out", type=Path, required=True)
     sensitive.add_argument("file", type=Path)
     sensitive.add_argument("--format", choices=("markdown", "json"), default="markdown")
     sensitive.add_argument("--out", type=Path, required=True)
@@ -837,6 +848,35 @@ def run_parser_robustness(args: argparse.Namespace) -> int:
     return 0 if pack["summary"]["passed"] else 1
 
 
+def run_policy_provenance(args: argparse.Namespace) -> int:
+    try:
+        policy = load_policy(args.policy_input)
+        report = load_report(args.report) if args.report else None
+        provenance = build_policy_provenance(policy, report=report, source_label=args.source_label)
+        args.out.parent.mkdir(parents=True, exist_ok=True)
+        args.out.write_text(json.dumps(provenance, indent=2, sort_keys=True) + "\n", encoding="utf-8", newline="\n")
+    except (OSError, UnicodeDecodeError, json.JSONDecodeError, ValueError, ProvenanceError, PolicyValidationError, EvidenceGraphError) as exc:
+        print(f"Policy provenance rejected: {exc}", file=sys.stderr)
+        return 2
+    print(f"policy_provenance={args.out} rules={provenance['summary']['rule_count']} findings={provenance['summary']['finding_lineage_count']} policy_activated={provenance['safety']['policy_activation']}")
+    return 0
+
+
+def run_policy_provenance_verify(args: argparse.Namespace) -> int:
+    try:
+        provenance = json.loads(args.provenance_input.read_text(encoding="utf-8"))
+        policy = load_policy(args.policy_input)
+        report = load_report(args.report) if args.report else None
+        result = verify_policy_provenance(provenance, policy, report=report)
+        args.out.parent.mkdir(parents=True, exist_ok=True)
+        args.out.write_text(json.dumps(result, indent=2, sort_keys=True) + "\n", encoding="utf-8", newline="\n")
+    except (OSError, UnicodeDecodeError, json.JSONDecodeError, ValueError, ProvenanceError, PolicyValidationError, EvidenceGraphError) as exc:
+        print(f"Policy provenance verification rejected: {exc}", file=sys.stderr)
+        return 2
+    print(f"policy_provenance_verify={args.out} verified={result['verified']} mismatches={len(result['mismatches'])}")
+    return 0 if result["verified"] else 1
+
+
 def run_remediation_proof(args: argparse.Namespace) -> int:
     try:
         proof = build_proof_bundle(load_report(args.report_input))
@@ -1029,6 +1069,10 @@ def main(argv: list[str] | None = None) -> int:
         return run_assurance_freshness(args)
     if args.command == "parser-robustness":
         return run_parser_robustness(args)
+    if args.command == "policy-provenance":
+        return run_policy_provenance(args)
+    if args.command == "policy-provenance-verify":
+        return run_policy_provenance_verify(args)
     if args.command == "remediation-proof-verify":
         return run_remediation_proof_verify(args)
     if args.command == "webhook-enqueue":

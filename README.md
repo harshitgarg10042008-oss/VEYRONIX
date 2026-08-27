@@ -602,3 +602,15 @@ PYTHONPATH=src:. python -m configsentinel.cli parser-robustness configs/edge.cfg
 ```
 
 A parser crash is a robustness failure. A semantic deviation is retained as a review-visible signal rather than normalized away, while oversized inputs are bounded. The pack does not mutate the parser registry, generate patches, execute configuration, make network requests, or change compliance verdicts; raw mutated configuration and exception messages are excluded from the artifact.
+
+
+## SentinelProof S14: Policy Provenance Compiler
+
+The policy provenance compiler turns a validated custom policy pack into a hash-linked provenance graph. It records the pack identity, rule index, control intent, severity, applicability, framework-mapping digests, remediation-intent digests, and—when a report is supplied—the observed finding lineage and evidence-span hashes. Regex text, remediation text, raw configuration, and raw evidence are deliberately omitted.
+
+```bash
+PYTHONPATH=src:. python -m configsentinel.cli policy-provenance policy.json --report reports/edge.json --source-label sih-demo-policy --out reports/edge.policy-provenance.json
+PYTHONPATH=src:. python -m configsentinel.cli policy-provenance-verify reports/edge.policy-provenance.json policy.json --report reports/edge.json --out reports/edge.policy-provenance.verify.json
+```
+
+Verification recomputes the validated policy and report lineage and reports mismatches rather than silently accepting drift. Provenance compilation does not activate or install a policy, does not produce executable commands, does not alter findings, and does not make network requests. `policy_activation` and `verdicts_changed` remain `false` by construction.
