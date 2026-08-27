@@ -1,4 +1,4 @@
-# ConfigSentinel AI — SIH 26155 Execution Checklist
+# VEYRONIX — SIH 26155 Execution Checklist
 
 > **VEYRONIX milestone status:** Repository Phases 1–7 are complete. Phase 7 delivered the SIH presentation and submission package. The implementation sequence is re-baselined so the next coding milestone is **Phase 8 — Framework Mapping and Reporting**, because the original checklist’s LLM-copilot work was already delivered in the earlier SDK/LLM milestone.
 
@@ -18,7 +18,7 @@
 | 10 | COMPLETE | Advanced system hardening, resource budgets, safe output paths, metrics, and performance benchmarks |
 | 11 | COMPLETE (release docs) | Deployment guidance, production-release gates, environment policy, rollback, and operational runbooks |
 | 12 | COMPLETE (local demo) | Offline-first local demonstration, deterministic scenarios, one-command validation, safety evidence, and presenter runbook |
-| 13 | PLANNED | Final production-readiness gate |
+| 13 | COMPLETE | Final production-readiness gate and integrated operator workbench; see `docs/PHASE_13_20_COMPLETION.md` for post-MVP local-first gates |
 
 ## Phase 8 acceptance gate
 
@@ -37,13 +37,13 @@
 ---
 
 **Problem statement:** SIH 2026 — 26155
-**Product:** ConfigSentinel AI
+**Product:** VEYRONIX (ConfigSentinel AI SDK)
 **Purpose:** Build a secure, evidence-grounded, multi-vendor network security compliance auditor with an LLM copilot and reusable SDK.
-**GitHub policy:** This file is local only. No GitHub push, commit, branch, pull request, or repository change is performed by Manus.
+**GitHub policy:** Repository changes are authorized for this implementation task. The final commit and push are performed only after the documented acceptance commands pass.
 
 ## Phase count
 
-The implementation has **14 execution phases**, numbered **Phase 0 through Phase 13**. The project reaches **100% MVP readiness only after Phase 13 passes**. After that, the roadmap contains **30 expansion features** that must not destabilize the judged MVP.
+The implementation has **14 MVP execution phases**, numbered **Phase 0 through Phase 13**. The project reaches **100% MVP readiness only after Phase 13 passes**. The local-first post-MVP delivery gates through Phase 20 are tracked in [`docs/PHASE_13_20_COMPLETION.md`](PHASE_13_20_COMPLETION.md), with cloud controls and enterprise integrations kept as explicit extension seams rather than unshipped claims.
 
 | Phase | Name | Readiness contribution |
 |---:|---|---:|

@@ -112,3 +112,26 @@ Detailed phase documentation is available in [`docs/`](docs/). Start with the [P
 ## Project status
 
 This is an alpha hackathon prototype. It is suitable for controlled demonstrations and local evaluation. Before production use, add organization-specific controls, independent parser validation, authenticated multi-user access, secrets-management integration, formal change approval, and a separately reviewed device-application service.
+
+
+## Local operator workbench
+
+The React/Tailwind operator workbench is included under [`frontend/`](frontend/). It is a local review surface for audit posture, findings, evidence line references, framework mappings, unknown-syntax review, and preview-only remediation. It intentionally does not connect to live devices or execute generated commands.
+
+```bash
+cd frontend
+pnpm install --frozen-lockfile
+pnpm dev
+```
+
+For the final local delivery gate, run:
+
+```bash
+python -m pytest
+python -m compileall -q src tests examples
+python -m build
+cd frontend && pnpm install --frozen-lockfile && pnpm run check && pnpm run build
+PYTHONPATH=src python examples/local_demo.py
+```
+
+See [`docs/PHASE_13_20_COMPLETION.md`](docs/PHASE_13_20_COMPLETION.md) for the re-baselined Phase 13–20 completion record and the explicit boundary between shipped local-first behavior and future enterprise integrations.
