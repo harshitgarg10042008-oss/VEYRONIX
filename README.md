@@ -295,3 +295,13 @@ The `evidence-graph` command projects a JSON audit report into a deterministic g
 ```bash
 configsentinel evidence-graph reports/edge.json --out reports/edge-evidence-graph.json
 ```
+
+
+## Expanded sensitive-data scanning
+
+The `sensitive-scan` command detects additional secret classes before storage, export, or model use, including AWS access keys, private-key blocks, JWTs, bearer and basic credentials, SNMP communities, database connection strings, and cloud secret assignments. Results contain only line numbers and redacted excerpts, plus the original input hash; raw values are never printed by the scanner.
+
+```bash
+configsentinel sensitive-scan ./configs/edge.conf --format markdown --out reports/edge-sensitive.md
+configsentinel sensitive-scan ./configs/edge.conf --format json --out reports/edge-sensitive.json
+```

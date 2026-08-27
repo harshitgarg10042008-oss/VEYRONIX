@@ -22,6 +22,7 @@ from .auditlog import AuditLogError, AuditTrail, sign_envelope
 from .executive import build_executive_report, render_executive_json, render_executive_markdown
 from .analytics import AnalyticsError, analyze_history, load_history, write_history_analytics
 from .evidence_graph import EvidenceGraphError, build_evidence_graph, load_report, write_graph
+from .sensitive import render_sensitive_scan, scan_sensitive
 
 
 def build_parser() -> argparse.ArgumentParser:
@@ -88,6 +89,10 @@ def build_parser() -> argparse.ArgumentParser:
     graph = sub.add_parser("evidence-graph", help="project an audit report into an evidence graph")
     graph.add_argument("json_input", type=Path)
     graph.add_argument("--out", type=Path, required=True)
+    sensitive = sub.add_parser("sensitive-scan", help="scan a configuration for sensitive markers")
+    sensitive.add_argument("file", type=Path)
+    sensitive.add_argument("--format", choices=("markdown", "json"), default="markdown")
+    sensitive.add_argument("--out", type=Path, required=True)
     return parser
 
 
@@ -174,6 +179,20 @@ def run_batch(args: argparse.Namespace) -> int:
         args.json_out.parent.mkdir(parents=True, exist_ok=True)
         args.json_out.write_text(json.dumps(payload, indent=2, sort_keys=True) + "\n", encoding="utf-8")
         print(f"json_report={args.json_out}")
+    return 0
+
+
+def run_sensitive_scan(args: argparse.Namespace) -> int:
+    try:
+        text = args.file.read_text(encoding="utf-8")
+        scan = scan_sensitive(text)
+        rendered = json.dumps(scan.as_dict(), indent=2, sort_keys=True) + "\n" if args.format == "json" else render_sensitive_scan(scan)
+        args.out.parent.mkdir(parents=True, exist_ok=True)
+        args.out.write_text(rendered, encoding="utf-8")
+    except (OSError, UnicodeDecodeError, ValueError) as exc:
+        print(f"Sensitive scan rejected: {exc}", file=sys.stderr)
+        return 2
+    print(f"sensitive_scan={args.out} hits={scan.count} input_sha256={scan.input_sha256}")
     return 0
 
 
@@ -299,6 +318,8 @@ def main(argv: list[str] | None = None) -> int:
         return run_history_analyze(args)
     if args.command == "evidence-graph":
         return run_evidence_graph(args)
+    if args.command == "sensitive-scan":
+        return run_sensitive_scan(args)
     if args.command == "approval-request":
         return run_approval_request(args)
     if args.command == "approval-decide":
