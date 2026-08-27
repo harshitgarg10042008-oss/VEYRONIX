@@ -33,6 +33,7 @@ from .exceptions import ExceptionError, approve_exception, create_exception, loa
 from .topology import TopologyError, analyze_topology, write_topology_html
 from .demo import DemoError, compare_reports, render_guided_demo
 from .cache import AuditCache, CacheError
+from .siem import SiemError, render_siem
 from .controls import CONTROL_PACK_VERSION
 from .reporting import report_dict
 
@@ -165,6 +166,10 @@ def build_parser() -> argparse.ArgumentParser:
     cached.add_argument("--framework", action="append", dest="frameworks", default=None)
     cached.add_argument("--cache-dir", type=Path, required=True)
     cached.add_argument("--json-out", type=Path, required=True)
+    siem = sub.add_parser("siem-export", help="write local SIEM-compatible finding events")
+    siem.add_argument("json_input", type=Path)
+    siem.add_argument("--format", choices=("jsonl", "cef", "leef"), default="jsonl")
+    siem.add_argument("--out", type=Path, required=True)
     return parser
 
 
@@ -251,6 +256,18 @@ def run_batch(args: argparse.Namespace) -> int:
         args.json_out.parent.mkdir(parents=True, exist_ok=True)
         args.json_out.write_text(json.dumps(payload, indent=2, sort_keys=True) + "\n", encoding="utf-8")
         print(f"json_report={args.json_out}")
+    return 0
+
+
+def run_siem_export(args: argparse.Namespace) -> int:
+    try:
+        rendered = render_siem(load_report(args.json_input), fmt=args.format)
+        args.out.parent.mkdir(parents=True, exist_ok=True)
+        args.out.write_text(rendered, encoding="utf-8", newline="\n")
+    except (OSError, ValueError, SiemError, EvidenceGraphError) as exc:
+        print(f"SIEM export rejected: {exc}", file=sys.stderr)
+        return 2
+    print(f"siem_export={args.out} format={args.format} submission=not_performed")
     return 0
 
 
@@ -611,6 +628,8 @@ def main(argv: list[str] | None = None) -> int:
         return run_demo_mode(args)
     if args.command == "cache-audit":
         return run_cached_audit(args)
+    if args.command == "siem-export":
+        return run_siem_export(args)
     if args.command == "approval-request":
         return run_approval_request(args)
     if args.command == "approval-decide":

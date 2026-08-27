@@ -381,6 +381,16 @@ The `demo-mode` command renders a self-contained, step-by-step HTML artifact for
 
 The `cache-audit` command stores serialized deterministic reports under a SHA-256 content key derived from the redacted configuration, vendor selection, framework selection, and rule-pack version. Repeating an unchanged audit produces a cache hit; changing any of those inputs produces a new entry. Cache writes are local, bounded, integrity-checked, and never contain the original unredacted input.
 
+## SIEM and structured event exports
+
+The `siem-export` command writes failed and review-required findings as local JSON Lines, CEF, or LEEF events. Events contain audit metadata, control identifiers, status, severity, confidence, and evidence counts, while excluding raw evidence excerpts and passing findings. Export is artifact generation only; no SIEM endpoint is contacted.
+
+```bash
+configsentinel siem-export reports/edge.json --format jsonl --out reports/edge.siem.jsonl
+configsentinel siem-export reports/edge.json --format cef --out reports/edge.cef
+configsentinel siem-export reports/edge.json --format leef --out reports/edge.leef
+```
+
 ```bash
 configsentinel cache-audit ./configs/edge.conf --vendor cisco_ios --cache-dir .configsentinel/cache --json-out reports/edge-cached.json
 ```
