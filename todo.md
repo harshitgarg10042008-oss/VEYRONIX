@@ -51,7 +51,7 @@
 - [x] 11 Multidimensional historical analytics.
 - [x] 12 Evidence graph view.
 - [x] 13 Expanded sensitive-data scanning.
-- [ ] 14 Offline explanation-provider seam.
+- [x] 14 Offline explanation-provider seam.
 - [ ] 15 REST, OpenAPI, and local webhook contracts.
 - [ ] 16 Ticketing export adapters.
 - [ ] 17 Topology and inventory import.

@@ -305,3 +305,8 @@ The `sensitive-scan` command detects additional secret classes before storage, e
 configsentinel sensitive-scan ./configs/edge.conf --format markdown --out reports/edge-sensitive.md
 configsentinel sensitive-scan ./configs/edge.conf --format json --out reports/edge-sensitive.json
 ```
+
+
+## Offline explanation provider
+
+`LLMCopilot.offline()` provides a no-network explanation seam for local demos and restricted environments. It consumes only the deterministic finding fields and redacted evidence excerpts, returns schema-validated descriptive text, and always preserves `REVIEW_REQUIRED` safety semantics. It cannot create, change, or authorize a compliance verdict, and the existing network provider remains opt-in through explicit configuration.

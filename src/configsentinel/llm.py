@@ -49,6 +49,26 @@ class LLMConfig:
         )
 
 
+class OfflineExplanationProvider:
+    """Local provider seam for deterministic, non-network explanations."""
+
+    def complete(self, *, system: str, user: str, response_schema: Mapping[str, Any], timeout_s: float) -> str:
+        try:
+            payload = json.loads(user)
+            finding = payload["finding"]
+        except (json.JSONDecodeError, KeyError, TypeError) as exc:
+            raise LLMError("offline explanation input is invalid") from exc
+        if not isinstance(finding, dict):
+            raise LLMError("offline explanation finding is invalid")
+        control_id = str(finding.get("control_id", "unknown"))
+        status = str(finding.get("status", "REVIEW_REQUIRED"))
+        rationale = str(finding.get("rationale", "No deterministic rationale supplied."))[:1000]
+        evidence = finding.get("evidence", [])
+        excerpts = [str(item)[:300] for item in evidence if isinstance(item, str)]
+        evidence_note = f" Evidence: {'; '.join(excerpts)}" if excerpts else ""
+        return json.dumps({"explanation": f"Deterministic finding {control_id} is {status}. {rationale}{evidence_note}", "confidence": 1.0, "evidence_needed": [] if finding.get("status") in {"PASS", "FAIL"} else ["Operator review of the supplied configuration evidence"], "safety_status": "REVIEW_REQUIRED"})
+
+
 class OpenAICompatibleProvider:
     """Minimal stdlib provider for OpenAI-compatible chat-completions APIs."""
 
@@ -109,6 +129,11 @@ class LLMCopilot:
         self.redactor = redactor or SecretRedactor()
         self.prompt_version = "1.0.0"
 
+    @classmethod
+    def offline(cls, redactor: SecretRedactor | None = None) -> "LLMCopilot":
+        """Create a no-network copilot whose output remains review-only."""
+        return cls(provider=OfflineExplanationProvider(), config=LLMConfig(enabled=True), redactor=redactor)
+
     def explain_finding(self, finding: Finding, configuration_context: str) -> LLMExplanation:
         if finding.status.value not in {"PASS", "FAIL", "UNKNOWN", "REVIEW_REQUIRED"}:
             raise LLMError("unsupported finding status for explanation")
@@ -134,6 +159,7 @@ class LLMCopilot:
                 "observed_state": finding.observed_state,
                 "expected_state": finding.expected_state,
                 "rationale": finding.rationale,
+                "evidence": [span.excerpt for span in finding.evidence],
             },
             "redacted_configuration_context": bounded,
             "task": "Explain the finding, identify any additional evidence needed, and mark safety_status REVIEW_REQUIRED unless the explanation is purely descriptive.",
