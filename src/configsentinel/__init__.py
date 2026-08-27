@@ -6,6 +6,7 @@ from .controls import CONTROL_PACK, CONTROL_PACK_VERSION, evaluate
 from .engine import DeterministicComplianceEngine
 from .frameworks import FRAMEWORKS, REGISTRY_VERSION, FrameworkDefinition, get_framework, mappings_for_finding, normalize_frameworks
 from .ingestion import ConfigIngestionService, IngestedConfig, IngestionError, IngestionPolicy
+from .learning import ApprovedMapping, LearningLoopError, ReviewDecision, ReviewEvent, SyntaxProposal, UnknownSyntaxCase, UnknownSyntaxQueue
 from .parsers import CiscoIOSParser, GenericFirewallParser, JunosParser, PARSER_REGISTRY, detect_and_parse
 from .llm import EXPLANATION_SCHEMA, LLMConfig, LLMCopilot, LLMError, OpenAICompatibleProvider
 from .remediation import RemediationBundle, RemediationError, RemediationStep, generate_bundle, previews
@@ -30,7 +31,7 @@ __all__ = [
     "GenericFirewallParser", "FixtureAuditEngine", "LLMConfig", "LLMCopilot", "LLMError", "LLMExplanation", "JunosParser",
     "OpenAICompatibleProvider", "PARSER_REGISTRY", "ParseResult", "ParserError", "RedactionResult", "RemediationBundle",
     "RemediationError", "RemediationStep", "RemediationPreview", "SecretRedactor", "evaluate", "Severity",
-    "assert_safe_for_llm", "generate_bundle", "previews", "FrameworkDefinition", "FRAMEWORKS", "REGISTRY_VERSION",
+    "assert_safe_for_llm", "generate_bundle", "previews", "ApprovedMapping", "LearningLoopError", "ReviewDecision", "ReviewEvent", "SyntaxProposal", "UnknownSyntaxCase", "UnknownSyntaxQueue", "FrameworkDefinition", "FRAMEWORKS", "REGISTRY_VERSION",
     "get_framework", "mappings_for_finding", "normalize_frameworks", "REPORT_VERSION", "report_dict", "render_json",
     "render_markdown", "write_report",
 ]
