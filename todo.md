@@ -97,6 +97,6 @@
 - [x] S10 Privacy-Preserving Audit Exchange.
 - [x] S11 Reviewer Disagreement Analytics.
 - [x] S12 Assurance Drift and Freshness Decay.
-- [ ] S13 Adversarial Parser Robustness Pack.
+- [x] S13 Adversarial Parser Robustness Pack.
 - [ ] S14 Policy Provenance Compiler.
 - [ ] Final complete SentinelProof acceptance and completion report.

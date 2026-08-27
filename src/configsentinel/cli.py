@@ -49,6 +49,7 @@ from .proof import ProofError, build_proof_bundle, verify_proof_bundle
 from .exchange import ExchangeError, build_exchange_capsule, verify_exchange_capsule
 from .reviewers import ReviewAnalyticsError, build_reviewer_analytics, load_reviews
 from .freshness import FreshnessError, build_freshness_assessment, load_report_for_freshness
+from .robustness import RobustnessError, run_robustness_pack
 from .controls import CONTROL_PACK_VERSION
 from .reporting import report_dict
 
@@ -198,6 +199,11 @@ def build_parser() -> argparse.ArgumentParser:
     freshness.add_argument("--ttl-hours", type=float, default=24.0)
     freshness.add_argument("--baseline", type=Path)
     freshness.add_argument("--out", type=Path, required=True)
+    robustness = sub.add_parser("parser-robustness", help="run bounded adversarial robustness cases against a parser")
+    robustness.add_argument("file", type=Path)
+    robustness.add_argument("--vendor", required=True, choices=("cisco_ios", "junos", "firewall_generic", "arista_eos", "linux_nftables"))
+    robustness.add_argument("--max-cases", type=int, default=8)
+    robustness.add_argument("--out", type=Path, required=True)
     sensitive.add_argument("file", type=Path)
     sensitive.add_argument("--format", choices=("markdown", "json"), default="markdown")
     sensitive.add_argument("--out", type=Path, required=True)
@@ -819,6 +825,18 @@ def run_assurance_freshness(args: argparse.Namespace) -> int:
     return 0
 
 
+def run_parser_robustness(args: argparse.Namespace) -> int:
+    try:
+        pack = run_robustness_pack(args.file.read_text(encoding="utf-8"), vendor=args.vendor, max_cases=args.max_cases)
+        args.out.parent.mkdir(parents=True, exist_ok=True)
+        args.out.write_text(json.dumps(pack, indent=2, sort_keys=True) + "\n", encoding="utf-8", newline="\n")
+    except (OSError, UnicodeDecodeError, ValueError, RobustnessError) as exc:
+        print(f"Parser robustness rejected: {exc}", file=sys.stderr)
+        return 2
+    print(f"parser_robustness={args.out} cases={pack['summary']['case_count']} crashes={pack['summary']['crash_count']} passed={pack['summary']['passed']} verdicts_changed={pack['safety']['verdicts_changed']}")
+    return 0 if pack["summary"]["passed"] else 1
+
+
 def run_remediation_proof(args: argparse.Namespace) -> int:
     try:
         proof = build_proof_bundle(load_report(args.report_input))
@@ -1009,6 +1027,8 @@ def main(argv: list[str] | None = None) -> int:
         return run_reviewer_analytics(args)
     if args.command == "assurance-freshness":
         return run_assurance_freshness(args)
+    if args.command == "parser-robustness":
+        return run_parser_robustness(args)
     if args.command == "remediation-proof-verify":
         return run_remediation_proof_verify(args)
     if args.command == "webhook-enqueue":

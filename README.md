@@ -591,3 +591,14 @@ PYTHONPATH=src:. python -m configsentinel.cli assurance-freshness reports/edge.j
 ```
 
 Freshness and drift are assurance signals, not compliance verdicts. `AGING`, `EXPIRED`, and `DRIFTED` require a new review or deterministic re-audit, while `verdicts_changed` remains `false`. No live device query occurs, no raw configuration or evidence is copied, and the tool rejects ambiguous timestamps and future-dated evaluations.
+
+
+## SentinelProof S13: Adversarial Parser Robustness Pack
+
+The robustness pack subjects an explicitly selected supported parser to a deterministic corpus of adversarial inputs: line-ending changes, missing final newlines, BOMs, long unknown lines, embedded NULs, Unicode confusables, and duplicated payloads. Each case records only an input hash, size, parser outcome, warning/unknown counts, and semantic-field deltas against the baseline.
+
+```bash
+PYTHONPATH=src:. python -m configsentinel.cli parser-robustness configs/edge.cfg --vendor cisco_ios --max-cases 8 --out reports/edge.parser-robustness.json
+```
+
+A parser crash is a robustness failure. A semantic deviation is retained as a review-visible signal rather than normalized away, while oversized inputs are bounded. The pack does not mutate the parser registry, generate patches, execute configuration, make network requests, or change compliance verdicts; raw mutated configuration and exception messages are excluded from the artifact.
