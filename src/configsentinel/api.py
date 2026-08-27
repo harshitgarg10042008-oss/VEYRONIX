@@ -50,7 +50,7 @@ class AuditApi:
 
 
 def create_app(*, allowed_origins: list[str] | None = None) -> FastAPI:
-    app = FastAPI(title="ConfigSentinel AI Local Audit API", version="0.3.0")
+    app = FastAPI(title="ConfigSentinel AI Local Audit API", version="0.4.0", description="Evidence-backed, deterministic configuration compliance auditing. No device connections or remote mutation.", openapi_tags=[{"name": "audit", "description": "Deterministic audit and vendor detection operations."}, {"name": "webhooks", "description": "Local event contract; delivery is intentionally external."}])
     origins = allowed_origins or ["http://localhost:3000", "http://127.0.0.1:3000"]
     app.add_middleware(
         CORSMiddleware,
@@ -65,14 +65,22 @@ def create_app(*, allowed_origins: list[str] | None = None) -> FastAPI:
     def health() -> dict[str, str | bool]:
         return {"status": "ok", "deterministic": True, "device_connections": False, "llm_enabled": False}
 
-    @app.post("/api/audit")
+    @app.post("/api/audit", tags=["audit"])
     def audit(payload: AuditPayload) -> dict[str, Any]:
         return service.audit(payload)
 
-    @app.post("/api/detect")
+    @app.post("/api/v1/audit", tags=["audit"])
+    def audit_v1(payload: AuditPayload) -> dict[str, Any]:
+        return service.audit(payload)
+
+    @app.post("/api/detect", tags=["audit"])
     def detect(payload: dict[str, str]) -> dict[str, Any]:
         result = detect_vendor(payload.get("config_text", ""))
         return {"selected_vendor": result.selected_vendor, "confidence": result.confidence, "ambiguous": result.ambiguous, "reason": result.reason, "candidates": [candidate.__dict__ for candidate in result.candidates]}
+
+    @app.get("/api/v1/health", tags=["audit"])
+    def health_v1() -> dict[str, str | bool]:
+        return health()
 
     return app
 

@@ -23,6 +23,7 @@ from .executive import build_executive_report, render_executive_json, render_exe
 from .analytics import AnalyticsError, analyze_history, load_history, write_history_analytics
 from .evidence_graph import EvidenceGraphError, build_evidence_graph, load_report, write_graph
 from .sensitive import render_sensitive_scan, scan_sensitive
+from .webhooks import LocalWebhookQueue, WebhookError, make_audit_event
 
 
 def build_parser() -> argparse.ArgumentParser:
@@ -93,6 +94,9 @@ def build_parser() -> argparse.ArgumentParser:
     sensitive.add_argument("file", type=Path)
     sensitive.add_argument("--format", choices=("markdown", "json"), default="markdown")
     sensitive.add_argument("--out", type=Path, required=True)
+    webhook = sub.add_parser("webhook-enqueue", help="enqueue a redacted audit-completed event locally")
+    webhook.add_argument("json_input", type=Path)
+    webhook.add_argument("--queue", type=Path, required=True)
     return parser
 
 
@@ -179,6 +183,17 @@ def run_batch(args: argparse.Namespace) -> int:
         args.json_out.parent.mkdir(parents=True, exist_ok=True)
         args.json_out.write_text(json.dumps(payload, indent=2, sort_keys=True) + "\n", encoding="utf-8")
         print(f"json_report={args.json_out}")
+    return 0
+
+
+def run_webhook_enqueue(args: argparse.Namespace) -> int:
+    try:
+        event = make_audit_event(load_report(args.json_input))
+        LocalWebhookQueue(args.queue).enqueue(event)
+    except (OSError, ValueError, WebhookError, EvidenceGraphError) as exc:
+        print(f"Webhook enqueue rejected: {exc}", file=sys.stderr)
+        return 2
+    print(f"webhook_queue={args.queue} event={event.event_type} payload_sha256={event.payload_sha256}")
     return 0
 
 
@@ -320,6 +335,8 @@ def main(argv: list[str] | None = None) -> int:
         return run_evidence_graph(args)
     if args.command == "sensitive-scan":
         return run_sensitive_scan(args)
+    if args.command == "webhook-enqueue":
+        return run_webhook_enqueue(args)
     if args.command == "approval-request":
         return run_approval_request(args)
     if args.command == "approval-decide":

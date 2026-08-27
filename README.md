@@ -310,3 +310,9 @@ configsentinel sensitive-scan ./configs/edge.conf --format json --out reports/ed
 ## Offline explanation provider
 
 `LLMCopilot.offline()` provides a no-network explanation seam for local demos and restricted environments. It consumes only the deterministic finding fields and redacted evidence excerpts, returns schema-validated descriptive text, and always preserves `REVIEW_REQUIRED` safety semantics. It cannot create, change, or authorize a compliance verdict, and the existing network provider remains opt-in through explicit configuration.
+
+## REST, OpenAPI, and local webhook contracts
+
+The local FastAPI adapter exposes the existing `/api/audit` and `/api/detect` routes plus stable `/api/v1/audit` and `/api/v1/health` aliases. The generated OpenAPI document is available at `/openapi.json` when the local server is running, and explicitly describes the deterministic, non-mutating audit surface.
+
+Audit completion events can be written to a local JSON Lines queue with `configsentinel webhook-enqueue REPORT.json --queue .configsentinel/webhooks.jsonl`. Each event contains only audit metadata, summary data, finding identifiers, and a SHA-256 digest of the canonical payload. The queue never performs outbound delivery; downstream ticketing or automation must consume it explicitly.
