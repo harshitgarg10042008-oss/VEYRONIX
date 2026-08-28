@@ -112,3 +112,7 @@
 ## Frontend information architecture and visual redesign
 
 - [x] Research and redesign the dashboard information architecture, page views, settings, and light/dark theme system.
+
+## Light-mode rail correction
+
+- [x] Make the left navigation rail switch to the light palette when Light mode is active while preserving dark-mode contrast.

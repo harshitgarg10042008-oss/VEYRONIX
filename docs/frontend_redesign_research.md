@@ -31,3 +31,5 @@ The preview verified that `/audits` is a distinct audit workspace with upload, r
 Preview verification also confirmed that the Dark theme changes the full shell and settings surfaces, with the top-bar control switching to `Light`. The `/review-queue` route has a distinct evidence-gap headline, unresolved counter, review guidance, and an `Open audits` escape action rather than repeating Overview.
 
 The preview verified that `/control-packs` renders a deterministic rules catalog with active pack version, control count, vendor coverage, AI role, and hash-addressed provenance. `/remediation` renders a proof-carrying review surface with an explicit non-executable boundary, operator approval requirement, and empty-state behavior when no failing controls exist.
+
+Theme verification confirmed that selecting Light now changes the navigation rail from deep graphite to a pale slate surface, with dark readable labels and the same orange active marker. The main content remains light, while Dark mode retains the graphite rail.
