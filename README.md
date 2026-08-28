@@ -134,7 +134,7 @@ cd frontend && pnpm install --frozen-lockfile && pnpm run check && pnpm run buil
 PYTHONPATH=src python examples/local_demo.py
 ```
 
-See [`docs/PHASE_13_20_COMPLETION.md`](docs/PHASE_13_20_COMPLETION.md) for the re-baselined Phase 13–20 completion record and the explicit boundary between shipped local-first behavior and future enterprise integrations.
+See [`docs/PHASE_13_20_COMPLETION.md`](docs/PHASE_13_20_COMPLETION.md) for the re-baselined Phase 13–20 completion record and the explicit boundary between shipped local-first behavior and future enterprise integrations. The strict implementation audit and remaining SIH score gaps are recorded in [`SIH_STRICT_AUDIT.md`](SIH_STRICT_AUDIT.md).
 
 
 ## Live dashboard wiring
@@ -154,12 +154,12 @@ pnpm install --frozen-lockfile
 VITE_API_BASE_URL=http://127.0.0.1:8000 pnpm dev
 ```
 
-The dashboard loads the same evidence-backed report shape used by JSON and Markdown exports. Its filters narrow the visible set by severity, status, and framework mapping; the PDF action exports the current posture metrics plus the currently visible findings, evidence excerpts, input hash, mappings, and safety note. If the API is unavailable, the interface stays explicit about the offline state instead of displaying fabricated audit data.
+The dashboard loads the same evidence-backed report shape used by JSON and Markdown exports. Its filters narrow the visible set by severity, status, and framework mapping; the PDF action exports the current posture metrics plus the currently visible findings, evidence excerpts, input hash, mappings, and safety note. If the API is unavailable, the interface stays explicit about the offline state instead of displaying fabricated audit data. Vendor selection for uploads is performed by the backend `/api/detect` contract, and the Control Packs view reads the live deterministic registry from `/api/control-pack` rather than duplicating rule names in the browser.
 
 
 ## Configuration uploads and audit history
 
-The dashboard accepts `.cfg`, `.conf`, `.config`, and `.txt` configuration files up to 2 MB. Files are read in the browser and submitted only to the configured local API; no device connection is created by upload. The backend remains responsible for redaction and deterministic evaluation.
+The dashboard accepts `.cfg`, `.conf`, `.config`, and `.txt` configuration files up to 2 MB. Files are read in the browser and submitted only to the configured local API; no device connection is created by upload. The backend remains responsible for redaction and deterministic evaluation. The API also rejects NUL bytes, invalid UTF-8 at ingestion boundaries, oversized lines, and requests beyond its 5 MiB text limit.
 
 Completed reports are stored in browser `localStorage` under a versioned ConfigSentinel AI key, capped at the most recent 20 snapshots. History stays on the operator’s machine and is not uploaded or synchronized. The Finding trend panel derives its failure and unknown series exclusively from those saved report summaries. Selecting a point loads that historical snapshot back into the evidence workbench.
 
@@ -228,6 +228,8 @@ PYTHONPATH=src python -m configsentinel.cli gitops-check --repo . --base <BASE_S
 ```
 
 The repository includes `.github/workflows/gitops-gate.yml` for pull-request execution. Ambiguous or unsupported vendor detection fails closed, so an operator must provide an explicit vendor in a local run when a change cannot be classified safely.
+
+For a controlled deployment of the local API, set `CONFIGSENTINEL_API_TOKEN` to enable bearer authentication for audit, detection, and control-pack endpoints; health endpoints remain available for liveness checks. The default server bind remains `127.0.0.1`, and production exposure still requires TLS termination, rate limiting, identity integration, and organization-specific retention controls.
 
 
 ## Approved baselines and drift detection

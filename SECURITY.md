@@ -14,6 +14,12 @@ Do not publish sensitive details in a public issue. Contact the VEYRONIX maintai
 
 Never commit `.env` files, provider keys, private keys, raw production configurations, or unredacted audit outputs. Use environment variables or an approved secret manager for local experiments. The repository `.gitignore` blocks common local secret and cache files, but users remain responsible for checking staged changes before committing.
 
+## API deployment boundary
+
+The local FastAPI adapter is intentionally unauthenticated when used on its default loopback bind. For a controlled non-loopback deployment, set `CONFIGSENTINEL_API_TOKEN`; audit, detection, and control-pack endpoints then require `Authorization: Bearer <token>`, while health endpoints remain available for liveness checks. This token mode is a minimum boundary, not a substitute for an organization’s identity provider.
+
+Any production exposure also requires TLS termination, rate limiting, structured request/audit logging, secret-manager integration, tenant isolation, retention controls, and an independent security review. Do not expose the development server directly to the public internet.
+
 ## Model safety
 
 LLM output is untrusted data. Keep the deterministic compliance engine authoritative, validate structured output, maintain input and prompt version metadata, and never execute model-generated commands. Disable the copilot when the data-flow approval or privacy boundary is unclear.
