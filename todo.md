@@ -100,3 +100,7 @@
 - [x] S13 Adversarial Parser Robustness Pack.
 - [x] S14 Policy Provenance Compiler.
 - [x] Final complete SentinelProof acceptance and completion report.
+
+## Local startup convenience
+
+- [x] Add and validate a one-file Windows launcher for the local backend and frontend.

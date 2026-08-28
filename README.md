@@ -614,3 +614,10 @@ PYTHONPATH=src:. python -m configsentinel.cli policy-provenance-verify reports/e
 ```
 
 Verification recomputes the validated policy and report lineage and reports mismatches rather than silently accepting drift. Provenance compilation does not activate or install a policy, does not produce executable commands, does not alter findings, and does not make network requests. `policy_activation` and `verdicts_changed` remain `false` by construction.
+
+
+## One-file Windows startup
+
+After the first-time Python and frontend installation is complete, Windows operators can start the local workbench by double-clicking `start-local.bat` in the repository root. The launcher validates that `.venv`, `examples/api_server.py`, and `frontend/package.json` exist, opens the backend and frontend in separate PowerShell windows, configures the local API URL, and opens `http://localhost:3000/` in the browser. It performs no Git operation, device connection, configuration application, or external submission.
+
+If a server is already running, stop it with `Ctrl+C` in its PowerShell window before launching again. The launcher is intended for the local SIH demonstration machine and assumes Python 3.12, the existing `.venv`, and `pnpm` have already been installed.
