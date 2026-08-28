@@ -104,3 +104,7 @@
 ## Local startup convenience
 
 - [x] Add and validate a one-file Windows launcher for the local backend and frontend.
+
+## Logo rendering correction
+
+- [x] Remove the visible logo background box/border and correct the ConfigSentinel AI mark rendering.
