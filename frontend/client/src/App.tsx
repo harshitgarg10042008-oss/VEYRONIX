@@ -1,4 +1,4 @@
-/* VEYRONIX Operator's Blueprint: persistent workbench shell with explicit local-demo boundaries. */
+/* Graphite Signal Console: real route-backed views, explicit local boundaries, accessible theme switching. */
 import { Toaster } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import NotFound from "@/pages/NotFound";
@@ -11,6 +11,12 @@ function Router() {
   return (
     <Switch>
       <Route path="/" component={Home} />
+      <Route path="/audits" component={Home} />
+      <Route path="/review-queue" component={Home} />
+      <Route path="/control-packs" component={Home} />
+      <Route path="/remediation" component={Home} />
+      <Route path="/settings" component={Home} />
+      <Route path="/operator-guide" component={Home} />
       <Route path="/404" component={NotFound} />
       <Route component={NotFound} />
     </Switch>
@@ -20,7 +26,7 @@ function Router() {
 export default function App() {
   return (
     <ErrorBoundary>
-      <ThemeProvider defaultTheme="light">
+      <ThemeProvider defaultTheme="light" switchable>
         <TooltipProvider>
           <Toaster />
           <Router />

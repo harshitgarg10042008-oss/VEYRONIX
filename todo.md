@@ -108,3 +108,7 @@
 ## Logo rendering correction
 
 - [x] Remove the visible logo background box/border and correct the ConfigSentinel AI mark rendering.
+
+## Frontend information architecture and visual redesign
+
+- [x] Research and redesign the dashboard information architecture, page views, settings, and light/dark theme system.
