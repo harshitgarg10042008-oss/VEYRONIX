@@ -159,20 +159,23 @@ class GenericFirewallParser:
     def parse(self, text: str) -> ParseResult:
         evidence: dict[str, list[EvidenceSpan]] = {}
         unknown: list[EvidenceSpan] = []
+        telnet = ssh = http = None
         for no, raw in enumerate(text.splitlines(), 1):
             line = raw.strip().lower()
             if not line or line.startswith(("#", "!")):
                 continue
             if "telnet" in line and ("enable" in line or "allow" in line):
-                _add(evidence, "management_telnet_enabled", no, raw)
+                telnet = True; _add(evidence, "management_telnet_enabled", no, raw)
             elif "ssh" in line and ("enable" in line or "allow" in line):
-                _add(evidence, "management_ssh_enabled", no, raw)
+                ssh = True; _add(evidence, "management_ssh_enabled", no, raw)
             elif "https" in line and "admin" in line:
-                _add(evidence, "http_management_enabled", no, raw)
+                http = True; _add(evidence, "http_management_enabled", no, raw)
             else:
                 unknown.append(_span(no, raw))
         config = CanonicalConfig(
-            vendor="firewall", platform="generic", evidence={k: tuple(v) for k, v in evidence.items()},
+            vendor="firewall", platform="generic", 
+            management_telnet_enabled=telnet, management_ssh_enabled=ssh,
+            http_management_enabled=http, evidence={k: tuple(v) for k, v in evidence.items()},
             unknown_blocks=tuple(unknown), metadata={"plugin_id": self.plugin_id},
         )
         return ParseResult(config=config, warnings=tuple(f"Unsupported firewall line at {s.start_line}" for s in unknown), parser_version=self.parser_version)
