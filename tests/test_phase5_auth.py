@@ -183,3 +183,57 @@ def test_request_id_echoed_on_auth_failure(auth_client):
     assert response.status_code == 401
     # The supplied request-id must be echoed
     assert response.headers.get("x-request-id") == "trace-abc"
+
+
+# ---------------------------------------------------------------------------
+# 8. Session-based Auth & RBAC
+# ---------------------------------------------------------------------------
+
+
+def test_approval_request_requires_session(public_client):
+    """POST /api/approval/request must return 401 without a valid session."""
+    response = public_client.post(
+        "/api/approval/request",
+        json={"resource_id": "audit-123", "reason": "test"}
+    )
+    assert response.status_code == 401
+
+
+def test_login_creates_session_and_rbac_works(public_client):
+    """Logging in as operator allows request, logging in as reviewer allows approval, SoD prevents same user."""
+    # 1. Login as operator
+    response1 = public_client.post("/api/auth/login", json={"role": "operator"})
+    assert response1.status_code == 200
+    cookie_operator = response1.cookies.get("session_token")
+    assert cookie_operator
+
+    # 2. Request approval
+    req_res = public_client.post(
+        "/api/approval/request",
+        json={"resource_id": "res-999", "reason": "Test"},
+        cookies={"session_token": cookie_operator}
+    )
+    assert req_res.status_code == 200
+
+    # 3. Operator tries to approve their own request (should fail due to RBAC/SoD)
+    dec_res_fail = public_client.post(
+        "/api/approval/decision",
+        json={"resource_id": "res-999", "approve": True},
+        cookies={"session_token": cookie_operator}
+    )
+    assert dec_res_fail.status_code == 422
+    assert "only reviewers or administrators can decide" in dec_res_fail.json()["detail"]
+
+    # 4. Login as reviewer
+    response2 = public_client.post("/api/auth/login", json={"role": "reviewer"})
+    assert response2.status_code == 200
+    cookie_reviewer = response2.cookies.get("session_token")
+
+    # 5. Reviewer approves
+    dec_res = public_client.post(
+        "/api/approval/decision",
+        json={"resource_id": "res-999", "approve": True},
+        cookies={"session_token": cookie_reviewer}
+    )
+    assert dec_res.status_code == 200
+    assert dec_res.json()["status"] == "APPROVED"

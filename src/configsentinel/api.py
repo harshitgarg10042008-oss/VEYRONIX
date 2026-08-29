@@ -12,6 +12,7 @@ import hmac
 import os
 import time
 import uuid
+import secrets
 from collections import defaultdict, deque
 from typing import Any
 
@@ -32,7 +33,7 @@ from .proof import (
 from .remediation import generate_bundle, build_diffs, RemediationError
 
 try:
-    from fastapi import FastAPI, HTTPException, Request
+    from fastapi import FastAPI, HTTPException, Request, Response, Depends, Cookie
     from fastapi.middleware.cors import CORSMiddleware
     from fastapi.responses import JSONResponse
     from pydantic import BaseModel, Field
@@ -74,13 +75,27 @@ class DetectPayload(BaseModel):
 
 class ApprovalRequestPayload(BaseModel):
     resource_id: str = Field(min_length=1, max_length=256)
-    actor_id: str = Field(min_length=1, max_length=128)
-    role: str = Field(default="operator", min_length=1, max_length=32)
     reason: str = Field(default="", max_length=500)
+    # The frontend still sends these, so we accept them to avoid 422 but ignore their values
+    actor_id: str | None = None
+    role: str | None = None
 
 
 class ApprovalDecisionPayload(ApprovalRequestPayload):
     approve: bool
+
+
+class LoginPayload(BaseModel):
+    role: str = Field(default="operator")
+
+
+MOCK_SESSIONS: dict[str, dict[str, str]] = {}
+
+
+def get_current_session(session_token: str | None = Cookie(default=None)):
+    if not session_token or session_token not in MOCK_SESSIONS:
+        raise HTTPException(status_code=401, detail="Valid session required")
+    return MOCK_SESSIONS[session_token]
 
 
 class ExplainPayload(AuditPayload):
@@ -308,13 +323,43 @@ def create_app(*, allowed_origins: list[str] | None = None) -> FastAPI:
         except (LLMError, ValueError, RuntimeError) as exc:
             raise HTTPException(status_code=422, detail=str(exc)) from exc
 
+    @app.post("/api/auth/login", tags=["auth"])
+    def login(payload: LoginPayload, response: Response) -> dict[str, Any]:
+        session_token = secrets.token_hex(32)
+        actor_id = "local-reviewer" if payload.role == "reviewer" else "local-operator"
+        MOCK_SESSIONS[session_token] = {
+            "actor_id": actor_id,
+            "role": payload.role,
+            "workspace_id": "local-workspace"
+        }
+        response.set_cookie(
+            key="session_token",
+            value=session_token,
+            httponly=True,
+            samesite="lax",
+            path="/"
+        )
+        return {"status": "ok", "actor_id": actor_id, "role": payload.role}
+
+    @app.post("/api/auth/logout", tags=["auth"])
+    def logout(response: Response) -> dict[str, Any]:
+        response.delete_cookie(key="session_token", path="/")
+        return {"status": "ok"}
+
+    @app.get("/api/auth/me", tags=["auth"])
+    def me(session: dict[str, Any] = Depends(get_current_session)) -> dict[str, Any]:
+        return session
+
     @app.post("/api/approval/request", tags=["audit"])
-    def approval_request(payload: ApprovalRequestPayload) -> dict[str, Any]:
+    def approval_request(
+        payload: ApprovalRequestPayload,
+        session: dict[str, Any] = Depends(get_current_session)
+    ) -> dict[str, Any]:
         try:
             event = ledger.request(
                 payload.resource_id,
-                payload.actor_id,
-                role=Role(payload.role),
+                session["actor_id"],
+                role=Role(session["role"]),
                 reason=payload.reason,
             )
             return {
@@ -328,12 +373,15 @@ def create_app(*, allowed_origins: list[str] | None = None) -> FastAPI:
             raise HTTPException(status_code=422, detail=str(exc)) from exc
 
     @app.post("/api/approval/decision", tags=["audit"])
-    def approval_decision(payload: ApprovalDecisionPayload) -> dict[str, Any]:
+    def approval_decision(
+        payload: ApprovalDecisionPayload,
+        session: dict[str, Any] = Depends(get_current_session)
+    ) -> dict[str, Any]:
         try:
             event = ledger.decide(
                 payload.resource_id,
-                payload.actor_id,
-                role=Role(payload.role),
+                session["actor_id"],
+                role=Role(session["role"]),
                 approve=payload.approve,
                 reason=payload.reason,
             )
