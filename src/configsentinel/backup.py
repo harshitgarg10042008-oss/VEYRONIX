@@ -11,8 +11,17 @@ try:
     from cryptography.fernet import Fernet, InvalidToken
     from cryptography.hazmat.primitives import hashes
     from cryptography.hazmat.primitives.kdf.pbkdf2 import PBKDF2HMAC
-except ImportError as exc:  # pragma: no cover
-    raise RuntimeError("Install the 'backup' extra to use encrypted backups") from exc
+    HAS_CRYPTOGRAPHY = True
+except ImportError:
+    HAS_CRYPTOGRAPHY = False
+    Fernet = None
+    InvalidToken = Exception
+    hashes = None
+    PBKDF2HMAC = None
+
+def _require_crypto() -> None:
+    if not HAS_CRYPTOGRAPHY:
+        raise RuntimeError("Install the 'backup' extra to use encrypted backups")
 
 
 class BackupError(ValueError):
@@ -20,6 +29,7 @@ class BackupError(ValueError):
 
 
 def _key(passphrase: str, salt: bytes) -> bytes:
+    _require_crypto()
     if not passphrase or len(passphrase) < 12 or len(passphrase) > 4096:
         raise BackupError("backup passphrase must be 12 to 4096 characters")
     derivation = PBKDF2HMAC(algorithm=hashes.SHA256(), length=32, salt=salt, iterations=600_000)
@@ -27,6 +37,7 @@ def _key(passphrase: str, salt: bytes) -> bytes:
 
 
 def encrypt_backup(payload: Mapping[str, Any], passphrase: str) -> bytes:
+    _require_crypto()
     if not isinstance(payload, Mapping):
         raise BackupError("backup payload must be an object")
     raw = json.dumps(dict(payload), sort_keys=True, separators=(",", ":")).encode("utf-8")
@@ -37,6 +48,7 @@ def encrypt_backup(payload: Mapping[str, Any], passphrase: str) -> bytes:
 
 
 def decrypt_backup(data: bytes, passphrase: str) -> dict[str, Any]:
+    _require_crypto()
     try:
         envelope = json.loads(data.decode("utf-8"))
         if envelope.get("schema") != "configsentinel.encrypted-backup.v1" or envelope.get("kdf") != "PBKDF2-HMAC-SHA256" or envelope.get("iterations") != 600000:
