@@ -1,0 +1,19 @@
+# VEYRONIX / ConfigSentinel AI — Python runtime requirements
+#
+# Generated from pyproject.toml on 2026-08-29.
+# Install with:  pip install -e .[api,dev]
+# OR use the authoritative source directly:  pip install -e .
+#
+# This file is for tools (e.g. Dependabot, vulnerability scanners)
+# that expect a requirements.txt. The canonical dependency
+# specification is pyproject.toml [project.optional-dependencies].
+#
+# Runtime API dependencies
+fastapi>=0.115
+uvicorn[standard]>=0.30
+
+# Optional: backup encryption
+cryptography>=42.0
+
+# Development / test
+pytest>=8

@@ -22,5 +22,21 @@ htmlcov/
 .idea/
 .DS_Store
 
+# Frontend
 frontend/node_modules/
 frontend/dist/
+frontend/playwright-report/
+frontend/test-results/
+
+# Local runtime data (governance, audit ledger, SQLite)
+.configsentinel/
+*.db
+*.sqlite
+*.sqlite3
+
+# Logs written by the launcher
+logs/
+*.log
+
+# Black formatter cache
+.black_cache/

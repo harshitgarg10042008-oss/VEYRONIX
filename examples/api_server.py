@@ -13,6 +13,6 @@ if __name__ == "__main__":
     uvicorn.run(
         app,
         host=os.getenv("VEYRONIX_API_HOST", "127.0.0.1"),
-        port=int(os.getenv("VEYRONIX_API_PORT", "8000")),
+        port=int(os.getenv("VEYRONIX_API_PORT", "5000")),
         log_level="info",
     )
