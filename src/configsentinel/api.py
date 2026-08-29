@@ -10,6 +10,9 @@ from __future__ import annotations
 
 import hmac
 import os
+import time
+import uuid
+from collections import defaultdict, deque
 from typing import Any
 
 from .client import ConfigSentinelClient
@@ -98,20 +101,42 @@ def create_app(*, allowed_origins: list[str] | None = None) -> FastAPI:
         allow_origins=origins,
         allow_credentials=False,
         allow_methods=["GET", "POST"],
-        allow_headers=["Content-Type"],
+        allow_headers=["Content-Type", "Authorization", "X-Request-ID"],
     )
     service = AuditApi()
     ledger = ApprovalLedger(os.getenv("CONFIGSENTINEL_GOVERNANCE_LEDGER", ".configsentinel/events.jsonl"))
     api_token = os.getenv("CONFIGSENTINEL_API_TOKEN", "").strip()
+    auth_required = os.getenv("CONFIGSENTINEL_AUTH_REQUIRED", "false").lower() == "true"
+    if auth_required and not api_token:
+        raise RuntimeError("CONFIGSENTINEL_AUTH_REQUIRED is enabled but CONFIGSENTINEL_API_TOKEN is missing")
+    rate_limit = max(1, int(os.getenv("CONFIGSENTINEL_RATE_LIMIT_PER_MINUTE", "120")))
+    request_windows: dict[str, deque[float]] = defaultdict(deque)
 
     @app.middleware("http")
     async def security_boundary(request: Request, call_next):
-        if api_token and request.url.path not in {"/api/health", "/api/v1/health"}:
-            supplied = request.headers.get("authorization", "")
-            expected = f"Bearer {api_token}"
-            if not hmac.compare_digest(supplied, expected):
-                return JSONResponse(status_code=401, content={"detail": "Bearer authentication required"})
+        request_id = request.headers.get("x-request-id", "").strip()[:128] or str(uuid.uuid4())
+        protected = request.url.path.startswith("/api/") and request.url.path not in {"/api/health", "/api/v1/health"}
+        if protected:
+            now = time.monotonic()
+            client_key = request.client.host if request.client else "unknown"
+            window = request_windows[client_key]
+            while window and now - window[0] >= 60:
+                window.popleft()
+            if len(window) >= rate_limit:
+                response = JSONResponse(status_code=429, content={"detail": "rate limit exceeded", "request_id": request_id})
+                response.headers["Retry-After"] = "60"
+                response.headers["X-Request-ID"] = request_id
+                return response
+            window.append(now)
+            if auth_required or api_token:
+                supplied = request.headers.get("authorization", "")
+                expected = f"Bearer {api_token}"
+                if not hmac.compare_digest(supplied, expected):
+                    response = JSONResponse(status_code=401, content={"detail": "Bearer authentication required", "request_id": request_id})
+                    response.headers["X-Request-ID"] = request_id
+                    return response
         response = await call_next(request)
+        response.headers["X-Request-ID"] = request_id
         response.headers["X-Content-Type-Options"] = "nosniff"
         response.headers["X-Frame-Options"] = "DENY"
         response.headers["Referrer-Policy"] = "no-referrer"

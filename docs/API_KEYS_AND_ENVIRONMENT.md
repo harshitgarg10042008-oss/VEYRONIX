@@ -19,7 +19,10 @@ The project should not request an API key from a judge for the core SIH demo. Ex
 
 | Variable | Secret? | Required? | Purpose | Notes |
 |---|---|---:|---|---|
-| `CONFIGSENTINEL_API_TOKEN` | **Yes** | No for local-only demo; recommended for API exposure | Enables a shared bearer-token guard for non-health API routes. | Generate a long random value. This is not user authentication, RBAC, or tenant isolation. Never commit it. |
+| `CONFIGSENTINEL_API_TOKEN` | **Yes** | No for local-only demo; required when strict auth is enabled | Enables a bearer-token guard for non-health API routes. | Generate a long random value. This is not user authentication, RBAC, or tenant isolation. Never commit it. |
+
+| `CONFIGSENTINEL_AUTH_REQUIRED` | No | No | Makes the bearer guard mandatory and fails startup if the token is missing. | Set `true` for any non-loopback deployment. |
+| `CONFIGSENTINEL_RATE_LIMIT_PER_MINUTE` | No | No | Per-client in-memory API request limit. | Defaults to `120`; use a reverse proxy for distributed enforcement. |
 
 Example:
 
