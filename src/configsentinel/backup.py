@@ -51,8 +51,15 @@ def decrypt_backup(data: bytes, passphrase: str) -> dict[str, Any]:
     _require_crypto()
     try:
         envelope = json.loads(data.decode("utf-8"))
-        if envelope.get("schema") != "configsentinel.encrypted-backup.v1" or envelope.get("kdf") != "PBKDF2-HMAC-SHA256" or envelope.get("iterations") != 600000:
-            raise BackupError("unsupported backup envelope")
+    except (UnicodeError, json.JSONDecodeError) as exc:
+        raise BackupError("backup authentication or parsing failed") from exc
+    if (
+        envelope.get("schema") != "configsentinel.encrypted-backup.v1"
+        or envelope.get("kdf") != "PBKDF2-HMAC-SHA256"
+        or envelope.get("iterations") != 600000
+    ):
+        raise BackupError("unsupported backup envelope")
+    try:
         salt = base64.urlsafe_b64decode(str(envelope["salt"]).encode("ascii"))
         ciphertext = str(envelope["ciphertext"]).encode("ascii")
         payload = json.loads(Fernet(_key(passphrase, salt)).decrypt(ciphertext).decode("utf-8"))
