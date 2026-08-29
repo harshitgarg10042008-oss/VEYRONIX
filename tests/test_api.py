@@ -31,7 +31,11 @@ def test_api_health_is_explicitly_local_and_non_executing():
     app = create_app()
     route = next(route for route in app.routes if getattr(route, "path", None) == "/api/health")
     payload = route.endpoint()
-    assert payload == {"status": "ok", "deterministic": True, "device_connections": False, "llm_enabled": False}
+    assert payload["status"] == "ok"
+    assert payload["deterministic"] is True
+    assert payload["device_connections"] is False
+    assert payload["llm_enabled"] is False
+    assert "version" in payload
 
 
 def test_api_exposes_authoritative_control_pack_metadata():

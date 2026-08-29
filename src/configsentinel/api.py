@@ -144,7 +144,7 @@ def create_app(*, allowed_origins: list[str] | None = None) -> FastAPI:
 
     @app.get("/api/health")
     def health() -> dict[str, str | bool]:
-        return {"status": "ok", "deterministic": True, "device_connections": False, "llm_enabled": False}
+        return {"status": "ok", "version": "0.3.0", "deterministic": True, "device_connections": False, "llm_enabled": False}
 
     @app.post("/api/audit", tags=["audit"])
     def audit(payload: AuditPayload) -> dict[str, Any]:
