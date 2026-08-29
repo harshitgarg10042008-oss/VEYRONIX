@@ -6,10 +6,7 @@ test.describe('ConfigSentinel Accessibility', () => {
     await page.goto('/');
     await expect(page.locator('text=Configuration posture')).toBeVisible();
 
-    const results = await new AxeBuilder({ page })
-      // Exclude known non-critical violations tracked as UI debt
-      .disableRules(['color-contrast', 'heading-order'])
-      .analyze();
+    const results = await new AxeBuilder({ page }).analyze();
 
     // Critical / serious violations must be zero
     const critical = results.violations.filter(
