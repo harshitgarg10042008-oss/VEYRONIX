@@ -61,3 +61,39 @@ def test_api_validation_rejects_nul_and_oversized_lines():
         validate_config_text("safe\n\x00unsafe")
     with pytest.raises(ValueError, match="line"):
         validate_config_text("x" * (256 * 1024 + 1))
+
+
+def test_api_governance_request_decision_and_status(tmp_path, monkeypatch):
+    from configsentinel.api import ApprovalRequestPayload, ApprovalDecisionPayload, create_app
+
+    monkeypatch.setenv("CONFIGSENTINEL_GOVERNANCE_LEDGER", str(tmp_path / "events.jsonl"))
+    app = create_app()
+    request_route = next(route for route in app.routes if getattr(route, "path", None) == "/api/approval/request")
+    decision_route = next(route for route in app.routes if getattr(route, "path", None) == "/api/approval/decision")
+    status_route = next(route for route in app.routes if getattr(route, "path", None) == "/api/approval/{resource_id}")
+    # Route endpoints share the app's ledger; use a fresh app-scoped path via the environment in integration tests.
+    request = request_route.endpoint(ApprovalRequestPayload(resource_id="rem_api", actor_id="alice", role="operator", reason="Review preview"))
+    assert request["status"] == "PENDING_REVIEW"
+    decision = decision_route.endpoint(ApprovalDecisionPayload(resource_id="rem_api", actor_id="bob", role="reviewer", approve=True, reason="Independent review"))
+    assert decision["status"] == "APPROVED"
+    status = status_route.endpoint("rem_api")
+    assert status["status"] == "APPROVED"
+    assert [event["action"] for event in status["events"]] == ["REQUEST", "APPROVE"]
+
+
+def test_api_governance_rejects_same_actor_decision(tmp_path, monkeypatch):
+    from fastapi import HTTPException
+    from configsentinel.api import ApprovalRequestPayload, ApprovalDecisionPayload, create_app
+
+    monkeypatch.setenv("CONFIGSENTINEL_GOVERNANCE_LEDGER", str(tmp_path / "events.jsonl"))
+    app = create_app()
+    request_route = next(route for route in app.routes if getattr(route, "path", None) == "/api/approval/request")
+    decision_route = next(route for route in app.routes if getattr(route, "path", None) == "/api/approval/decision")
+    request_route.endpoint(ApprovalRequestPayload(resource_id="rem_same_actor", actor_id="alice", role="operator"))
+    try:
+        decision_route.endpoint(ApprovalDecisionPayload(resource_id="rem_same_actor", actor_id="alice", role="reviewer", approve=True))
+    except HTTPException as exc:
+        assert exc.status_code == 422
+        assert "different reviewer" in str(exc.detail)
+    else:
+        raise AssertionError("same actor must not approve its own request")

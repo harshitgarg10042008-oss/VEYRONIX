@@ -17,6 +17,7 @@ from .controls import CONTROL_PACK, CONTROL_PACK_VERSION
 from .detection import detect_vendor
 from .engine import DeterministicComplianceEngine
 from .frameworks import normalize_frameworks
+from .governance import ApprovalLedger, GovernanceError, Role
 from .reporting import report_dict
 
 try:
@@ -53,6 +54,17 @@ class DetectPayload(BaseModel):
     config_text: str = Field(min_length=1, max_length=MAX_CONFIG_CHARS)
 
 
+class ApprovalRequestPayload(BaseModel):
+    resource_id: str = Field(min_length=1, max_length=256)
+    actor_id: str = Field(min_length=1, max_length=128)
+    role: str = Field(default="operator", min_length=1, max_length=32)
+    reason: str = Field(default="", max_length=500)
+
+
+class ApprovalDecisionPayload(ApprovalRequestPayload):
+    approve: bool
+
+
 class AuditApi:
     def __init__(self) -> None:
         self.client = ConfigSentinelClient(engine=DeterministicComplianceEngine())
@@ -83,6 +95,7 @@ def create_app(*, allowed_origins: list[str] | None = None) -> FastAPI:
         allow_headers=["Content-Type"],
     )
     service = AuditApi()
+    ledger = ApprovalLedger(os.getenv("CONFIGSENTINEL_GOVERNANCE_LEDGER", ".configsentinel/events.jsonl"))
     api_token = os.getenv("CONFIGSENTINEL_API_TOKEN", "").strip()
 
     @app.middleware("http")
@@ -134,6 +147,26 @@ def create_app(*, allowed_origins: list[str] | None = None) -> FastAPI:
                 for definition in CONTROL_PACK
             ],
         }
+
+    @app.post("/api/approval/request", tags=["audit"])
+    def approval_request(payload: ApprovalRequestPayload) -> dict[str, Any]:
+        try:
+            event = ledger.request(payload.resource_id, payload.actor_id, role=Role(payload.role), reason=payload.reason)
+            return {"status": ledger.status(payload.resource_id), "event": event.as_dict(), "events": [item.as_dict() for item in ledger.events(payload.resource_id)]}
+        except (GovernanceError, ValueError) as exc:
+            raise HTTPException(status_code=422, detail=str(exc)) from exc
+
+    @app.post("/api/approval/decision", tags=["audit"])
+    def approval_decision(payload: ApprovalDecisionPayload) -> dict[str, Any]:
+        try:
+            event = ledger.decide(payload.resource_id, payload.actor_id, role=Role(payload.role), approve=payload.approve, reason=payload.reason)
+            return {"status": ledger.status(payload.resource_id), "event": event.as_dict(), "events": [item.as_dict() for item in ledger.events(payload.resource_id)]}
+        except (GovernanceError, ValueError) as exc:
+            raise HTTPException(status_code=422, detail=str(exc)) from exc
+
+    @app.get("/api/approval/{resource_id}", tags=["audit"])
+    def approval_status(resource_id: str) -> dict[str, Any]:
+        return {"resource_id": resource_id, "status": ledger.status(resource_id), "events": [item.as_dict() for item in ledger.events(resource_id)]}
 
     @app.get("/api/v1/control-pack", tags=["audit"])
     def control_pack_v1() -> dict[str, Any]:
