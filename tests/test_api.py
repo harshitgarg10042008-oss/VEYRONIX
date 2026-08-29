@@ -97,3 +97,16 @@ def test_api_governance_rejects_same_actor_decision(tmp_path, monkeypatch):
         assert "different reviewer" in str(exc.detail)
     else:
         raise AssertionError("same actor must not approve its own request")
+
+
+def test_api_offline_explanation_is_bounded_and_non_authoritative(monkeypatch):
+    from configsentinel.api import ExplainPayload, create_app
+
+    monkeypatch.setenv("CONFIGSENTINEL_LLM_PROVIDER", "offline")
+    app = create_app()
+    route = next(route for route in app.routes if getattr(route, "path", None) == "/api/explain")
+    response = route.endpoint(ExplainPayload(config_text="version 17.9\nline vty 0 4\n transport input telnet\n", vendor="cisco_ios", control_id="NET-MGMT-HTTP-001"))
+    assert response["llm_assisted"] is True
+    assert response["deterministic_status"] == "UNKNOWN"
+    assert response["explanation"]["safety_status"] == "REVIEW_REQUIRED"
+    assert "NET-MGMT-HTTP-001" in response["explanation"]["explanation"]

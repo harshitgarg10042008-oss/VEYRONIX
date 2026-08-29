@@ -18,6 +18,7 @@ from .detection import detect_vendor
 from .engine import DeterministicComplianceEngine
 from .frameworks import normalize_frameworks
 from .governance import ApprovalLedger, GovernanceError, Role
+from .llm import LLMConfig, LLMError, LLMCopilot, OpenAICompatibleProvider
 from .reporting import report_dict
 
 try:
@@ -63,6 +64,11 @@ class ApprovalRequestPayload(BaseModel):
 
 class ApprovalDecisionPayload(ApprovalRequestPayload):
     approve: bool
+
+
+class ExplainPayload(AuditPayload):
+    finding_id: str | None = Field(default=None, max_length=256)
+    control_id: str | None = Field(default=None, max_length=128)
 
 
 class AuditApi:
@@ -147,6 +153,27 @@ def create_app(*, allowed_origins: list[str] | None = None) -> FastAPI:
                 for definition in CONTROL_PACK
             ],
         }
+
+    @app.post("/api/explain", tags=["audit"])
+    def explain(payload: ExplainPayload) -> dict[str, Any]:
+        try:
+            validate_config_text(payload.config_text)
+            frameworks = normalize_frameworks(tuple(payload.frameworks))
+            result = service.client.audit_text(payload.config_text, vendor=payload.vendor, frameworks=frameworks, project_id=payload.project_id)
+            finding = next((item for item in result.findings if (payload.finding_id and item.finding_id == payload.finding_id) or (payload.control_id and item.control_id == payload.control_id)), None)
+            if finding is None:
+                raise HTTPException(status_code=404, detail="finding was not found in the deterministic audit")
+            if finding.status.value not in {"UNKNOWN", "REVIEW_REQUIRED"}:
+                raise HTTPException(status_code=422, detail="AI explanations are limited to unresolved findings")
+            config = LLMConfig.from_environment()
+            if os.getenv("CONFIGSENTINEL_LLM_PROVIDER", "").strip().lower() == "offline":
+                copilot = LLMCopilot.offline()
+            else:
+                copilot = LLMCopilot(provider=OpenAICompatibleProvider(config), config=config)
+            explanation = copilot.explain_finding(finding, payload.config_text)
+            return {"deterministic_status": finding.status.value, "finding_id": finding.finding_id, "llm_assisted": True, "explanation": {"finding_id": explanation.finding_id, "explanation": explanation.explanation, "confidence": explanation.confidence, "evidence_needed": list(explanation.evidence_needed), "safety_status": explanation.safety_status, "model_id": explanation.model_id, "prompt_version": explanation.prompt_version}}
+        except (LLMError, ValueError, RuntimeError) as exc:
+            raise HTTPException(status_code=422, detail=str(exc)) from exc
 
     @app.post("/api/approval/request", tags=["audit"])
     def approval_request(payload: ApprovalRequestPayload) -> dict[str, Any]:
