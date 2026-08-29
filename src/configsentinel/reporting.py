@@ -28,6 +28,15 @@ def report_dict(result: AuditResult, frameworks: tuple[str, ...] | None = None) 
     for finding in result.findings:
         status_counts[finding.status.value] = status_counts.get(finding.status.value, 0) + 1
     mapped = sum(1 for finding in result.findings if any(row["status"] == "MAPPED" for row in mappings_for_finding(finding, selected)))
+    weights = {"CRITICAL": 10, "HIGH": 7, "MEDIUM": 4, "LOW": 1, "INFO": 0}
+    applicable = [f for f in result.findings if f.status.value != "NOT_APPLICABLE"]
+    if not applicable:
+        posture_score = 100
+    else:
+        risk = sum(weights.get(f.severity.value, 1) for f in applicable if f.status.value in {"FAIL", "UNKNOWN", "REVIEW_REQUIRED"})
+        max_risk = sum(weights.get(f.severity.value, 1) for f in applicable)
+        posture_score = max(0, 100 - round((risk / max_risk) * 100)) if max_risk > 0 else 100
+
     return {
         "report_version": REPORT_VERSION,
         "audit": {
@@ -46,6 +55,7 @@ def report_dict(result: AuditResult, frameworks: tuple[str, ...] | None = None) 
             "evaluated_count": result.evaluated_count,
             "mapped_finding_count": mapped,
             "status_counts": status_counts,
+            "posture_score": posture_score,
         },
         "findings": findings,
         "unknown_blocks": [asdict(span) for span in result.unknown_blocks],

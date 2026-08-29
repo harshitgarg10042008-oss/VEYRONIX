@@ -163,20 +163,24 @@ def create_app(*, allowed_origins: list[str] | None = None) -> FastAPI:
 
     @app.get("/api/control-pack", tags=["audit"])
     def control_pack() -> dict[str, Any]:
+        vendors = set()
+        controls = []
+        for definition in CONTROL_PACK:
+            vendors.update(definition.control.applies_to)
+            controls.append({
+                "control_id": definition.control.control_id,
+                "title": definition.control.title,
+                "intent": definition.control.intent,
+                "severity": definition.control.severity.value,
+                "framework_mappings": {key: list(value) for key, value in definition.control.framework_mappings.items()},
+                "applicable_vendors": list(definition.control.applies_to),
+                "remediation": definition.remediation,
+            })
         return {
             "version": CONTROL_PACK_VERSION,
-            "controls": [
-                {
-                    "control_id": definition.control.control_id,
-                    "title": definition.control.title,
-                    "intent": definition.control.intent,
-                    "severity": definition.control.severity.value,
-                    "framework_mappings": {key: list(value) for key, value in definition.control.framework_mappings.items()},
-                    "applicable_vendors": list(definition.control.applies_to),
-                    "remediation": definition.remediation,
-                }
-                for definition in CONTROL_PACK
-            ],
+            "control_count": len(controls),
+            "vendor_count": len(vendors),
+            "controls": controls,
         }
 
     @app.post("/api/explain", tags=["audit"])

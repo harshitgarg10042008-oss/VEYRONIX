@@ -11,6 +11,8 @@ def test_api_returns_report_with_evidence_and_summary():
     )
     assert report["audit"]["frameworks"] == ["cis-network", "nist-800-53"]
     assert report["summary"]["failed_count"] >= 1
+    assert "posture_score" in report["summary"]
+    assert isinstance(report["summary"]["posture_score"], int)
     finding = next(item for item in report["findings"] if item["status"] == "FAIL")
     assert finding["evidence"]
     assert finding["framework_mappings"]
@@ -43,6 +45,8 @@ def test_api_exposes_authoritative_control_pack_metadata():
     route = next(route for route in app.routes if getattr(route, "path", None) == "/api/control-pack")
     payload = route.endpoint()
     assert payload["version"]
+    assert payload["control_count"] == len(payload["controls"])
+    assert payload["vendor_count"] >= 1
     assert len(payload["controls"]) == 7
     assert {item["control_id"] for item in payload["controls"]} >= {"NET-MGMT-TELNET-001", "NET-MGMT-HTTP-001"}
     assert all(item["applicable_vendors"] for item in payload["controls"])
