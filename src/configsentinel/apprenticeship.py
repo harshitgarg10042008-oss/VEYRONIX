@@ -1,4 +1,5 @@
 """Governed unknown-syntax apprenticeship contracts for parser extension review."""
+
 from __future__ import annotations
 
 import hashlib
@@ -33,14 +34,23 @@ def _text(value: Any, label: str, limit: int = 256) -> str:
     return text
 
 
-def _examples(values: Sequence[str], label: str, redactor: SecretRedactor) -> tuple[list[str], list[str]]:
+def _examples(
+    values: Sequence[str], label: str, redactor: SecretRedactor
+) -> tuple[list[str], list[str]]:
     if not isinstance(values, (list, tuple)) or not 1 <= len(values) <= MAX_EXAMPLES:
         raise ApprenticeshipError(f"{label} requires 1-{MAX_EXAMPLES} examples")
     stored: list[str] = []
     digests: list[str] = []
     for value in values:
-        if not isinstance(value, str) or not value.strip() or len(value.encode("utf-8")) > MAX_EXAMPLE_BYTES or "\x00" in value:
-            raise ApprenticeshipError(f"{label} contains an invalid or oversized example")
+        if (
+            not isinstance(value, str)
+            or not value.strip()
+            or len(value.encode("utf-8")) > MAX_EXAMPLE_BYTES
+            or "\x00" in value
+        ):
+            raise ApprenticeshipError(
+                f"{label} contains an invalid or oversized example"
+            )
         redacted = redactor.redact(value)
         stored.append(redacted.text)
         digests.append(redacted.input_sha256)
@@ -51,19 +61,39 @@ def _fingerprint(digests: Sequence[str]) -> str:
     return hashlib.sha256("|".join(sorted(digests)).encode("ascii")).hexdigest()
 
 
-def create_contract(mapping: Mapping[str, Any] | Any, *, positive_examples: Sequence[str], counterexamples: Sequence[str]) -> dict[str, Any]:
+def create_contract(
+    mapping: Mapping[str, Any] | Any,
+    *,
+    positive_examples: Sequence[str],
+    counterexamples: Sequence[str],
+) -> dict[str, Any]:
     """Create a redacted contract from an already-approved mapping."""
     source = _mapping(mapping, "approved mapping")
-    required = ("mapping_id", "vendor", "parser_version", "source_case_id", "syntax_fingerprint", "normalized_concept", "interpretation", "approved_by", "approved_at")
+    required = (
+        "mapping_id",
+        "vendor",
+        "parser_version",
+        "source_case_id",
+        "syntax_fingerprint",
+        "normalized_concept",
+        "interpretation",
+        "approved_by",
+        "approved_at",
+    )
     missing = [name for name in required if not str(source.get(name, "")).strip()]
     if missing:
         raise ApprenticeshipError(f"approved mapping is missing: {', '.join(missing)}")
     redactor = SecretRedactor()
-    positive, positive_digests = _examples(positive_examples, "positive_examples", redactor)
+    positive, positive_digests = _examples(
+        positive_examples, "positive_examples", redactor
+    )
     negative, negative_digests = _examples(counterexamples, "counterexamples", redactor)
     contract = {
         "schema": APPRENTICESHIP_SCHEMA,
-        "contract_id": "contract_" + hashlib.sha256(f"{source['mapping_id']}|{source['normalized_concept']}|{source['parser_version']}".encode()).hexdigest()[:16],
+        "contract_id": "contract_"
+        + hashlib.sha256(
+            f"{source['mapping_id']}|{source['normalized_concept']}|{source['parser_version']}".encode()
+        ).hexdigest()[:16],
         "mapping": {name: str(source[name]) for name in required},
         "examples": {
             "positive": positive,
@@ -93,9 +123,14 @@ def create_contract(mapping: Mapping[str, Any] | Any, *, positive_examples: Sequ
 def _observe(example: str) -> str | None:
     """Small deterministic semantic recognizer used only to test contract fixtures."""
     lowered = example.lower()
-    if "telnet" in lowered and any(token in lowered for token in ("enable", "allow", "transport", "services")):
+    if "telnet" in lowered and any(
+        token in lowered for token in ("enable", "allow", "transport", "services")
+    ):
         return "management_telnet_enabled"
-    if "ssh" in lowered and any(token in lowered for token in ("enable", "allow", "transport", "services", "version")):
+    if "ssh" in lowered and any(
+        token in lowered
+        for token in ("enable", "allow", "transport", "services", "version")
+    ):
         return "management_ssh_enabled"
     if any(token in lowered for token in ("logging ", "syslog", " log", "log ")):
         return "logging_enabled"
@@ -125,18 +160,45 @@ def evaluate_contract(contract: Mapping[str, Any]) -> dict[str, Any]:
         "schema": "configsentinel.parser-apprenticeship-test.v1",
         "contract_id": str(root.get("contract_id", "")),
         "expected_normalized_concept": expected,
-        "positive": {"count": len(positive), "observed": positive_observed, "passed": positive_pass},
-        "counterexamples": {"count": len(negative), "observed": negative_observed, "passed": negative_pass},
-        "promotion": {"status": "READY_FOR_HUMAN_REVIEW" if ready else "REJECTED", "promoted_into_parser": False, "requires_human_approval": True},
-        "safety": {"redacted_examples_included": True,
-            "raw_secrets_included": False, "verdicts_changed": False, "parser_registry_changed": False, "note": "A passing contract only qualifies a mapping for independent human review; it never changes parser behavior automatically."},
+        "positive": {
+            "count": len(positive),
+            "observed": positive_observed,
+            "passed": positive_pass,
+        },
+        "counterexamples": {
+            "count": len(negative),
+            "observed": negative_observed,
+            "passed": negative_pass,
+        },
+        "promotion": {
+            "status": "READY_FOR_HUMAN_REVIEW" if ready else "REJECTED",
+            "promoted_into_parser": False,
+            "requires_human_approval": True,
+        },
+        "safety": {
+            "redacted_examples_included": True,
+            "raw_secrets_included": False,
+            "verdicts_changed": False,
+            "parser_registry_changed": False,
+            "note": "A passing contract only qualifies a mapping for independent human review; it never changes parser behavior automatically.",
+        },
     }
 
 
 def write_contract(contract: Mapping[str, Any], output: str | Path) -> None:
     destination = Path(output)
     destination.parent.mkdir(parents=True, exist_ok=True)
-    destination.write_text(json.dumps(contract, indent=2, sort_keys=True) + "\n", encoding="utf-8", newline="\n")
+    destination.write_text(
+        json.dumps(contract, indent=2, sort_keys=True) + "\n",
+        encoding="utf-8",
+        newline="\n",
+    )
 
 
-__all__ = ["APPRENTICESHIP_SCHEMA", "ApprenticeshipError", "create_contract", "evaluate_contract", "write_contract"]
+__all__ = [
+    "APPRENTICESHIP_SCHEMA",
+    "ApprenticeshipError",
+    "create_contract",
+    "evaluate_contract",
+    "write_contract",
+]

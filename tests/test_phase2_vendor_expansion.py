@@ -24,7 +24,13 @@ def test_linux_nftables_detects_secure_and_insecure_service_rules():
 
 def test_expanded_vendor_reports_use_real_control_evidence():
     text = "table inet filter {\n chain input {\n  tcp dport 23 accept\n }\n}\n"
-    result = ConfigSentinelClient(engine=DeterministicComplianceEngine()).audit_text(text, vendor="linux_nftables")
-    telnet = next(finding for finding in result.findings if finding.control_id == "NET-MGMT-TELNET-001")
+    result = ConfigSentinelClient(engine=DeterministicComplianceEngine()).audit_text(
+        text, vendor="linux_nftables"
+    )
+    telnet = next(
+        finding
+        for finding in result.findings
+        if finding.control_id == "NET-MGMT-TELNET-001"
+    )
     assert telnet.status.value == "FAIL"
     assert telnet.evidence[0].excerpt == "tcp dport 23 accept"

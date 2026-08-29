@@ -19,9 +19,23 @@ class RedactionResult:
 
 
 _PATTERNS: tuple[tuple[str, re.Pattern[str]], ...] = (
-    ("PRIVATE_KEY", re.compile(r"-----BEGIN [A-Z ]*PRIVATE KEY-----.*?-----END [A-Z ]*PRIVATE KEY-----", re.I | re.S)),
-    ("PASSWORD", re.compile(r"(?im)^(\s*(?:(?:username\s+\S+\s+)?(?:enable\s+secret|password|passwd|secret|community)\s+))(\S+)(.*)$")),
-    ("TOKEN", re.compile(r"(?i)\b(?:token|api[_-]?key|access[_-]?key)\s*[:=]\s*[^\s]+")),
+    (
+        "PRIVATE_KEY",
+        re.compile(
+            r"-----BEGIN [A-Z ]*PRIVATE KEY-----.*?-----END [A-Z ]*PRIVATE KEY-----",
+            re.I | re.S,
+        ),
+    ),
+    (
+        "PASSWORD",
+        re.compile(
+            r"(?im)^(\s*(?:(?:username\s+\S+\s+)?(?:enable\s+secret|password|passwd|secret|community)\s+))(\S+)(.*)$"
+        ),
+    ),
+    (
+        "TOKEN",
+        re.compile(r"(?i)\b(?:token|api[_-]?key|access[_-]?key)\s*[:=]\s*[^\s]+"),
+    ),
 )
 
 
@@ -36,18 +50,24 @@ class SecretRedactor:
         redacted = text
         for label, pattern in _PATTERNS:
             if label == "PASSWORD":
+
                 def replace_password(match: re.Match[str]) -> str:
                     nonlocal redactions
                     redactions += 1
                     # group(1) = keyword prefix, group(2) = encryption type token,
                     # group(3) = the actual secret value — drop both group(2) and group(3)
                     return f"{match.group(1)}<REDACTED_{label}>"
+
                 redacted = pattern.sub(replace_password, redacted)
             else:
-                def replace_generic(match: re.Match[str], current_label: str = label) -> str:
+
+                def replace_generic(
+                    match: re.Match[str], current_label: str = label
+                ) -> str:
                     nonlocal redactions
                     redactions += 1
                     return f"<REDACTED_{current_label}>"
+
                 redacted = pattern.sub(replace_generic, redacted)
         return RedactionResult(redacted, redactions, digest)
 
@@ -57,6 +77,10 @@ def assert_safe_for_llm(text: str) -> None:
     if "\x00" in text:
         raise ValueError("NUL bytes must be removed before LLM use")
     upper = text.upper()
-    markers = ("BEGIN RSA PRIVATE KEY", "BEGIN OPENSSH PRIVATE KEY", "BEGIN EC PRIVATE KEY")
+    markers = (
+        "BEGIN RSA PRIVATE KEY",
+        "BEGIN OPENSSH PRIVATE KEY",
+        "BEGIN EC PRIVATE KEY",
+    )
     if any(marker in upper for marker in markers):
         raise ValueError("private-key material must be redacted before LLM use")

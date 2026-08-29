@@ -1,4 +1,5 @@
 """Cross-vendor semantic differential tests for normalized audit behavior."""
+
 from __future__ import annotations
 
 import json
@@ -49,7 +50,9 @@ def _bounded(value: Any, label: str, limit: int = 128) -> str:
     return text
 
 
-def _semantic_projection(parsed: ParseResult, fields: tuple[str, ...]) -> dict[str, Any]:
+def _semantic_projection(
+    parsed: ParseResult, fields: tuple[str, ...]
+) -> dict[str, Any]:
     return {field: getattr(parsed.config, field) for field in fields}
 
 
@@ -58,13 +61,28 @@ def _status_projection(parsed: ParseResult, vendor: str) -> dict[str, str]:
     return {finding.control_id: finding.status.value for finding in findings}
 
 
-def run_differential_test(variants: Mapping[str, str], *, fields: Iterable[str] = SEMANTIC_FIELDS, case_id: str = "case-local") -> dict[str, Any]:
+def run_differential_test(
+    variants: Mapping[str, str],
+    *,
+    fields: Iterable[str] = SEMANTIC_FIELDS,
+    case_id: str = "case-local",
+) -> dict[str, Any]:
     """Compare explicit vendor variants; no variant is selected as authoritative."""
     if not isinstance(variants, Mapping) or not 2 <= len(variants) <= MAX_VARIANTS:
-        raise DifferentialError(f"variants must contain 2-{MAX_VARIANTS} explicit vendor inputs")
-    selected_fields = tuple(dict.fromkeys(str(field).strip() for field in fields if str(field).strip()))
-    if not selected_fields or len(selected_fields) > MAX_FIELDS or any(field not in SEMANTIC_FIELDS for field in selected_fields):
-        raise DifferentialError("fields must be a non-empty subset of supported semantic fields")
+        raise DifferentialError(
+            f"variants must contain 2-{MAX_VARIANTS} explicit vendor inputs"
+        )
+    selected_fields = tuple(
+        dict.fromkeys(str(field).strip() for field in fields if str(field).strip())
+    )
+    if (
+        not selected_fields
+        or len(selected_fields) > MAX_FIELDS
+        or any(field not in SEMANTIC_FIELDS for field in selected_fields)
+    ):
+        raise DifferentialError(
+            "fields must be a non-empty subset of supported semantic fields"
+        )
     case = _bounded(case_id, "case_id")
     ingestion = ConfigIngestionService()
     parsed_variants: list[dict[str, Any]] = []
@@ -91,15 +109,37 @@ def run_differential_test(variants: Mapping[str, str], *, fields: Iterable[str] 
     semantic_disagreements: list[dict[str, Any]] = []
     control_disagreements: list[dict[str, Any]] = []
     for field in selected_fields:
-        values = {variant["vendor"]: variant["semantic"].get(field) for variant in parsed_variants}
+        values = {
+            variant["vendor"]: variant["semantic"].get(field)
+            for variant in parsed_variants
+        }
         if len({json.dumps(value, sort_keys=True) for value in values.values()}) > 1:
-            semantic_disagreements.append({"field": field, "values": values, "reason": "vendor parsers produced different normalized values"})
-    selected_control_ids = {SEMANTIC_CONTROL_MAP[field] for field in selected_fields if field in SEMANTIC_CONTROL_MAP}
+            semantic_disagreements.append(
+                {
+                    "field": field,
+                    "values": values,
+                    "reason": "vendor parsers produced different normalized values",
+                }
+            )
+    selected_control_ids = {
+        SEMANTIC_CONTROL_MAP[field]
+        for field in selected_fields
+        if field in SEMANTIC_CONTROL_MAP
+    }
     control_ids = sorted(selected_control_ids)
     for control_id in control_ids:
-        values = {variant["vendor"]: variant["control_status"].get(control_id, "MISSING") for variant in parsed_variants}
+        values = {
+            variant["vendor"]: variant["control_status"].get(control_id, "MISSING")
+            for variant in parsed_variants
+        }
         if len(set(values.values())) > 1:
-            control_disagreements.append({"control_id": control_id, "statuses": values, "reason": "vendor variants produced different deterministic control statuses"})
+            control_disagreements.append(
+                {
+                    "control_id": control_id,
+                    "statuses": values,
+                    "reason": "vendor variants produced different deterministic control statuses",
+                }
+            )
     equivalent = not semantic_disagreements and not control_disagreements
     return {
         "schema": DIFFERENTIAL_SCHEMA,
@@ -127,4 +167,11 @@ def render_differential_report(report: Mapping[str, Any]) -> str:
     return json.dumps(report, indent=2, sort_keys=True) + "\n"
 
 
-__all__ = ["DIFFERENTIAL_SCHEMA", "DifferentialError", "SEMANTIC_FIELDS", "SEMANTIC_CONTROL_MAP", "run_differential_test", "render_differential_report"]
+__all__ = [
+    "DIFFERENTIAL_SCHEMA",
+    "DifferentialError",
+    "SEMANTIC_FIELDS",
+    "SEMANTIC_CONTROL_MAP",
+    "run_differential_test",
+    "render_differential_report",
+]

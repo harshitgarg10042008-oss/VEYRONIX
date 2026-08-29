@@ -21,21 +21,37 @@ def _finding_dict(finding: Finding, frameworks: tuple[str, ...]) -> dict[str, An
     return data
 
 
-def report_dict(result: AuditResult, frameworks: tuple[str, ...] | None = None) -> dict[str, Any]:
+def report_dict(
+    result: AuditResult, frameworks: tuple[str, ...] | None = None
+) -> dict[str, Any]:
     selected = normalize_frameworks(frameworks)
     findings = [_finding_dict(finding, selected) for finding in result.findings]
     status_counts: dict[str, int] = {}
     for finding in result.findings:
-        status_counts[finding.status.value] = status_counts.get(finding.status.value, 0) + 1
-    mapped = sum(1 for finding in result.findings if any(row["status"] == "MAPPED" for row in mappings_for_finding(finding, selected)))
+        status_counts[finding.status.value] = (
+            status_counts.get(finding.status.value, 0) + 1
+        )
+    mapped = sum(
+        1
+        for finding in result.findings
+        if any(
+            row["status"] == "MAPPED" for row in mappings_for_finding(finding, selected)
+        )
+    )
     weights = {"CRITICAL": 10, "HIGH": 7, "MEDIUM": 4, "LOW": 1, "INFO": 0}
     applicable = [f for f in result.findings if f.status.value != "NOT_APPLICABLE"]
     if not applicable:
         posture_score = 100
     else:
-        risk = sum(weights.get(f.severity.value, 1) for f in applicable if f.status.value in {"FAIL", "UNKNOWN", "REVIEW_REQUIRED"})
+        risk = sum(
+            weights.get(f.severity.value, 1)
+            for f in applicable
+            if f.status.value in {"FAIL", "UNKNOWN", "REVIEW_REQUIRED"}
+        )
         max_risk = sum(weights.get(f.severity.value, 1) for f in applicable)
-        posture_score = max(0, 100 - round((risk / max_risk) * 100)) if max_risk > 0 else 100
+        posture_score = (
+            max(0, 100 - round((risk / max_risk) * 100)) if max_risk > 0 else 100
+        )
 
     return {
         "report_version": REPORT_VERSION,
@@ -61,7 +77,8 @@ def report_dict(result: AuditResult, frameworks: tuple[str, ...] | None = None) 
         "unknown_blocks": [asdict(span) for span in result.unknown_blocks],
         "reconciliation": {
             "status_count_total": sum(status_counts.values()),
-            "matches_finding_count": sum(status_counts.values()) == len(result.findings),
+            "matches_finding_count": sum(status_counts.values())
+            == len(result.findings),
             "failed_count_matches": status_counts.get("FAIL", 0) == result.failed_count,
         },
     }
@@ -74,10 +91,15 @@ def render_json(result: AuditResult, frameworks: tuple[str, ...] | None = None) 
 def _evidence_text(finding: Finding) -> str:
     if not finding.evidence:
         return "No evidence span recorded"
-    return "; ".join(f"L{span.start_line}-L{span.end_line}: {span.excerpt}" for span in finding.evidence)
+    return "; ".join(
+        f"L{span.start_line}-L{span.end_line}: {span.excerpt}"
+        for span in finding.evidence
+    )
 
 
-def render_markdown(result: AuditResult, frameworks: tuple[str, ...] | None = None) -> str:
+def render_markdown(
+    result: AuditResult, frameworks: tuple[str, ...] | None = None
+) -> str:
     selected = normalize_frameworks(frameworks)
     report = report_dict(result, selected)
     lines = [
@@ -100,33 +122,57 @@ def render_markdown(result: AuditResult, frameworks: tuple[str, ...] | None = No
     ]
     for finding in result.findings:
         mappings = mappings_for_finding(finding, selected)
-        mapping_text = "; ".join(f"{row['framework_id']}: {', '.join(row['control_ids']) or 'UNVERIFIED'}" for row in mappings)
-        lines.append(f"| {finding.control_id} | {finding.status.value} | {finding.severity.value} | {finding.confidence:.2f} | {_evidence_text(finding)} | {mapping_text} |")
-    lines.extend([
-        "",
-        "## Reconciliation",
-        "",
-        f"- Finding totals reconcile: **{report['reconciliation']['matches_finding_count']}**.",
-        f"- Failure total reconciles: **{report['reconciliation']['failed_count_matches']}**.",
-        f"- Parser version: `{result.parser_version}`.",
-        f"- Rule-pack version: `{result.rule_pack_version}`.",
-        "",
-        "## Safety note",
-        "",
-        "> This report is evidence for review. It does not authorize device changes. Generated remediation remains a non-executable preview requiring independent operator approval.",
-        "",
-    ])
+        mapping_text = "; ".join(
+            f"{row['framework_id']}: {', '.join(row['control_ids']) or 'UNVERIFIED'}"
+            for row in mappings
+        )
+        lines.append(
+            f"| {finding.control_id} | {finding.status.value} | {finding.severity.value} | {finding.confidence:.2f} | {_evidence_text(finding)} | {mapping_text} |"
+        )
+    lines.extend(
+        [
+            "",
+            "## Reconciliation",
+            "",
+            f"- Finding totals reconcile: **{report['reconciliation']['matches_finding_count']}**.",
+            f"- Failure total reconciles: **{report['reconciliation']['failed_count_matches']}**.",
+            f"- Parser version: `{result.parser_version}`.",
+            f"- Rule-pack version: `{result.rule_pack_version}`.",
+            "",
+            "## Safety note",
+            "",
+            "> This report is evidence for review. It does not authorize device changes. Generated remediation remains a non-executable preview requiring independent operator approval.",
+            "",
+        ]
+    )
     return "\n".join(lines)
 
 
-def write_report(result: AuditResult, path: str, *, format: str = "markdown", frameworks: tuple[str, ...] | None = None) -> None:
+def write_report(
+    result: AuditResult,
+    path: str,
+    *,
+    format: str = "markdown",
+    frameworks: tuple[str, ...] | None = None,
+) -> None:
     if format not in {"markdown", "json"}:
         raise ValueError("format must be markdown or json")
-    content = render_markdown(result, frameworks) if format == "markdown" else render_json(result, frameworks)
+    content = (
+        render_markdown(result, frameworks)
+        if format == "markdown"
+        else render_json(result, frameworks)
+    )
     from pathlib import Path
+
     output = Path(path)
     output.parent.mkdir(parents=True, exist_ok=True)
     output.write_text(content + "\n", encoding="utf-8", newline="\n")
 
 
-__all__ = ["REPORT_VERSION", "report_dict", "render_json", "render_markdown", "write_report"]
+__all__ = [
+    "REPORT_VERSION",
+    "report_dict",
+    "render_json",
+    "render_markdown",
+    "write_report",
+]

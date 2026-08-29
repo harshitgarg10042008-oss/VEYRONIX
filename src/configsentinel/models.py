@@ -74,7 +74,10 @@ class Finding:
     def __post_init__(self) -> None:
         if not 0.0 <= self.confidence <= 1.0:
             raise ValueError("confidence must be between 0 and 1")
-        if self.status in {FindingStatus.FAIL, FindingStatus.PASS} and not self.evidence:
+        if (
+            self.status in {FindingStatus.FAIL, FindingStatus.PASS}
+            and not self.evidence
+        ):
             raise ValueError("PASS and FAIL findings require evidence")
         if self.status == FindingStatus.FAIL and not self.rationale.strip():
             raise ValueError("FAIL findings require rationale")
@@ -107,7 +110,10 @@ class AuditResult:
 
     @property
     def evaluated_count(self) -> int:
-        return sum(f.status not in {FindingStatus.UNKNOWN, FindingStatus.REVIEW_REQUIRED} for f in self.findings)
+        return sum(
+            f.status not in {FindingStatus.UNKNOWN, FindingStatus.REVIEW_REQUIRED}
+            for f in self.findings
+        )
 
     @property
     def failed_count(self) -> int:

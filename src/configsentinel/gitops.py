@@ -4,6 +4,7 @@ The gate is intentionally repository-local: it reads only changed supported
 configuration files from Git, runs the deterministic engine, and returns a
 machine-readable decision. It never posts comments or mutates the repository.
 """
+
 from __future__ import annotations
 
 import json
@@ -14,7 +15,6 @@ from pathlib import Path
 from .client import ConfigSentinelClient
 from .engine import DeterministicComplianceEngine
 from .models import FindingStatus, Severity
-
 
 CONFIG_SUFFIXES = (".cfg", ".conf", ".config", ".txt", ".log")
 
@@ -48,7 +48,15 @@ class GitOpsResult:
         }
 
 
-def run_gitops_gate(repo: str | Path, base: str, head: str = "HEAD", *, vendor: str = "auto", frameworks: tuple[str, ...] = ("cis-network",), blocking_severities: tuple[Severity, ...] = (Severity.CRITICAL, Severity.HIGH)) -> GitOpsResult:
+def run_gitops_gate(
+    repo: str | Path,
+    base: str,
+    head: str = "HEAD",
+    *,
+    vendor: str = "auto",
+    frameworks: tuple[str, ...] = ("cis-network",),
+    blocking_severities: tuple[Severity, ...] = (Severity.CRITICAL, Severity.HIGH),
+) -> GitOpsResult:
     root = Path(repo).resolve()
     if not (root / ".git").exists():
         raise ValueError("repository path is not a Git worktree")
@@ -59,19 +67,70 @@ def run_gitops_gate(repo: str | Path, base: str, head: str = "HEAD", *, vendor: 
         path = root / relative
         if not path.is_file():
             continue
-        result = client.audit_file(str(path), vendor=vendor, frameworks=frameworks, project_id=f"git:{relative}")
+        result = client.audit_file(
+            str(path),
+            vendor=vendor,
+            frameworks=frameworks,
+            project_id=f"git:{relative}",
+        )
         for finding in result.findings:
-            if finding.status in {FindingStatus.FAIL, FindingStatus.UNKNOWN, FindingStatus.REVIEW_REQUIRED}:
-                findings.append(GitOpsFinding(relative, finding.control_id, finding.status.value, finding.severity.value, tuple(span.start_line for span in finding.evidence)))
-    blockers = [item for item in findings if item.status == FindingStatus.FAIL and Severity(item.severity) in blocking_severities]
+            if finding.status in {
+                FindingStatus.FAIL,
+                FindingStatus.UNKNOWN,
+                FindingStatus.REVIEW_REQUIRED,
+            }:
+                findings.append(
+                    GitOpsFinding(
+                        relative,
+                        finding.control_id,
+                        finding.status.value,
+                        finding.severity.value,
+                        tuple(span.start_line for span in finding.evidence),
+                    )
+                )
+    blockers = [
+        item
+        for item in findings
+        if item.status == FindingStatus.FAIL
+        and Severity(item.severity) in blocking_severities
+    ]
     if blockers:
-        return GitOpsResult(base, head, tuple(changed), tuple(findings), False, f"blocked by {len(blockers)} high-impact finding(s)")
-    return GitOpsResult(base, head, tuple(changed), tuple(findings), True, "no blocking deterministic findings")
+        return GitOpsResult(
+            base,
+            head,
+            tuple(changed),
+            tuple(findings),
+            False,
+            f"blocked by {len(blockers)} high-impact finding(s)",
+        )
+    return GitOpsResult(
+        base,
+        head,
+        tuple(changed),
+        tuple(findings),
+        True,
+        "no blocking deterministic findings",
+    )
 
 
 def _changed_files(root: Path, base: str, head: str) -> list[str]:
     try:
-        completed = subprocess.run(["git", "-C", str(root), "diff", "--name-only", "--diff-filter=ACMRT", f"{base}..{head}", "--", *[f"*{suffix}" for suffix in CONFIG_SUFFIXES]], check=True, capture_output=True, text=True)
+        completed = subprocess.run(
+            [
+                "git",
+                "-C",
+                str(root),
+                "diff",
+                "--name-only",
+                "--diff-filter=ACMRT",
+                f"{base}..{head}",
+                "--",
+                *[f"*{suffix}" for suffix in CONFIG_SUFFIXES],
+            ],
+            check=True,
+            capture_output=True,
+            text=True,
+        )
     except (OSError, subprocess.CalledProcessError) as exc:
         raise ValueError("unable to inspect Git revisions") from exc
     files: list[str] = []
@@ -84,4 +143,6 @@ def _changed_files(root: Path, base: str, head: str) -> list[str]:
 
 
 def write_gate_result(result: GitOpsResult, path: str | Path) -> None:
-    Path(path).write_text(json.dumps(result.as_dict(), indent=2, sort_keys=True) + "\n", encoding="utf-8")
+    Path(path).write_text(
+        json.dumps(result.as_dict(), indent=2, sort_keys=True) + "\n", encoding="utf-8"
+    )

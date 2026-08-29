@@ -1,4 +1,5 @@
 """Deterministic semantic mutation testing for the ConfigSentinel AI engine."""
+
 from __future__ import annotations
 
 import hashlib
@@ -102,18 +103,44 @@ def _target_mutations(vendor: str) -> tuple[tuple[str, str], ...]:
 def mutation_specs(vendor: str) -> tuple[MutationSpec, ...]:
     target = _target_mutations(vendor)
     return (
-        MutationSpec("trailing_whitespace", "Add trailing spaces to non-empty source lines; semantics must be preserved.", MutationRelation.PRESERVE),
-        MutationSpec("comment_insertion", "Insert an ignored vendor-neutral comment; semantics must be preserved.", MutationRelation.PRESERVE),
-        MutationSpec("final_newline", "Normalize the final newline; semantics must be preserved.", MutationRelation.PRESERVE),
-        MutationSpec("enable_telnet", "Add an explicit insecure Telnet-management directive; Telnet control must fail.", MutationRelation.CHANGE, "NET-MGMT-TELNET-001", "FAIL"),
-        MutationSpec("enable_plain_http", "Add an explicit plain-HTTP management directive; HTTP control must fail.", MutationRelation.CHANGE, "NET-MGMT-HTTP-001", "FAIL"),
+        MutationSpec(
+            "trailing_whitespace",
+            "Add trailing spaces to non-empty source lines; semantics must be preserved.",
+            MutationRelation.PRESERVE,
+        ),
+        MutationSpec(
+            "comment_insertion",
+            "Insert an ignored vendor-neutral comment; semantics must be preserved.",
+            MutationRelation.PRESERVE,
+        ),
+        MutationSpec(
+            "final_newline",
+            "Normalize the final newline; semantics must be preserved.",
+            MutationRelation.PRESERVE,
+        ),
+        MutationSpec(
+            "enable_telnet",
+            "Add an explicit insecure Telnet-management directive; Telnet control must fail.",
+            MutationRelation.CHANGE,
+            "NET-MGMT-TELNET-001",
+            "FAIL",
+        ),
+        MutationSpec(
+            "enable_plain_http",
+            "Add an explicit plain-HTTP management directive; HTTP control must fail.",
+            MutationRelation.CHANGE,
+            "NET-MGMT-HTTP-001",
+            "FAIL",
+        ),
     )
 
 
 def _apply(text: str, spec: MutationSpec, vendor: str) -> str:
     if spec.mutation_id == "trailing_whitespace":
         lines = text.splitlines()
-        return "\n".join(line + ("   " if line.strip() else "") for line in lines) + ("\n" if text.endswith(("\n", "\r")) else "")
+        return "\n".join(line + ("   " if line.strip() else "") for line in lines) + (
+            "\n" if text.endswith(("\n", "\r")) else ""
+        )
     if spec.mutation_id == "comment_insertion":
         comment = _comment_for(vendor)
         return comment + "\n" + text
@@ -126,14 +153,27 @@ def _apply(text: str, spec: MutationSpec, vendor: str) -> str:
     raise MutationError(f"unsupported mutation: {spec.mutation_id}")
 
 
-def _audit(client: ConfigSentinelClient, text: str, vendor: str, frameworks: tuple[str, ...]) -> AuditResult:
+def _audit(
+    client: ConfigSentinelClient, text: str, vendor: str, frameworks: tuple[str, ...]
+) -> AuditResult:
     try:
-        return client.audit_text(text, vendor=vendor, frameworks=frameworks, project_id="semantic-mutation-lab")
+        return client.audit_text(
+            text,
+            vendor=vendor,
+            frameworks=frameworks,
+            project_id="semantic-mutation-lab",
+        )
     except (ValueError, RuntimeError) as exc:
         raise MutationError(f"mutation audit rejected: {exc}") from exc
 
 
-def run_mutation_lab(config_text: str, *, vendor: str, frameworks: Iterable[str] = ("cis-network",), max_mutations: int = MAX_MUTATIONS) -> dict[str, Any]:
+def run_mutation_lab(
+    config_text: str,
+    *,
+    vendor: str,
+    frameworks: Iterable[str] = ("cis-network",),
+    max_mutations: int = MAX_MUTATIONS,
+) -> dict[str, Any]:
     """Run bounded mutations against redacted content and return no raw configuration."""
     if max_mutations < 1 or max_mutations > MAX_MUTATIONS:
         raise MutationError(f"max_mutations must be between 1 and {MAX_MUTATIONS}")
@@ -153,24 +193,73 @@ def run_mutation_lab(config_text: str, *, vendor: str, frameworks: Iterable[str]
         mutated = _apply(redacted, spec, vendor)
         mutated_result = _audit(client, mutated, vendor, selected)
         mutated_status = _status_map(mutated_result)
-        changed = tuple(sorted(control for control in set(baseline_status) | set(mutated_status) if baseline_status.get(control) != mutated_status.get(control)))
-        observed = mutated_status.get(spec.target_control_id) if spec.target_control_id else None
+        changed = tuple(
+            sorted(
+                control
+                for control in set(baseline_status) | set(mutated_status)
+                if baseline_status.get(control) != mutated_status.get(control)
+            )
+        )
+        observed = (
+            mutated_status.get(spec.target_control_id)
+            if spec.target_control_id
+            else None
+        )
         if spec.relation is MutationRelation.PRESERVE:
             passed = not changed
-            reason = None if passed else "semantics changed under a preservation mutation"
+            reason = (
+                None if passed else "semantics changed under a preservation mutation"
+            )
         else:
-            passed = bool(spec.target_control_id and observed == spec.expected_status and spec.target_control_id in changed)
-            reason = None if passed else "targeted control did not reach the expected changed status"
-        outcomes.append(MutationOutcome(spec.mutation_id, spec.description, spec.relation.value, passed, baseline.input_sha256, mutated_result.input_sha256, changed, spec.target_control_id, spec.expected_status, observed, reason))
+            passed = bool(
+                spec.target_control_id
+                and observed == spec.expected_status
+                and spec.target_control_id in changed
+            )
+            reason = (
+                None
+                if passed
+                else "targeted control did not reach the expected changed status"
+            )
+        outcomes.append(
+            MutationOutcome(
+                spec.mutation_id,
+                spec.description,
+                spec.relation.value,
+                passed,
+                baseline.input_sha256,
+                mutated_result.input_sha256,
+                changed,
+                spec.target_control_id,
+                spec.expected_status,
+                observed,
+                reason,
+            )
+        )
     passed = all(outcome.passed for outcome in outcomes)
     return {
         "schema": MUTATION_SCHEMA,
         "vendor": vendor,
         "frameworks": list(selected),
-        "baseline": {"input_sha256": baseline.input_sha256, "status_map": baseline_status, "finding_count": len(baseline.findings)},
+        "baseline": {
+            "input_sha256": baseline.input_sha256,
+            "status_map": baseline_status,
+            "finding_count": len(baseline.findings),
+        },
         "mutations": [outcome.as_dict() for outcome in outcomes],
-        "summary": {"passed": passed, "mutation_count": len(outcomes), "passed_count": sum(outcome.passed for outcome in outcomes), "failed_count": sum(not outcome.passed for outcome in outcomes)},
-        "safety": {"raw_configuration_included": False, "network_access": False, "bounded": True, "verdicts_modified": False, "note": "Mutation results test parser/control behavior; they do not change the source audit verdict or apply configuration."},
+        "summary": {
+            "passed": passed,
+            "mutation_count": len(outcomes),
+            "passed_count": sum(outcome.passed for outcome in outcomes),
+            "failed_count": sum(not outcome.passed for outcome in outcomes),
+        },
+        "safety": {
+            "raw_configuration_included": False,
+            "network_access": False,
+            "bounded": True,
+            "verdicts_modified": False,
+            "note": "Mutation results test parser/control behavior; they do not change the source audit verdict or apply configuration.",
+        },
     }
 
 
@@ -178,4 +267,13 @@ def render_mutation_report(report: dict[str, Any]) -> str:
     return json.dumps(report, indent=2, sort_keys=True) + "\n"
 
 
-__all__ = ["MAX_MUTATIONS", "MUTATION_SCHEMA", "MutationError", "MutationRelation", "MutationSpec", "run_mutation_lab", "render_mutation_report", "mutation_specs"]
+__all__ = [
+    "MAX_MUTATIONS",
+    "MUTATION_SCHEMA",
+    "MutationError",
+    "MutationRelation",
+    "MutationSpec",
+    "run_mutation_lab",
+    "render_mutation_report",
+    "mutation_specs",
+]

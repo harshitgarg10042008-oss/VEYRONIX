@@ -25,12 +25,21 @@ class FakeProvider:
         self.calls = []
 
     def complete(self, *, system, user, response_schema, timeout_s):
-        self.calls.append({"system": system, "user": user, "schema": response_schema, "timeout_s": timeout_s})
+        self.calls.append(
+            {
+                "system": system,
+                "user": user,
+                "schema": response_schema,
+                "timeout_s": timeout_s,
+            }
+        )
         return json.dumps(self.payload)
 
 
 def test_redactor_preserves_hash_and_masks_common_secrets():
-    result = SecretRedactor().redact("enable secret super-secret\nusername admin password pw123\n")
+    result = SecretRedactor().redact(
+        "enable secret super-secret\nusername admin password pw123\n"
+    )
     assert result.redaction_count == 2
     assert "super-secret" not in result.text
     assert "pw123" not in result.text
@@ -46,7 +55,9 @@ def test_sdk_fixture_engine_never_marks_unknown_as_pass():
 
 def test_sdk_fixture_engine_detects_telnet_with_evidence():
     client = ConfigSentinelClient(engine=FixtureAuditEngine())
-    result = client.audit_text("line vty 0 4\n transport input telnet\n", vendor="cisco_ios")
+    result = client.audit_text(
+        "line vty 0 4\n transport input telnet\n", vendor="cisco_ios"
+    )
     finding = result.findings[0]
     assert finding.status == FindingStatus.FAIL
     assert finding.evidence
@@ -67,12 +78,14 @@ def test_model_rejects_verdict_without_evidence():
 
 
 def test_llm_copilot_returns_structured_explanation():
-    provider = FakeProvider({
-        "explanation": "The evidence shows an insecure management transport.",
-        "confidence": 0.9,
-        "evidence_needed": [],
-        "safety_status": "REVIEW_REQUIRED",
-    })
+    provider = FakeProvider(
+        {
+            "explanation": "The evidence shows an insecure management transport.",
+            "confidence": 0.9,
+            "evidence_needed": [],
+            "safety_status": "REVIEW_REQUIRED",
+        }
+    )
     finding = Finding(
         finding_id="f1",
         audit_id="a1",
@@ -85,21 +98,27 @@ def test_llm_copilot_returns_structured_explanation():
         expected_state="Secure management only",
         rationale="Deterministic rule detected Telnet.",
     )
-    copilot = LLMCopilot(provider=provider, config=LLMConfig(enabled=True, model="test"))
-    explanation = copilot.explain_finding(finding, "transport input telnet\npassword hidden")
+    copilot = LLMCopilot(
+        provider=provider, config=LLMConfig(enabled=True, model="test")
+    )
+    explanation = copilot.explain_finding(
+        finding, "transport input telnet\npassword hidden"
+    )
     assert explanation.safety_status == "REVIEW_REQUIRED"
     assert provider.calls
     assert "password hidden" not in provider.calls[0]["user"]
 
 
 def test_llm_rejects_unexpected_fields():
-    provider = FakeProvider({
-        "explanation": "ok",
-        "confidence": 0.5,
-        "evidence_needed": [],
-        "safety_status": "REVIEW_REQUIRED",
-        "execute": "no",
-    })
+    provider = FakeProvider(
+        {
+            "explanation": "ok",
+            "confidence": 0.5,
+            "evidence_needed": [],
+            "safety_status": "REVIEW_REQUIRED",
+            "execute": "no",
+        }
+    )
     finding = Finding(
         finding_id="f1",
         audit_id="a1",
@@ -108,7 +127,9 @@ def test_llm_rejects_unexpected_fields():
         severity=Severity.MEDIUM,
         confidence=0.0,
     )
-    copilot = LLMCopilot(provider=provider, config=LLMConfig(enabled=True, model="test"))
+    copilot = LLMCopilot(
+        provider=provider, config=LLMConfig(enabled=True, model="test")
+    )
     with pytest.raises(LLMError):
         copilot.explain_finding(finding, "unknown command")
 

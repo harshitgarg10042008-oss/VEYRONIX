@@ -8,7 +8,6 @@ from configsentinel.client import ConfigSentinelClient
 from configsentinel.engine import DeterministicComplianceEngine
 from configsentinel.sources import SourceDiscoveryError, SourcePolicy, discover_sources
 
-
 CISCO = "version 17.9\nline vty 0 4\n transport input telnet\n"
 JUNOS = "set system services ssh\nset system services telnet\n"
 

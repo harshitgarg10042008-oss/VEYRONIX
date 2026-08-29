@@ -1,4 +1,5 @@
 """Privacy-preserving audit exchange capsules for local or approved handoff."""
+
 from __future__ import annotations
 
 import hashlib
@@ -25,7 +26,9 @@ def _text(value: Any, label: str, limit: int = 256) -> str:
 
 
 def _canonical(value: Any) -> bytes:
-    return json.dumps(value, sort_keys=True, separators=(",", ":"), ensure_ascii=True).encode("utf-8")
+    return json.dumps(
+        value, sort_keys=True, separators=(",", ":"), ensure_ascii=True
+    ).encode("utf-8")
 
 
 def _digest(value: Any) -> str:
@@ -33,13 +36,39 @@ def _digest(value: Any) -> str:
 
 
 def _report_metadata(report: Mapping[str, Any]) -> dict[str, Any]:
-    if not isinstance(report, Mapping) or not isinstance(report.get("audit"), Mapping) or not isinstance(report.get("findings"), list):
+    if (
+        not isinstance(report, Mapping)
+        or not isinstance(report.get("audit"), Mapping)
+        or not isinstance(report.get("findings"), list)
+    ):
         raise ExchangeError("report must contain audit metadata and findings")
     audit = report["audit"]
-    return {"audit_id": _text(audit.get("audit_id"), "audit.audit_id"), "vendor": _text(audit.get("vendor"), "audit.vendor"), "parser_version": _text(audit.get("parser_version", "unknown"), "audit.parser_version"), "rule_pack_version": _text(audit.get("rule_pack_version", "unknown"), "audit.rule_pack_version"), "input_sha256": _text(audit.get("input_sha256"), "audit.input_sha256", 128), "frameworks": [str(item)[:128] for item in audit.get("frameworks", [])] if isinstance(audit.get("frameworks", []), list) else []}
+    return {
+        "audit_id": _text(audit.get("audit_id"), "audit.audit_id"),
+        "vendor": _text(audit.get("vendor"), "audit.vendor"),
+        "parser_version": _text(
+            audit.get("parser_version", "unknown"), "audit.parser_version"
+        ),
+        "rule_pack_version": _text(
+            audit.get("rule_pack_version", "unknown"), "audit.rule_pack_version"
+        ),
+        "input_sha256": _text(audit.get("input_sha256"), "audit.input_sha256", 128),
+        "frameworks": (
+            [str(item)[:128] for item in audit.get("frameworks", [])]
+            if isinstance(audit.get("frameworks", []), list)
+            else []
+        ),
+    }
 
 
-def build_exchange_capsule(report: Mapping[str, Any], *, recipient: str = "local-review", purpose: str = "audit-review", key: bytes | None = None, include_risk: bool = True) -> dict[str, Any]:
+def build_exchange_capsule(
+    report: Mapping[str, Any],
+    *,
+    recipient: str = "local-review",
+    purpose: str = "audit-review",
+    key: bytes | None = None,
+    include_risk: bool = True,
+) -> dict[str, Any]:
     """Minimize an audit report into a hash-bound exchange capsule."""
     metadata = _report_metadata(report)
     findings = report["findings"]
@@ -58,20 +87,86 @@ def build_exchange_capsule(report: Mapping[str, Any], *, recipient: str = "local
             for span in evidence:
                 if isinstance(span, Mapping):
                     excerpt = str(span.get("excerpt", ""))
-                    evidence_refs.append({"start_line": span.get("start_line"), "end_line": span.get("end_line"), "excerpt_sha256": hashlib.sha256(excerpt.encode("utf-8")).hexdigest(), "redacted": bool(span.get("redacted", True))})
-        item = {"finding_id": _text(raw.get("finding_id"), "finding.finding_id"), "control_id": _text(raw.get("control_id"), "finding.control_id"), "status": status, "severity": str(raw.get("severity", "UNKNOWN"))[:32], "confidence": raw.get("confidence"), "evidence": evidence_refs, "finding_sha256": _digest({"finding_id": raw.get("finding_id"), "control_id": raw.get("control_id"), "status": status, "evidence": evidence_refs})}
+                    evidence_refs.append(
+                        {
+                            "start_line": span.get("start_line"),
+                            "end_line": span.get("end_line"),
+                            "excerpt_sha256": hashlib.sha256(
+                                excerpt.encode("utf-8")
+                            ).hexdigest(),
+                            "redacted": bool(span.get("redacted", True)),
+                        }
+                    )
+        item = {
+            "finding_id": _text(raw.get("finding_id"), "finding.finding_id"),
+            "control_id": _text(raw.get("control_id"), "finding.control_id"),
+            "status": status,
+            "severity": str(raw.get("severity", "UNKNOWN"))[:32],
+            "confidence": raw.get("confidence"),
+            "evidence": evidence_refs,
+            "finding_sha256": _digest(
+                {
+                    "finding_id": raw.get("finding_id"),
+                    "control_id": raw.get("control_id"),
+                    "status": status,
+                    "evidence": evidence_refs,
+                }
+            ),
+        }
         if include_risk and isinstance(raw.get("risk"), Mapping):
-            item["risk"] = {key_name: raw["risk"].get(key_name) for key_name in ("priority", "asset_criticality", "score") if key_name in raw["risk"]}
+            item["risk"] = {
+                key_name: raw["risk"].get(key_name)
+                for key_name in ("priority", "asset_criticality", "score")
+                if key_name in raw["risk"]
+            }
         redacted_findings.append(item)
-    payload = {"schema": EXCHANGE_SCHEMA, "recipient": _text(recipient, "recipient"), "purpose": _text(purpose, "purpose"), "source": metadata, "summary": {"finding_count": len(redacted_findings), "unknown_block_count": len(report.get("unknown_blocks", [])) if isinstance(report.get("unknown_blocks", []), list) else 0}, "findings": sorted(redacted_findings, key=lambda item: item["finding_id"]), "provenance": {"source_report_sha256": _digest(report), "capsule_input_scope": "audit metadata, non-PASS finding summaries, evidence hashes, and optional risk fields"}, "safety": {"raw_configuration_included": False, "raw_evidence_included": False, "passing_findings_included": False, "network_submission": False, "verdicts_changed": False}}
-    envelope = {"schema": EXCHANGE_SCHEMA, "payload": payload, "capsule_sha256": _digest(payload)}
+    payload = {
+        "schema": EXCHANGE_SCHEMA,
+        "recipient": _text(recipient, "recipient"),
+        "purpose": _text(purpose, "purpose"),
+        "source": metadata,
+        "summary": {
+            "finding_count": len(redacted_findings),
+            "unknown_block_count": (
+                len(report.get("unknown_blocks", []))
+                if isinstance(report.get("unknown_blocks", []), list)
+                else 0
+            ),
+        },
+        "findings": sorted(redacted_findings, key=lambda item: item["finding_id"]),
+        "provenance": {
+            "source_report_sha256": _digest(report),
+            "capsule_input_scope": "audit metadata, non-PASS finding summaries, evidence hashes, and optional risk fields",
+        },
+        "safety": {
+            "raw_configuration_included": False,
+            "raw_evidence_included": False,
+            "passing_findings_included": False,
+            "network_submission": False,
+            "verdicts_changed": False,
+        },
+    }
+    envelope = {
+        "schema": EXCHANGE_SCHEMA,
+        "payload": payload,
+        "capsule_sha256": _digest(payload),
+    }
     if key:
-        envelope["integrity"] = {"algorithm": "HMAC-SHA256", "signature": hmac.new(key, _canonical(payload), hashlib.sha256).hexdigest()}
+        envelope["integrity"] = {
+            "algorithm": "HMAC-SHA256",
+            "signature": hmac.new(key, _canonical(payload), hashlib.sha256).hexdigest(),
+        }
     return envelope
 
 
-def verify_exchange_capsule(capsule: Mapping[str, Any], *, key: bytes | None = None) -> dict[str, Any]:
-    if not isinstance(capsule, Mapping) or capsule.get("schema") != EXCHANGE_SCHEMA or not isinstance(capsule.get("payload"), Mapping):
+def verify_exchange_capsule(
+    capsule: Mapping[str, Any], *, key: bytes | None = None
+) -> dict[str, Any]:
+    if (
+        not isinstance(capsule, Mapping)
+        or capsule.get("schema") != EXCHANGE_SCHEMA
+        or not isinstance(capsule.get("payload"), Mapping)
+    ):
         raise ExchangeError("unsupported exchange capsule")
     payload = capsule["payload"]
     mismatches: list[str] = []
@@ -81,19 +176,52 @@ def verify_exchange_capsule(capsule: Mapping[str, Any], *, key: bytes | None = N
     if integrity is not None:
         if not key:
             mismatches.append("integrity key required")
-        elif integrity.get("algorithm") != "HMAC-SHA256" or not hmac.compare_digest(str(integrity.get("signature", "")), hmac.new(key, _canonical(payload), hashlib.sha256).hexdigest()):
+        elif integrity.get("algorithm") != "HMAC-SHA256" or not hmac.compare_digest(
+            str(integrity.get("signature", "")),
+            hmac.new(key, _canonical(payload), hashlib.sha256).hexdigest(),
+        ):
             mismatches.append("capsule signature mismatch")
     elif key:
         mismatches.append("capsule is not signed")
-    return {"schema": EXCHANGE_VERIFY_SCHEMA, "capsule_sha256": str(capsule.get("capsule_sha256", "")), "verified": not mismatches, "mismatches": mismatches, "safety": {"raw_configuration_included": False, "network_submission": False, "note": "Verification checks capsule integrity only; it does not approve findings or submit data."}}
+    return {
+        "schema": EXCHANGE_VERIFY_SCHEMA,
+        "capsule_sha256": str(capsule.get("capsule_sha256", "")),
+        "verified": not mismatches,
+        "mismatches": mismatches,
+        "safety": {
+            "raw_configuration_included": False,
+            "network_submission": False,
+            "note": "Verification checks capsule integrity only; it does not approve findings or submit data.",
+        },
+    }
 
 
-def write_exchange_capsule(report: Mapping[str, Any], output: str | Path, *, recipient: str = "local-review", purpose: str = "audit-review", key: bytes | None = None) -> dict[str, Any]:
-    capsule = build_exchange_capsule(report, recipient=recipient, purpose=purpose, key=key)
+def write_exchange_capsule(
+    report: Mapping[str, Any],
+    output: str | Path,
+    *,
+    recipient: str = "local-review",
+    purpose: str = "audit-review",
+    key: bytes | None = None,
+) -> dict[str, Any]:
+    capsule = build_exchange_capsule(
+        report, recipient=recipient, purpose=purpose, key=key
+    )
     destination = Path(output)
     destination.parent.mkdir(parents=True, exist_ok=True)
-    destination.write_text(json.dumps(capsule, indent=2, sort_keys=True) + "\n", encoding="utf-8", newline="\n")
+    destination.write_text(
+        json.dumps(capsule, indent=2, sort_keys=True) + "\n",
+        encoding="utf-8",
+        newline="\n",
+    )
     return capsule
 
 
-__all__ = ["EXCHANGE_SCHEMA", "EXCHANGE_VERIFY_SCHEMA", "ExchangeError", "build_exchange_capsule", "verify_exchange_capsule", "write_exchange_capsule"]
+__all__ = [
+    "EXCHANGE_SCHEMA",
+    "EXCHANGE_VERIFY_SCHEMA",
+    "ExchangeError",
+    "build_exchange_capsule",
+    "verify_exchange_capsule",
+    "write_exchange_capsule",
+]

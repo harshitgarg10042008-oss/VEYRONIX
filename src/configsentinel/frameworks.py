@@ -76,7 +76,20 @@ REGISTRY_VERSION = "8.0.0"
 
 
 def normalize_framework_id(value: str) -> str:
-    aliases = {"cis": "cis-network", "nist": "nist-800-53", "nist_800_53": "nist-800-53", "csf": "nist-csf-2", "nist-csf": "nist-csf-2", "pci": "pci-dss-4-0-1", "pci-dss": "pci-dss-4-0-1", "iso27001": "iso-27001-2022", "iso-27001": "iso-27001-2022", "hipaa": "hipaa-security-rule", "soc2": "soc-2-tsc", "soc-2": "soc-2-tsc"}
+    aliases = {
+        "cis": "cis-network",
+        "nist": "nist-800-53",
+        "nist_800_53": "nist-800-53",
+        "csf": "nist-csf-2",
+        "nist-csf": "nist-csf-2",
+        "pci": "pci-dss-4-0-1",
+        "pci-dss": "pci-dss-4-0-1",
+        "iso27001": "iso-27001-2022",
+        "iso-27001": "iso-27001-2022",
+        "hipaa": "hipaa-security-rule",
+        "soc2": "soc-2-tsc",
+        "soc-2": "soc-2-tsc",
+    }
     normalized = aliases.get(value.strip().lower(), value.strip().lower())
     if normalized not in FRAMEWORK_BY_ID:
         raise ValueError(f"unsupported framework: {value}")
@@ -84,7 +97,11 @@ def normalize_framework_id(value: str) -> str:
 
 
 def normalize_frameworks(values: Iterable[str] | None) -> tuple[str, ...]:
-    selected = tuple(dict.fromkeys(normalize_framework_id(value) for value in (values or ("cis-network",))))
+    selected = tuple(
+        dict.fromkeys(
+            normalize_framework_id(value) for value in (values or ("cis-network",))
+        )
+    )
     if not selected:
         raise ValueError("at least one framework is required")
     return selected
@@ -94,7 +111,9 @@ def get_framework(framework_id: str) -> FrameworkDefinition:
     return FRAMEWORK_BY_ID[normalize_framework_id(framework_id)]
 
 
-def mappings_for_finding(finding: Finding, frameworks: Iterable[str]) -> tuple[dict[str, object], ...]:
+def mappings_for_finding(
+    finding: Finding, frameworks: Iterable[str]
+) -> tuple[dict[str, object], ...]:
     control = CONTROL_BY_ID.get(finding.control_id)
     if control is None:
         return tuple()
@@ -102,17 +121,25 @@ def mappings_for_finding(finding: Finding, frameworks: Iterable[str]) -> tuple[d
     for framework_id in normalize_frameworks(frameworks):
         framework = get_framework(framework_id)
         mapping_aliases = {"cis-network": "cis", "nist-800-53": "nist_800_53"}
-        mapping_key = mapping_aliases.get(framework.framework_id, framework.framework_id)
-        control_ids = tuple(control.framework_mappings.get(framework.framework_id, control.framework_mappings.get(mapping_key, ())))
-        rows.append({
-            "framework_id": framework.framework_id,
-            "title": framework.title,
-            "version": framework.version,
-            "source_url": framework.source_url,
-            "control_ids": control_ids,
-            "status": "MAPPED" if control_ids else "UNVERIFIED",
-            "confidence": "CONTROL_PACK" if control_ids else "UNVERIFIED",
-        })
+        mapping_key = mapping_aliases.get(
+            framework.framework_id, framework.framework_id
+        )
+        control_ids = tuple(
+            control.framework_mappings.get(
+                framework.framework_id, control.framework_mappings.get(mapping_key, ())
+            )
+        )
+        rows.append(
+            {
+                "framework_id": framework.framework_id,
+                "title": framework.title,
+                "version": framework.version,
+                "source_url": framework.source_url,
+                "control_ids": control_ids,
+                "status": "MAPPED" if control_ids else "UNVERIFIED",
+                "confidence": "CONTROL_PACK" if control_ids else "UNVERIFIED",
+            }
+        )
     return tuple(rows)
 
 
@@ -120,8 +147,17 @@ def framework_catalog() -> tuple[FrameworkDefinition, ...]:
     return FRAMEWORKS
 
 
-def framework_registry_snapshot(frameworks: Iterable[str]) -> tuple[dict[str, str], ...]:
-    return tuple({"framework_id": item.framework_id, "version": item.version, "source_url": item.source_url} for item in (get_framework(value) for value in normalize_frameworks(frameworks)))
+def framework_registry_snapshot(
+    frameworks: Iterable[str],
+) -> tuple[dict[str, str], ...]:
+    return tuple(
+        {
+            "framework_id": item.framework_id,
+            "version": item.version,
+            "source_url": item.source_url,
+        }
+        for item in (get_framework(value) for value in normalize_frameworks(frameworks))
+    )
 
 
 __all__ = [

@@ -16,11 +16,23 @@ class DeterministicComplianceEngine(AuditEngine):
     def __init__(self, policy_packs: tuple[CustomPolicyPack, ...] = ()) -> None:
         self.policy_packs = policy_packs
 
-    def run(self, request: AuditRequest, *, audit_id: str, redacted_config: str, input_sha256: str) -> AuditResult:
+    def run(
+        self,
+        request: AuditRequest,
+        *,
+        audit_id: str,
+        redacted_config: str,
+        input_sha256: str,
+    ) -> AuditResult:
         parsed: ParseResult = detect_and_parse(redacted_config, request.vendor)
         findings = evaluate(parsed.config, audit_id)
         for pack in self.policy_packs:
-            findings += evaluate_custom(pack, redacted_config, audit_id=audit_id, vendor=parsed.config.metadata.get("plugin_id", parsed.config.vendor))
+            findings += evaluate_custom(
+                pack,
+                redacted_config,
+                audit_id=audit_id,
+                vendor=parsed.config.metadata.get("plugin_id", parsed.config.vendor),
+            )
         return AuditResult(
             audit_id=audit_id,
             vendor=parsed.config.metadata.get("plugin_id", parsed.config.vendor),

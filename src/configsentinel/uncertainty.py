@@ -1,4 +1,5 @@
 """Evidence coverage and uncertainty budgets for evidence-first audit review."""
+
 from __future__ import annotations
 
 import hashlib
@@ -14,7 +15,9 @@ class UncertaintyError(ValueError):
 
 
 def _canonical(value: Any) -> bytes:
-    return json.dumps(value, sort_keys=True, separators=(",", ":"), ensure_ascii=True).encode("utf-8")
+    return json.dumps(
+        value, sort_keys=True, separators=(",", ":"), ensure_ascii=True
+    ).encode("utf-8")
 
 
 def _digest(value: Any) -> str:
@@ -32,7 +35,9 @@ def _evidence_quality(finding: Mapping[str, Any]) -> tuple[bool, bool, list[str]
     if not isinstance(evidence, list):
         raise UncertaintyError("finding evidence must be an array")
     present = bool(evidence)
-    redacted = present and all(isinstance(span, Mapping) and span.get("redacted") is True for span in evidence)
+    redacted = present and all(
+        isinstance(span, Mapping) and span.get("redacted") is True for span in evidence
+    )
     gaps: list[str] = []
     if not present:
         gaps.append("missing_source_evidence")
@@ -50,7 +55,9 @@ def _evidence_quality(finding: Mapping[str, Any]) -> tuple[bool, bool, list[str]
     return present, redacted, gaps
 
 
-def _category(status: str, evidence_present: bool, evidence_redacted: bool, confidence: float) -> str:
+def _category(
+    status: str, evidence_present: bool, evidence_redacted: bool, confidence: float
+) -> str:
     if status == "CONTRADICTED":
         return "CONTRADICTED"
     if status in {"PASS", "FAIL"} and evidence_present and evidence_redacted:
@@ -69,7 +76,10 @@ def build_uncertainty_budget(report: Mapping[str, Any]) -> dict[str, Any]:
     unknown_blocks = report.get("unknown_blocks", [])
     if not isinstance(findings, list) or not isinstance(unknown_blocks, list):
         raise UncertaintyError("report findings and unknown_blocks must be arrays")
-    if not str(audit.get("audit_id", "")).strip() or not str(audit.get("vendor", "")).strip():
+    if (
+        not str(audit.get("audit_id", "")).strip()
+        or not str(audit.get("vendor", "")).strip()
+    ):
         raise UncertaintyError("report audit identity is incomplete")
 
     detail: list[dict[str, Any]] = []
@@ -84,7 +94,9 @@ def build_uncertainty_budget(report: Mapping[str, Any]) -> dict[str, Any]:
         control_id = str(finding.get("control_id", "")).strip()
         status = str(finding.get("status", "")).strip().upper()
         if not finding_id or not control_id or not status:
-            raise UncertaintyError("each finding needs finding_id, control_id, and status")
+            raise UncertaintyError(
+                "each finding needs finding_id, control_id, and status"
+            )
         try:
             confidence = float(finding.get("confidence", 0.0))
         except (TypeError, ValueError) as exc:
@@ -95,10 +107,15 @@ def build_uncertainty_budget(report: Mapping[str, Any]) -> dict[str, Any]:
         mappings = finding.get("framework_mappings", [])
         if not isinstance(mappings, list):
             raise UncertaintyError("finding framework_mappings must be an array")
-        mapping_present = any(isinstance(row, Mapping) and row.get("status") == "MAPPED" for row in mappings)
+        mapping_present = any(
+            isinstance(row, Mapping) and row.get("status") == "MAPPED"
+            for row in mappings
+        )
         if not mapping_present:
             finding_gaps.append("framework_mapping_unverified")
-        finding_category = _category(status, evidence_present, evidence_redacted, confidence)
+        finding_category = _category(
+            status, evidence_present, evidence_redacted, confidence
+        )
         category_counts[finding_category] += 1
         if evidence_present and evidence_redacted:
             evidence_backed += 1
@@ -126,8 +143,16 @@ def build_uncertainty_budget(report: Mapping[str, Any]) -> dict[str, Any]:
     coverage = round(evidence_backed / count, 6) if count else 1.0
     mapping_coverage = round(mapped / count, 6) if count else 1.0
     mean_confidence = round(total_confidence / count, 6) if count else 1.0
-    review_required = bool(gaps) or bool(category_counts.get("UNKNOWN")) or bool(category_counts.get("CONTRADICTED"))
-    assurance_state = "REVIEW_REQUIRED" if review_required else ("EVIDENCE_BACKED" if count else "NO_FINDINGS")
+    review_required = (
+        bool(gaps)
+        or bool(category_counts.get("UNKNOWN"))
+        or bool(category_counts.get("CONTRADICTED"))
+    )
+    assurance_state = (
+        "REVIEW_REQUIRED"
+        if review_required
+        else ("EVIDENCE_BACKED" if count else "NO_FINDINGS")
+    )
     return {
         "schema": UNCERTAINTY_SCHEMA,
         "audit": {
@@ -161,4 +186,9 @@ def render_uncertainty_budget(report: Mapping[str, Any]) -> str:
     return json.dumps(build_uncertainty_budget(report), indent=2, sort_keys=True) + "\n"
 
 
-__all__ = ["UNCERTAINTY_SCHEMA", "UncertaintyError", "build_uncertainty_budget", "render_uncertainty_budget"]
+__all__ = [
+    "UNCERTAINTY_SCHEMA",
+    "UncertaintyError",
+    "build_uncertainty_budget",
+    "render_uncertainty_budget",
+]

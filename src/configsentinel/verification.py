@@ -1,4 +1,5 @@
 """Deterministic safety invariants for audit reports and benchmark fixtures."""
+
 from __future__ import annotations
 
 from dataclasses import dataclass
@@ -12,7 +13,11 @@ class VerificationResult:
     violations: tuple[str, ...]
 
     def as_dict(self) -> dict[str, Any]:
-        return {"valid": self.valid, "checks": list(self.checks), "violations": list(self.violations)}
+        return {
+            "valid": self.valid,
+            "checks": list(self.checks),
+            "violations": list(self.violations),
+        }
 
 
 def verify_report(report: dict[str, Any]) -> VerificationResult:
@@ -43,13 +48,51 @@ def verify_report(report: dict[str, Any]) -> VerificationResult:
 
 def benchmark_cases() -> tuple[dict[str, Any], ...]:
     return (
-        {"name": "evidence-backed-fail", "report": {"audit": {"audit_id": "fixture-1"}, "findings": [{"status": "FAIL", "evidence": [{"line": 1}]}]}, "expected": True},
-        {"name": "fail-without-evidence", "report": {"audit": {"audit_id": "fixture-2"}, "findings": [{"status": "FAIL"}]}, "expected": False},
-        {"name": "unknown-is-reviewable", "report": {"audit": {"audit_id": "fixture-3"}, "findings": [{"status": "UNKNOWN"}]}, "expected": True},
-        {"name": "raw-config-rejected", "report": {"audit": {"audit_id": "fixture-4"}, "findings": [{"status": "PASS", "raw_config": "secret"}]}, "expected": False},
+        {
+            "name": "evidence-backed-fail",
+            "report": {
+                "audit": {"audit_id": "fixture-1"},
+                "findings": [{"status": "FAIL", "evidence": [{"line": 1}]}],
+            },
+            "expected": True,
+        },
+        {
+            "name": "fail-without-evidence",
+            "report": {
+                "audit": {"audit_id": "fixture-2"},
+                "findings": [{"status": "FAIL"}],
+            },
+            "expected": False,
+        },
+        {
+            "name": "unknown-is-reviewable",
+            "report": {
+                "audit": {"audit_id": "fixture-3"},
+                "findings": [{"status": "UNKNOWN"}],
+            },
+            "expected": True,
+        },
+        {
+            "name": "raw-config-rejected",
+            "report": {
+                "audit": {"audit_id": "fixture-4"},
+                "findings": [{"status": "PASS", "raw_config": "secret"}],
+            },
+            "expected": False,
+        },
     )
 
 
 def run_benchmark() -> dict[str, Any]:
-    results = [{"name": case["name"], "expected": case["expected"], "actual": verify_report(case["report"]).valid} for case in benchmark_cases()]
-    return {"passed": all(item["expected"] == item["actual"] for item in results), "cases": results}
+    results = [
+        {
+            "name": case["name"],
+            "expected": case["expected"],
+            "actual": verify_report(case["report"]).valid,
+        }
+        for case in benchmark_cases()
+    ]
+    return {
+        "passed": all(item["expected"] == item["actual"] for item in results),
+        "cases": results,
+    }

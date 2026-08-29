@@ -7,7 +7,6 @@ import pytest
 
 from configsentinel.robustness import RobustnessError, run_robustness_pack
 
-
 CONFIG = "version 17.3\nhostname edge\nline vty 0 4\n transport input ssh\n"
 
 
@@ -27,7 +26,11 @@ def test_robustness_reports_semantic_deviation_without_normalizing_it() -> None:
     result = run_robustness_pack(CONFIG, vendor="cisco_ios", max_cases=4)
     assert result["summary"]["pass_criteria"]
     assert any(item["case_id"] == "baseline" for item in result["cases"])
-    assert all("semantic_fields_changed_vs_baseline" in item for item in result["cases"] if item["outcome"] == "ACCEPTED")
+    assert all(
+        "semantic_fields_changed_vs_baseline" in item
+        for item in result["cases"]
+        if item["outcome"] == "ACCEPTED"
+    )
 
 
 def test_robustness_rejects_unsafe_inputs_and_unknown_vendor() -> None:
@@ -47,6 +50,23 @@ def test_robustness_cli(tmp_path: Path, capsys) -> None:
     config_path = tmp_path / "edge.cfg"
     output_path = tmp_path / "robustness.json"
     config_path.write_text(CONFIG, encoding="utf-8")
-    assert main(["parser-robustness", str(config_path), "--vendor", "cisco_ios", "--max-cases", "3", "--out", str(output_path)]) == 0
+    assert (
+        main(
+            [
+                "parser-robustness",
+                str(config_path),
+                "--vendor",
+                "cisco_ios",
+                "--max-cases",
+                "3",
+                "--out",
+                str(output_path),
+            ]
+        )
+        == 0
+    )
     assert "crashes=0" in capsys.readouterr().out
-    assert json.loads(output_path.read_text(encoding="utf-8"))["summary"]["case_count"] == 3
+    assert (
+        json.loads(output_path.read_text(encoding="utf-8"))["summary"]["case_count"]
+        == 3
+    )

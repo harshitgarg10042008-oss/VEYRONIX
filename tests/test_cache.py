@@ -6,14 +6,26 @@ from configsentinel.cache import AuditCache, CacheError
 
 
 def test_cache_key_changes_with_audit_inputs():
-    first = AuditCache.key("redacted", vendor="cisco_ios", frameworks=("cis-network",), rule_pack_version="1")
-    second = AuditCache.key("redacted", vendor="junos", frameworks=("cis-network",), rule_pack_version="1")
+    first = AuditCache.key(
+        "redacted",
+        vendor="cisco_ios",
+        frameworks=("cis-network",),
+        rule_pack_version="1",
+    )
+    second = AuditCache.key(
+        "redacted", vendor="junos", frameworks=("cis-network",), rule_pack_version="1"
+    )
     assert len(first) == 64 and first != second
 
 
 def test_cache_get_or_compute_hits_after_first_write(tmp_path: Path):
     cache = AuditCache(tmp_path / "cache")
-    key = AuditCache.key("redacted", vendor="cisco_ios", frameworks=("cis-network",), rule_pack_version="1")
+    key = AuditCache.key(
+        "redacted",
+        vendor="cisco_ios",
+        frameworks=("cis-network",),
+        rule_pack_version="1",
+    )
     calls = []
 
     def compute():

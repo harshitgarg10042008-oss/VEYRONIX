@@ -24,7 +24,9 @@ def sample_report() -> dict:
                 "status": "FAIL",
                 "confidence": 1.0,
                 "evidence": [{"start_line": 4, "end_line": 4, "redacted": True}],
-                "framework_mappings": [{"framework_id": "cis-network", "status": "MAPPED"}],
+                "framework_mappings": [
+                    {"framework_id": "cis-network", "status": "MAPPED"}
+                ],
             },
             {
                 "finding_id": "finding_unknown",
@@ -35,8 +37,14 @@ def sample_report() -> dict:
                 "framework_mappings": [],
             },
         ],
-        "unknown_blocks": [{"start_line": 10, "end_line": 11, "excerpt": "unknown", "redacted": True}],
-        "reconciliation": {"status_count_total": 2, "matches_finding_count": True, "failed_count_matches": True},
+        "unknown_blocks": [
+            {"start_line": 10, "end_line": 11, "excerpt": "unknown", "redacted": True}
+        ],
+        "reconciliation": {
+            "status_count_total": 2,
+            "matches_finding_count": True,
+            "failed_count_matches": True,
+        },
     }
 
 
@@ -48,7 +56,11 @@ def test_budget_exposes_evidence_and_mapping_gaps_without_verdict_changes():
     assert budget["assurance"]["state"] == "REVIEW_REQUIRED"
     assert budget["assurance"]["evidence_coverage"] == 0.5
     assert budget["assurance"]["framework_mapping_coverage"] == 0.5
-    assert set(budget["assurance"]["gaps"]) == {"framework_mapping_unverified", "missing_source_evidence", "unknown_blocks_present"}
+    assert set(budget["assurance"]["gaps"]) == {
+        "framework_mapping_unverified",
+        "missing_source_evidence",
+        "unknown_blocks_present",
+    }
     assert budget["findings"][0]["category"] == "VERIFIED"
     assert budget["findings"][1]["category"] == "UNKNOWN"
     assert budget["verdict_boundary"]["verdicts_changed"] is False
@@ -74,7 +86,9 @@ def test_uncertainty_budget_cli_writes_json(tmp_path: Path, capsys):
     output_path = tmp_path / "budget.json"
     report_path.write_text(json.dumps(sample_report()), encoding="utf-8")
 
-    assert main(["uncertainty-budget", str(report_path), "--out", str(output_path)]) == 0
+    assert (
+        main(["uncertainty-budget", str(report_path), "--out", str(output_path)]) == 0
+    )
     assert "uncertainty_budget=" in capsys.readouterr().out
     rendered = json.loads(output_path.read_text(encoding="utf-8"))
     assert rendered["schema"] == "configsentinel.uncertainty-budget.v1"

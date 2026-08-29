@@ -6,7 +6,11 @@ from configsentinel.workers import run_bounded
 
 
 def test_worker_results_keep_input_order():
-    result = run_bounded([("slow", 2), ("fast", 1)], lambda value: (time.sleep(0.01 * value), value)[1], max_workers=2)
+    result = run_bounded(
+        [("slow", 2), ("fast", 1)],
+        lambda value: (time.sleep(0.01 * value), value)[1],
+        max_workers=2,
+    )
     assert [item.job_id for item in result] == ["slow", "fast"]
     assert [item.value for item in result] == [2, 1]
 

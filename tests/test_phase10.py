@@ -2,7 +2,13 @@ from pathlib import Path
 
 import pytest
 
-from configsentinel.hardening import HardeningError, ResourceBudget, benchmark_call, safe_output_path, sha256_text
+from configsentinel.hardening import (
+    HardeningError,
+    ResourceBudget,
+    benchmark_call,
+    safe_output_path,
+    sha256_text,
+)
 
 
 def test_resource_budget_rejects_oversized_input():

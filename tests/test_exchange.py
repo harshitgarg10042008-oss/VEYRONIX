@@ -7,8 +7,11 @@ from pathlib import Path
 
 import pytest
 
-from configsentinel.exchange import ExchangeError, build_exchange_capsule, verify_exchange_capsule
-
+from configsentinel.exchange import (
+    ExchangeError,
+    build_exchange_capsule,
+    verify_exchange_capsule,
+)
 
 REPORT = {
     "audit": {
@@ -20,8 +23,35 @@ REPORT = {
         "frameworks": ["cis-network"],
     },
     "findings": [
-        {"finding_id": "failing-ssh", "control_id": "NET-MGMT-SSH-001", "status": "FAIL", "severity": "HIGH", "confidence": 1.0, "evidence": [{"excerpt": "transport input telnet", "start_line": 4, "end_line": 4, "redacted": True}], "risk": {"priority": "P1", "asset_criticality": "critical", "score": 9}},
-        {"finding_id": "passing-aaa", "control_id": "NET-AUTH-001", "status": "PASS", "severity": "LOW", "evidence": [{"excerpt": "secret should not escape", "start_line": 10, "end_line": 10}]},
+        {
+            "finding_id": "failing-ssh",
+            "control_id": "NET-MGMT-SSH-001",
+            "status": "FAIL",
+            "severity": "HIGH",
+            "confidence": 1.0,
+            "evidence": [
+                {
+                    "excerpt": "transport input telnet",
+                    "start_line": 4,
+                    "end_line": 4,
+                    "redacted": True,
+                }
+            ],
+            "risk": {"priority": "P1", "asset_criticality": "critical", "score": 9},
+        },
+        {
+            "finding_id": "passing-aaa",
+            "control_id": "NET-AUTH-001",
+            "status": "PASS",
+            "severity": "LOW",
+            "evidence": [
+                {
+                    "excerpt": "secret should not escape",
+                    "start_line": 10,
+                    "end_line": 10,
+                }
+            ],
+        },
     ],
     "unknown_blocks": [],
 }
@@ -34,7 +64,13 @@ def test_capsule_is_deterministic_minimized_and_hash_bound() -> None:
     encoded = json.dumps(first, sort_keys=True)
     assert "transport input telnet" not in encoded
     assert "secret should not escape" not in encoded
-    assert first["payload"]["safety"] == {"raw_configuration_included": False, "raw_evidence_included": False, "passing_findings_included": False, "network_submission": False, "verdicts_changed": False}
+    assert first["payload"]["safety"] == {
+        "raw_configuration_included": False,
+        "raw_evidence_included": False,
+        "passing_findings_included": False,
+        "network_submission": False,
+        "verdicts_changed": False,
+    }
     assert first["payload"]["summary"]["finding_count"] == 1
 
 
@@ -62,8 +98,38 @@ def test_exchange_cli_create_and_verify(tmp_path: Path) -> None:
     report.write_text(json.dumps(REPORT), encoding="utf-8")
     key.write_bytes(b"exchange-key")
     env = {"PYTHONPATH": "src"}
-    create = subprocess.run([sys.executable, "-m", "configsentinel.cli", "audit-exchange", str(report), "--key-file", str(key), "--out", str(capsule)], capture_output=True, text=True, env=env)
+    create = subprocess.run(
+        [
+            sys.executable,
+            "-m",
+            "configsentinel.cli",
+            "audit-exchange",
+            str(report),
+            "--key-file",
+            str(key),
+            "--out",
+            str(capsule),
+        ],
+        capture_output=True,
+        text=True,
+        env=env,
+    )
     assert create.returncode == 0, create.stderr
-    verify = subprocess.run([sys.executable, "-m", "configsentinel.cli", "audit-exchange-verify", str(capsule), "--key-file", str(key), "--out", str(result)], capture_output=True, text=True, env=env)
+    verify = subprocess.run(
+        [
+            sys.executable,
+            "-m",
+            "configsentinel.cli",
+            "audit-exchange-verify",
+            str(capsule),
+            "--key-file",
+            str(key),
+            "--out",
+            str(result),
+        ],
+        capture_output=True,
+        text=True,
+        env=env,
+    )
     assert verify.returncode == 0, verify.stderr
     assert json.loads(result.read_text(encoding="utf-8"))["verified"] is True

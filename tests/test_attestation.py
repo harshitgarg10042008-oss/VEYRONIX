@@ -17,7 +17,12 @@ def sample_report() -> dict:
             "frameworks": ["cis-network"],
             "input_sha256": "a" * 64,
         },
-        "summary": {"finding_count": 1, "failed_count": 1, "unknown_count": 0, "evaluated_count": 1},
+        "summary": {
+            "finding_count": 1,
+            "failed_count": 1,
+            "unknown_count": 0,
+            "evaluated_count": 1,
+        },
         "findings": [
             {
                 "finding_id": "finding_1",
@@ -26,12 +31,23 @@ def sample_report() -> dict:
                 "status": "FAIL",
                 "severity": "HIGH",
                 "confidence": 1.0,
-                "evidence": [{"start_line": 4, "end_line": 4, "excerpt": "transport input telnet", "redacted": True}],
+                "evidence": [
+                    {
+                        "start_line": 4,
+                        "end_line": 4,
+                        "excerpt": "transport input telnet",
+                        "redacted": True,
+                    }
+                ],
                 "rationale": "Telnet is enabled.",
             }
         ],
         "unknown_blocks": [],
-        "reconciliation": {"status_count_total": 1, "matches_finding_count": True, "failed_count_matches": True},
+        "reconciliation": {
+            "status_count_total": 1,
+            "matches_finding_count": True,
+            "failed_count_matches": True,
+        },
     }
 
 
@@ -51,7 +67,10 @@ def test_attestation_signature_and_claim_replay_are_verified():
     report = sample_report()
     token = build_attestation(report, b"demo-key", issued_at="2026-08-27T00:00:00Z")
 
-    assert verify_attestation(token, report, b"demo-key") == (True, "attestation verified and replayed")
+    assert verify_attestation(token, report, b"demo-key") == (
+        True,
+        "attestation verified and replayed",
+    )
     assert verify_attestation(token, report, b"wrong-key")[0] is False
 
     changed = copy.deepcopy(report)
@@ -90,7 +109,32 @@ def test_attestation_cli_create_and_verify(tmp_path: Path, capsys):
     report_path.write_text(json.dumps(sample_report()), encoding="utf-8")
     key_path.write_bytes(b"demo-key")
 
-    assert main(["attestation-create", str(report_path), "--key-file", str(key_path), "--out", str(token_path), "--issued-at", "2026-08-27T00:00:00Z"]) == 0
+    assert (
+        main(
+            [
+                "attestation-create",
+                str(report_path),
+                "--key-file",
+                str(key_path),
+                "--out",
+                str(token_path),
+                "--issued-at",
+                "2026-08-27T00:00:00Z",
+            ]
+        )
+        == 0
+    )
     assert "attestation=" in capsys.readouterr().out
-    assert main(["attestation-verify", str(report_path), str(token_path), "--key-file", str(key_path)]) == 0
+    assert (
+        main(
+            [
+                "attestation-verify",
+                str(report_path),
+                str(token_path),
+                "--key-file",
+                str(key_path),
+            ]
+        )
+        == 0
+    )
     assert "VALID" in capsys.readouterr().out

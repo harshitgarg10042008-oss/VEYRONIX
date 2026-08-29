@@ -6,7 +6,9 @@ from configsentinel.engine import DeterministicComplianceEngine
 
 
 def audit(text: str):
-    return ConfigSentinelClient(engine=DeterministicComplianceEngine()).audit_text(text, vendor="cisco_ios")
+    return ConfigSentinelClient(engine=DeterministicComplianceEngine()).audit_text(
+        text, vendor="cisco_ios"
+    )
 
 
 def test_audit_trail_hash_chain_verifies_and_detects_corruption(tmp_path: Path):
@@ -21,7 +23,9 @@ def test_audit_trail_hash_chain_verifies_and_detects_corruption(tmp_path: Path):
 
 
 def test_signed_envelope_verifies_only_with_original_key():
-    envelope = sign_envelope({"audit_id": "audit_1", "input_sha256": "abc"}, b"local-secret")
+    envelope = sign_envelope(
+        {"audit_id": "audit_1", "input_sha256": "abc"}, b"local-secret"
+    )
     assert verify_envelope(envelope, b"local-secret") is True
     assert verify_envelope(envelope, b"wrong-secret") is False
     envelope["payload"]["audit_id"] = "tampered"

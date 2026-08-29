@@ -21,14 +21,27 @@ from .sources import discover_sources
 
 
 class AuditEngine(Protocol):
-    def run(self, request: AuditRequest, *, audit_id: str, redacted_config: str, input_sha256: str) -> AuditResult:
+    def run(
+        self,
+        request: AuditRequest,
+        *,
+        audit_id: str,
+        redacted_config: str,
+        input_sha256: str,
+    ) -> AuditResult:
         """Run deterministic parsing and policy evaluation."""
 
 
 class ConfigSentinelClient:
     """Stable SDK facade for local or remote audit implementations."""
 
-    def __init__(self, engine: AuditEngine | None = None, *, redactor: SecretRedactor | None = None, ingestion: ConfigIngestionService | None = None) -> None:
+    def __init__(
+        self,
+        engine: AuditEngine | None = None,
+        *,
+        redactor: SecretRedactor | None = None,
+        ingestion: ConfigIngestionService | None = None,
+    ) -> None:
         self.engine = engine
         self.redactor = redactor or SecretRedactor()
         self.ingestion = ingestion or ConfigIngestionService(redactor=self.redactor)
@@ -51,34 +64,89 @@ class ConfigSentinelClient:
 
     def audit(self, request: AuditRequest) -> AuditResult:
         if self.engine is None:
-            raise RuntimeError("no audit engine configured; parser/policy engine will be added in a later phase")
+            raise RuntimeError(
+                "no audit engine configured; parser/policy engine will be added in a later phase"
+            )
         redacted = self.redactor.redact(request.config_text)
         audit_id = f"audit_{uuid.uuid4().hex}"
-        return self.engine.run(request, audit_id=audit_id, redacted_config=redacted.text, input_sha256=redacted.input_sha256)
+        return self.engine.run(
+            request,
+            audit_id=audit_id,
+            redacted_config=redacted.text,
+            input_sha256=redacted.input_sha256,
+        )
 
-    def audit_text(self, config_text: str, *, vendor: str = "auto", frameworks: Iterable[str] = ("cis-network",), project_id: str = "local") -> AuditResult:
-        return self.audit(AuditRequest(config_text=config_text, vendor=vendor, frameworks=tuple(frameworks), project_id=project_id))
+    def audit_text(
+        self,
+        config_text: str,
+        *,
+        vendor: str = "auto",
+        frameworks: Iterable[str] = ("cis-network",),
+        project_id: str = "local",
+    ) -> AuditResult:
+        return self.audit(
+            AuditRequest(
+                config_text=config_text,
+                vendor=vendor,
+                frameworks=tuple(frameworks),
+                project_id=project_id,
+            )
+        )
 
     def ingest(self, filename: str, content: bytes) -> IngestedConfig:
         """Validate, hash, redact, and optionally quarantine configuration bytes."""
         return self.ingestion.ingest_bytes(filename, content)
 
-    def audit_file(self, path: str, *, vendor: str = "auto", frameworks: Iterable[str] = ("cis-network",), project_id: str = "local") -> AuditResult:
+    def audit_file(
+        self,
+        path: str,
+        *,
+        vendor: str = "auto",
+        frameworks: Iterable[str] = ("cis-network",),
+        project_id: str = "local",
+    ) -> AuditResult:
         """Audit a validated file; only redacted content reaches the engine."""
         ingested = self.ingestion.ingest_file(path)
-        request = AuditRequest(config_text=ingested.redacted_text, vendor=vendor, frameworks=tuple(frameworks), project_id=project_id)
+        request = AuditRequest(
+            config_text=ingested.redacted_text,
+            vendor=vendor,
+            frameworks=tuple(frameworks),
+            project_id=project_id,
+        )
         return self.audit(request)
 
-    def audit_sources(self, path: str, *, vendor: str = "auto", frameworks: Iterable[str] = ("cis-network",), project_id: str = "local") -> list[tuple[str, AuditResult]]:
+    def audit_sources(
+        self,
+        path: str,
+        *,
+        vendor: str = "auto",
+        frameworks: Iterable[str] = ("cis-network",),
+        project_id: str = "local",
+    ) -> list[tuple[str, AuditResult]]:
         """Audit every supported configuration discovered under a file, directory, or archive."""
         framework_tuple = tuple(frameworks)
-        return [(document.name, self.audit_text(document.content.decode("utf-8"), vendor=vendor, frameworks=framework_tuple, project_id=project_id)) for document in discover_sources(path, ingestion=self.ingestion)]
+        return [
+            (
+                document.name,
+                self.audit_text(
+                    document.content.decode("utf-8"),
+                    vendor=vendor,
+                    frameworks=framework_tuple,
+                    project_id=project_id,
+                ),
+            )
+            for document in discover_sources(path, ingestion=self.ingestion)
+        ]
 
-    def report_markdown(self, result: AuditResult, *, frameworks: Iterable[str] = ("cis-network",)) -> str:
+    def report_markdown(
+        self, result: AuditResult, *, frameworks: Iterable[str] = ("cis-network",)
+    ) -> str:
         """Render a deterministic, evidence-linked Markdown report."""
         return render_markdown(result, normalize_frameworks(frameworks))
 
-    def report_json(self, result: AuditResult, *, frameworks: Iterable[str] = ("cis-network",)) -> str:
+    def report_json(
+        self, result: AuditResult, *, frameworks: Iterable[str] = ("cis-network",)
+    ) -> str:
         """Render a deterministic JSON report with reconciliation metadata."""
         return render_json(result, normalize_frameworks(frameworks))
 
@@ -90,10 +158,19 @@ class FixtureAuditEngine:
     contract: findings require evidence and unsupported content is UNKNOWN.
     """
 
-    def run(self, request: AuditRequest, *, audit_id: str, redacted_config: str, input_sha256: str) -> AuditResult:
+    def run(
+        self,
+        request: AuditRequest,
+        *,
+        audit_id: str,
+        redacted_config: str,
+        input_sha256: str,
+    ) -> AuditResult:
         lines = redacted_config.splitlines()
         evidence = tuple(
-            __import__("configsentinel.models", fromlist=["EvidenceSpan"]).EvidenceSpan(i, i, line)
+            __import__("configsentinel.models", fromlist=["EvidenceSpan"]).EvidenceSpan(
+                i, i, line
+            )
             for i, line in enumerate(lines, 1)
             if line.strip()
         )
@@ -106,9 +183,17 @@ class FixtureAuditEngine:
             severity=Severity.HIGH,
             confidence=1.0 if has_telnet else 0.0,
             evidence=evidence if has_telnet else (),
-            observed_state="Telnet management access detected" if has_telnet else "Configuration area not yet evaluated",
+            observed_state=(
+                "Telnet management access detected"
+                if has_telnet
+                else "Configuration area not yet evaluated"
+            ),
             expected_state="Secure management access only",
-            rationale="Deterministic fixture rule detected a Telnet VTY transport directive." if has_telnet else "No Phase 2 parser is authorized to infer compliance for this input.",
+            rationale=(
+                "Deterministic fixture rule detected a Telnet VTY transport directive."
+                if has_telnet
+                else "No Phase 2 parser is authorized to infer compliance for this input."
+            ),
         )
         return AuditResult(
             audit_id=audit_id,

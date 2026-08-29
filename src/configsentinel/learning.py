@@ -47,7 +47,9 @@ class SyntaxProposal:
         if not 0.0 <= self.confidence <= 1.0:
             raise ValueError("confidence must be between 0 and 1")
         if not self.interpretation.strip() or not self.normalized_concept.strip():
-            raise ValueError("proposal interpretation and normalized concept are required")
+            raise ValueError(
+                "proposal interpretation and normalized concept are required"
+            )
 
 
 @dataclass(frozen=True)
@@ -96,46 +98,125 @@ class UnknownSyntaxQueue:
         self._events: list[ReviewEvent] = []
         self._mappings: dict[str, ApprovedMapping] = {}
 
-    def enqueue(self, *, vendor: str, parser_version: str, evidence: EvidenceSpan, context: str, source_sha256: str) -> UnknownSyntaxCase:
+    def enqueue(
+        self,
+        *,
+        vendor: str,
+        parser_version: str,
+        evidence: EvidenceSpan,
+        context: str,
+        source_sha256: str,
+    ) -> UnknownSyntaxCase:
         if not vendor.strip() or not context.strip() or not source_sha256.strip():
             raise LearningLoopError("vendor, context, and source hash are required")
-        case_id = _id("case", f"{vendor}|{parser_version}|{evidence.start_line}|{evidence.excerpt}|{source_sha256}")
-        case = UnknownSyntaxCase(case_id, vendor, parser_version, evidence, context, source_sha256, _now())
+        case_id = _id(
+            "case",
+            f"{vendor}|{parser_version}|{evidence.start_line}|{evidence.excerpt}|{source_sha256}",
+        )
+        case = UnknownSyntaxCase(
+            case_id, vendor, parser_version, evidence, context, source_sha256, _now()
+        )
         self._cases[case_id] = case
         return case
 
-    def cases(self, *, decision: ReviewDecision | None = None) -> tuple[UnknownSyntaxCase, ...]:
+    def cases(
+        self, *, decision: ReviewDecision | None = None
+    ) -> tuple[UnknownSyntaxCase, ...]:
         if decision is None:
             return tuple(self._cases.values())
-        proposal_case_ids = {p.case_id for p in self._proposals.values() if p.decision == decision}
-        return tuple(case for case in self._cases.values() if case.case_id in proposal_case_ids)
+        proposal_case_ids = {
+            p.case_id for p in self._proposals.values() if p.decision == decision
+        }
+        return tuple(
+            case for case in self._cases.values() if case.case_id in proposal_case_ids
+        )
 
-    def propose(self, case_id: str, *, interpretation: str, normalized_concept: str, confidence: float, evidence_needed: Iterable[str] = (), model_id: str = "deterministic-or-configured", prompt_version: str = "phase9-1.0") -> SyntaxProposal:
+    def propose(
+        self,
+        case_id: str,
+        *,
+        interpretation: str,
+        normalized_concept: str,
+        confidence: float,
+        evidence_needed: Iterable[str] = (),
+        model_id: str = "deterministic-or-configured",
+        prompt_version: str = "phase9-1.0",
+    ) -> SyntaxProposal:
         if case_id not in self._cases:
             raise LearningLoopError("unknown syntax case does not exist")
-        proposal_id = _id("proposal", f"{case_id}|{interpretation}|{normalized_concept}|{prompt_version}")
-        proposal = SyntaxProposal(proposal_id, case_id, interpretation, normalized_concept, confidence, tuple(evidence_needed), model_id, prompt_version)
+        proposal_id = _id(
+            "proposal",
+            f"{case_id}|{interpretation}|{normalized_concept}|{prompt_version}",
+        )
+        proposal = SyntaxProposal(
+            proposal_id,
+            case_id,
+            interpretation,
+            normalized_concept,
+            confidence,
+            tuple(evidence_needed),
+            model_id,
+            prompt_version,
+        )
         self._proposals[proposal_id] = proposal
         return proposal
 
-    def review(self, proposal_id: str, *, reviewer: str, decision: ReviewDecision, reason: str, second_reviewer: str | None = None) -> ApprovedMapping | None:
+    def review(
+        self,
+        proposal_id: str,
+        *,
+        reviewer: str,
+        decision: ReviewDecision,
+        reason: str,
+        second_reviewer: str | None = None,
+    ) -> ApprovedMapping | None:
         if proposal_id not in self._proposals:
             raise LearningLoopError("proposal does not exist")
         if not reviewer.strip() or not reason.strip():
             raise LearningLoopError("reviewer and reason are required")
         proposal = self._proposals[proposal_id]
         case = self._cases[proposal.case_id]
-        if decision == ReviewDecision.APPROVED and not second_reviewer and reviewer != "automated-test":
-            raise LearningLoopError("approval requires a second reviewer or automated-test evidence")
+        if (
+            decision == ReviewDecision.APPROVED
+            and not second_reviewer
+            and reviewer != "automated-test"
+        ):
+            raise LearningLoopError(
+                "approval requires a second reviewer or automated-test evidence"
+            )
         if decision == ReviewDecision.APPROVED and second_reviewer == reviewer:
             raise LearningLoopError("second reviewer must be different")
         updated = replace(proposal, decision=decision)
         self._proposals[proposal_id] = updated
-        self._events.append(ReviewEvent(_id("event", f"{proposal_id}|{reviewer}|{decision}|{reason}"), case.case_id, proposal_id, reviewer, decision, _now(), reason))
+        self._events.append(
+            ReviewEvent(
+                _id("event", f"{proposal_id}|{reviewer}|{decision}|{reason}"),
+                case.case_id,
+                proposal_id,
+                reviewer,
+                decision,
+                _now(),
+                reason,
+            )
+        )
         if decision != ReviewDecision.APPROVED:
             return None
-        mapping_id = _id("mapping", f"{case.case_id}|{proposal.normalized_concept}|{case.parser_version}")
-        mapping = ApprovedMapping(mapping_id, case.vendor, case.parser_version, case.case_id, hashlib.sha256(case.evidence.excerpt.strip().lower().encode()).hexdigest(), proposal.normalized_concept, proposal.interpretation, "9.0.0", reviewer, _now())
+        mapping_id = _id(
+            "mapping",
+            f"{case.case_id}|{proposal.normalized_concept}|{case.parser_version}",
+        )
+        mapping = ApprovedMapping(
+            mapping_id,
+            case.vendor,
+            case.parser_version,
+            case.case_id,
+            hashlib.sha256(case.evidence.excerpt.strip().lower().encode()).hexdigest(),
+            proposal.normalized_concept,
+            proposal.interpretation,
+            "9.0.0",
+            reviewer,
+            _now(),
+        )
         self._mappings[mapping_id] = mapping
         return mapping
 
@@ -166,10 +247,22 @@ class UnknownSyntaxQueue:
     def write_regression_fixture(self, mapping_id: str, path: str | Path) -> None:
         output = Path(path)
         output.parent.mkdir(parents=True, exist_ok=True)
-        output.write_text(json.dumps(self.regression_fixture(mapping_id), indent=2, sort_keys=True) + "\n", encoding="utf-8")
+        output.write_text(
+            json.dumps(self.regression_fixture(mapping_id), indent=2, sort_keys=True)
+            + "\n",
+            encoding="utf-8",
+        )
 
     def audit_trail(self) -> tuple[dict[str, object], ...]:
         return tuple(asdict(event) for event in self._events)
 
 
-__all__ = ["ReviewDecision", "UnknownSyntaxCase", "SyntaxProposal", "ReviewEvent", "ApprovedMapping", "LearningLoopError", "UnknownSyntaxQueue"]
+__all__ = [
+    "ReviewDecision",
+    "UnknownSyntaxCase",
+    "SyntaxProposal",
+    "ReviewEvent",
+    "ApprovedMapping",
+    "LearningLoopError",
+    "UnknownSyntaxQueue",
+]

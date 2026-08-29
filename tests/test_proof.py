@@ -4,7 +4,6 @@ from pathlib import Path
 
 from configsentinel.proof import build_proof_bundle, verify_proof_bundle
 
-
 REPORT = {
     "audit": {
         "audit_id": "audit-proof",
@@ -21,7 +20,14 @@ REPORT = {
             "severity": "HIGH",
             "confidence": 1.0,
             "rationale": "Telnet is explicitly enabled on the management VTY.",
-            "evidence": [{"start_line": 3, "end_line": 4, "excerpt": "transport input <REDACTED>", "redacted": True}],
+            "evidence": [
+                {
+                    "start_line": 3,
+                    "end_line": 4,
+                    "excerpt": "transport input <REDACTED>",
+                    "redacted": True,
+                }
+            ],
         }
     ],
     "unknown_blocks": [],
@@ -37,7 +43,10 @@ def test_proof_bundle_binds_evidence_and_never_contains_commands_or_excerpts():
     assert proof["safety"]["commands_included"] is False
     assert proof["safety"]["raw_evidence_included"] is False
     assert "transport input" not in json.dumps(proof)
-    assert proof["proofs"][0]["review"] == {"requires_human_approval": True, "executable": False}
+    assert proof["proofs"][0]["review"] == {
+        "requires_human_approval": True,
+        "executable": False,
+    }
     assert verify_proof_bundle(proof, REPORT)["verified"] is True
 
 
@@ -66,6 +75,17 @@ def test_proof_cli_creates_and_verifies_review_artifacts(tmp_path: Path, capsys)
 
     assert main(["remediation-proof", str(report_path), "--out", str(proof_path)]) == 0
     assert "remediation_proof=" in capsys.readouterr().out
-    assert main(["remediation-proof-verify", str(proof_path), str(report_path), "--out", str(verification_path)]) == 0
+    assert (
+        main(
+            [
+                "remediation-proof-verify",
+                str(proof_path),
+                str(report_path),
+                "--out",
+                str(verification_path),
+            ]
+        )
+        == 0
+    )
     assert "verified=True" in capsys.readouterr().out
     assert json.loads(verification_path.read_text(encoding="utf-8"))["verified"] is True

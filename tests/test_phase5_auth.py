@@ -19,7 +19,6 @@ import pytest
 
 from configsentinel.api import create_app
 
-
 AUDIT_PAYLOAD = {
     "config_text": "line vty 0 4\n transport input telnet\n",
     "vendor": "cisco_ios",
@@ -30,6 +29,7 @@ AUDIT_PAYLOAD = {
 def public_client():
     """App with no auth configured — dev/local mode."""
     from fastapi.testclient import TestClient
+
     app = create_app()
     return TestClient(app, raise_server_exceptions=False)
 
@@ -38,6 +38,7 @@ def public_client():
 def auth_client(monkeypatch):
     """App with CONFIGSENTINEL_API_TOKEN set and CONFIGSENTINEL_AUTH_REQUIRED=true."""
     from fastapi.testclient import TestClient
+
     monkeypatch.setenv("CONFIGSENTINEL_API_TOKEN", "test-token-abc123")
     monkeypatch.setenv("CONFIGSENTINEL_AUTH_REQUIRED", "true")
     app = create_app()
@@ -47,6 +48,7 @@ def auth_client(monkeypatch):
 # ---------------------------------------------------------------------------
 # 1. Health endpoint is always public
 # ---------------------------------------------------------------------------
+
 
 def test_health_is_public_without_auth(public_client):
     """The /api/health endpoint must always be reachable without credentials."""
@@ -67,6 +69,7 @@ def test_health_is_public_even_when_auth_required(auth_client):
 # ---------------------------------------------------------------------------
 # 2. Protected endpoints reject missing or wrong token
 # ---------------------------------------------------------------------------
+
 
 def test_audit_requires_token_when_auth_configured(auth_client):
     """POST /api/audit must return 401 when no token is supplied."""
@@ -102,6 +105,7 @@ def test_audit_accepts_correct_token(auth_client):
 # 3. No auth configured → open (dev mode)
 # ---------------------------------------------------------------------------
 
+
 def test_audit_works_without_auth_in_dev_mode(public_client):
     """When no token is set, the API must function without credentials."""
     response = public_client.post("/api/audit", json=AUDIT_PAYLOAD)
@@ -111,6 +115,7 @@ def test_audit_works_without_auth_in_dev_mode(public_client):
 # ---------------------------------------------------------------------------
 # 4. Security headers are always present
 # ---------------------------------------------------------------------------
+
 
 def test_security_headers_present_on_audit(public_client):
     """Security headers must be present on every API response."""
@@ -133,9 +138,11 @@ def test_security_headers_present_on_health(public_client):
 # 5. Rate limit returns 429 with Retry-After
 # ---------------------------------------------------------------------------
 
+
 def test_rate_limit_returns_429_with_retry_after(monkeypatch):
     """Exceeding the rate limit must return 429 and a Retry-After header."""
     from fastapi.testclient import TestClient
+
     monkeypatch.setenv("CONFIGSENTINEL_RATE_LIMIT_PER_MINUTE", "2")
     app = create_app()
     client = TestClient(app, raise_server_exceptions=False)
@@ -152,6 +159,7 @@ def test_rate_limit_returns_429_with_retry_after(monkeypatch):
 # 6. Missing token with auth_required must fail at startup
 # ---------------------------------------------------------------------------
 
+
 def test_startup_fails_when_auth_required_but_no_token(monkeypatch):
     """create_app() must raise if CONFIGSENTINEL_AUTH_REQUIRED is true but no token is set."""
     monkeypatch.setenv("CONFIGSENTINEL_AUTH_REQUIRED", "true")
@@ -163,6 +171,7 @@ def test_startup_fails_when_auth_required_but_no_token(monkeypatch):
 # ---------------------------------------------------------------------------
 # 7. X-Request-ID is echoed back on 401 responses
 # ---------------------------------------------------------------------------
+
 
 def test_request_id_echoed_on_auth_failure(auth_client):
     """The X-Request-ID must be present in 401 responses to aid tracing."""

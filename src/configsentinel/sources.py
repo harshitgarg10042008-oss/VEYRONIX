@@ -4,6 +4,7 @@ The discovery layer is deliberately content-preserving and fail-closed. It only
 returns supported regular files or archive members; parsing and redaction remain
 owned by ConfigIngestionService.
 """
+
 from __future__ import annotations
 
 import os
@@ -34,7 +35,12 @@ class SourceDiscoveryError(ValueError):
     """Raised when a source cannot be expanded safely."""
 
 
-def discover_sources(path: str | os.PathLike[str], *, ingestion: ConfigIngestionService | None = None, policy: SourcePolicy | None = None) -> Iterator[SourceDocument]:
+def discover_sources(
+    path: str | os.PathLike[str],
+    *,
+    ingestion: ConfigIngestionService | None = None,
+    policy: SourcePolicy | None = None,
+) -> Iterator[SourceDocument]:
     """Yield supported configuration documents from a file, directory, or archive."""
     candidate = Path(path)
     if candidate.is_symlink():
@@ -43,7 +49,11 @@ def discover_sources(path: str | os.PathLike[str], *, ingestion: ConfigIngestion
         raise SourceDiscoveryError("source path does not exist")
     ingestion = ingestion or ConfigIngestionService()
     policy = policy or SourcePolicy()
-    if candidate.is_file() and candidate.suffix.lower() in policy.archive_extensions or candidate.name.lower().endswith(".tar.gz"):
+    if (
+        candidate.is_file()
+        and candidate.suffix.lower() in policy.archive_extensions
+        or candidate.name.lower().endswith(".tar.gz")
+    ):
         yield from _archive_documents(candidate, ingestion, policy)
     elif candidate.is_dir():
         yield from _directory_documents(candidate, ingestion, policy)
@@ -52,12 +62,16 @@ def discover_sources(path: str | os.PathLike[str], *, ingestion: ConfigIngestion
             accepted = ingestion.ingest_file(candidate)
         except IngestionError as exc:
             raise SourceDiscoveryError(str(exc)) from exc
-        yield SourceDocument(accepted.original_name, candidate.read_bytes(), str(candidate))
+        yield SourceDocument(
+            accepted.original_name, candidate.read_bytes(), str(candidate)
+        )
     else:
         raise SourceDiscoveryError("source path is not a regular file or directory")
 
 
-def _directory_documents(root: Path, ingestion: ConfigIngestionService, policy: SourcePolicy) -> Iterator[SourceDocument]:
+def _directory_documents(
+    root: Path, ingestion: ConfigIngestionService, policy: SourcePolicy
+) -> Iterator[SourceDocument]:
     total = 0
     count = 0
     for item in sorted(root.rglob("*")):
@@ -72,13 +86,17 @@ def _directory_documents(root: Path, ingestion: ConfigIngestionService, policy: 
         yield SourceDocument(ingested.original_name, content, str(item))
 
 
-def _archive_documents(archive: Path, ingestion: ConfigIngestionService, policy: SourcePolicy) -> Iterator[SourceDocument]:
+def _archive_documents(
+    archive: Path, ingestion: ConfigIngestionService, policy: SourcePolicy
+) -> Iterator[SourceDocument]:
     count = 0
     total = 0
     try:
         if archive.name.lower().endswith(policy.archive_extensions[0]):
             with zipfile.ZipFile(archive) as bundle:
-                for member in sorted(bundle.infolist(), key=lambda entry: entry.filename):
+                for member in sorted(
+                    bundle.infolist(), key=lambda entry: entry.filename
+                ):
                     if member.is_dir() or not _safe_member(member.filename):
                         continue
                     name = Path(member.filename).name
@@ -109,7 +127,9 @@ def _archive_documents(archive: Path, ingestion: ConfigIngestionService, policy:
         raise SourceDiscoveryError(f"unable to read archive: {exc}") from exc
 
 
-def _account(count: int, total: int, size: int, policy: SourcePolicy) -> tuple[int, int]:
+def _account(
+    count: int, total: int, size: int, policy: SourcePolicy
+) -> tuple[int, int]:
     if count + 1 > policy.max_files:
         raise SourceDiscoveryError("source contains too many configuration files")
     if total + size > policy.max_total_bytes:
@@ -119,4 +139,9 @@ def _account(count: int, total: int, size: int, policy: SourcePolicy) -> tuple[i
 
 def _safe_member(name: str) -> bool:
     path = Path(name)
-    return bool(name) and not path.is_absolute() and ".." not in path.parts and "\x00" not in name
+    return (
+        bool(name)
+        and not path.is_absolute()
+        and ".." not in path.parts
+        and "\x00" not in name
+    )

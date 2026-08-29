@@ -26,7 +26,16 @@ class ResourceBudget:
     timeout_seconds: float = 30.0
 
     def __post_init__(self) -> None:
-        if any(value <= 0 for value in (self.max_input_bytes, self.max_lines, self.max_line_bytes, self.max_unknown_blocks, self.max_report_bytes)):
+        if any(
+            value <= 0
+            for value in (
+                self.max_input_bytes,
+                self.max_lines,
+                self.max_line_bytes,
+                self.max_unknown_blocks,
+                self.max_report_bytes,
+            )
+        ):
             raise ValueError("resource budgets must be positive")
         if self.timeout_seconds <= 0:
             raise ValueError("timeout_seconds must be positive")
@@ -103,7 +112,9 @@ def metrics_for(result: Any, duration_ms: float) -> AuditMetrics:
     )
 
 
-def benchmark_call(operation: Callable[[], T], *, iterations: int = 5) -> dict[str, float]:
+def benchmark_call(
+    operation: Callable[[], T], *, iterations: int = 5
+) -> dict[str, float]:
     if iterations < 1 or iterations > 1000:
         raise HardeningError("iterations must be between 1 and 1000")
     samples: list[float] = []
@@ -120,4 +131,13 @@ def benchmark_call(operation: Callable[[], T], *, iterations: int = 5) -> dict[s
     }
 
 
-__all__ = ["HardeningError", "ResourceBudget", "AuditMetrics", "sha256_text", "safe_output_path", "timed", "metrics_for", "benchmark_call"]
+__all__ = [
+    "HardeningError",
+    "ResourceBudget",
+    "AuditMetrics",
+    "sha256_text",
+    "safe_output_path",
+    "timed",
+    "metrics_for",
+    "benchmark_call",
+]

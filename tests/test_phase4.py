@@ -13,7 +13,9 @@ from configsentinel import (
 
 def test_ingestion_redacts_and_hashes_without_exposing_secret(tmp_path: Path):
     service = ConfigIngestionService(tmp_path / "quarantine")
-    result = service.ingest_text("edge.conf", "enable secret top-secret\nline vty 0 4\n transport input telnet\n")
+    result = service.ingest_text(
+        "edge.conf", "enable secret top-secret\nline vty 0 4\n transport input telnet\n"
+    )
     assert result.byte_count > 0
     assert result.redaction_count == 1
     assert "top-secret" not in result.redacted_text
@@ -40,7 +42,9 @@ def test_ingestion_rejects_nul_invalid_utf8_and_empty():
 
 
 def test_ingestion_enforces_size_and_line_limits():
-    service = ConfigIngestionService(policy=IngestionPolicy(max_bytes=10, max_line_bytes=5))
+    service = ConfigIngestionService(
+        policy=IngestionPolicy(max_bytes=10, max_line_bytes=5)
+    )
     with pytest.raises(IngestionError):
         service.ingest_text("config.conf", "01234567890")
     with pytest.raises(IngestionError):
@@ -58,9 +62,13 @@ def test_ingestion_rejects_symlinks(tmp_path: Path):
 
 def test_sdk_audit_file_uses_secure_ingestion(tmp_path: Path):
     config = tmp_path / "edge.conf"
-    config.write_text("version 17.9\nline vty 0 4\n transport input telnet\n", encoding="utf-8")
+    config.write_text(
+        "version 17.9\nline vty 0 4\n transport input telnet\n", encoding="utf-8"
+    )
     client = ConfigSentinelClient(engine=DeterministicComplianceEngine())
     result = client.audit_file(str(config), vendor="cisco_ios")
-    telnet = next(item for item in result.findings if item.control_id == "NET-MGMT-TELNET-001")
+    telnet = next(
+        item for item in result.findings if item.control_id == "NET-MGMT-TELNET-001"
+    )
     assert telnet.status.value == "FAIL"
     assert result.input_sha256

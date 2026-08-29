@@ -5,7 +5,6 @@ import pytest
 
 from configsentinel.mutation import MutationError, run_mutation_lab
 
-
 CISCO_CONFIG = """version 17.9
 hostname edge
 ip ssh version 2
@@ -45,7 +44,9 @@ def test_mutation_lab_supports_junos_targeted_mutation():
     report = run_mutation_lab("set system services ssh\n", vendor="junos")
 
     assert report["summary"]["passed"] is True
-    telnet = next(item for item in report["mutations"] if item["mutation_id"] == "enable_telnet")
+    telnet = next(
+        item for item in report["mutations"] if item["mutation_id"] == "enable_telnet"
+    )
     assert telnet["observed_status"] == "FAIL"
 
 
@@ -56,7 +57,12 @@ def test_mutation_lab_cli_writes_artifact(tmp_path: Path, capsys):
     output = tmp_path / "mutation.json"
     source.write_text(CISCO_CONFIG, encoding="utf-8")
 
-    assert main(["mutation-lab", str(source), "--vendor", "cisco_ios", "--out", str(output)]) == 0
+    assert (
+        main(
+            ["mutation-lab", str(source), "--vendor", "cisco_ios", "--out", str(output)]
+        )
+        == 0
+    )
     assert "mutation_lab=" in capsys.readouterr().out
     rendered = json.loads(output.read_text(encoding="utf-8"))
     assert rendered["summary"]["passed"] is True

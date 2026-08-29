@@ -3,11 +3,25 @@ from pathlib import Path
 
 import pytest
 
-from configsentinel.inventory import InventoryError, import_inventory, import_inventory_file
+from configsentinel.inventory import (
+    InventoryError,
+    import_inventory,
+    import_inventory_file,
+)
 
 
 def test_json_inventory_builds_topology():
-    graph = import_inventory(json.dumps({"nodes": [{"name": "edge-1", "vendor": "cisco_ios"}, {"name": "core-1", "role": "router"}], "links": [{"source": "edge-1", "target": "core-1", "kind": "uplink"}]}))
+    graph = import_inventory(
+        json.dumps(
+            {
+                "nodes": [
+                    {"name": "edge-1", "vendor": "cisco_ios"},
+                    {"name": "core-1", "role": "router"},
+                ],
+                "links": [{"source": "edge-1", "target": "core-1", "kind": "uplink"}],
+            }
+        )
+    )
     assert len(graph.nodes) == 2
     assert graph.links[0]["kind"] == "uplink"
     assert len(graph.source_sha256) == 64
@@ -23,4 +37,11 @@ def test_csv_inventory_import(tmp_path: Path):
 
 def test_links_cannot_reference_unknown_nodes():
     with pytest.raises(InventoryError):
-        import_inventory(json.dumps({"nodes": [{"name": "edge-1"}], "links": [{"source": "edge-1", "target": "missing"}]}))
+        import_inventory(
+            json.dumps(
+                {
+                    "nodes": [{"name": "edge-1"}],
+                    "links": [{"source": "edge-1", "target": "missing"}],
+                }
+            )
+        )

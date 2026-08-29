@@ -8,18 +8,48 @@ import pytest
 
 from configsentinel.reviewers import ReviewAnalyticsError, build_reviewer_analytics
 
-
 REPORT = {
     "audit": {"audit_id": "review-audit"},
     "findings": [
-        {"finding_id": "f-1", "control_id": "CTRL-1", "status": "FAIL", "severity": "HIGH"},
-        {"finding_id": "f-2", "control_id": "CTRL-2", "status": "UNKNOWN", "severity": "MEDIUM"},
+        {
+            "finding_id": "f-1",
+            "control_id": "CTRL-1",
+            "status": "FAIL",
+            "severity": "HIGH",
+        },
+        {
+            "finding_id": "f-2",
+            "control_id": "CTRL-2",
+            "status": "UNKNOWN",
+            "severity": "MEDIUM",
+        },
     ],
 }
 
 REVIEWS = [
-    {"reviewer_id": "alice", "findings": [{"finding_id": "f-1", "decision": "ACCEPT", "evidence_quality": "VERIFIED", "note": "private reviewer note"}, {"finding_id": "f-2", "decision": "UNABLE", "evidence_quality": "MISSING"}]},
-    {"reviewer_id": "bob", "findings": [{"finding_id": "f-1", "decision": "CHALLENGE", "evidence_quality": "PARTIAL", "challenge_code": "EVIDENCE_GAP"}]},
+    {
+        "reviewer_id": "alice",
+        "findings": [
+            {
+                "finding_id": "f-1",
+                "decision": "ACCEPT",
+                "evidence_quality": "VERIFIED",
+                "note": "private reviewer note",
+            },
+            {"finding_id": "f-2", "decision": "UNABLE", "evidence_quality": "MISSING"},
+        ],
+    },
+    {
+        "reviewer_id": "bob",
+        "findings": [
+            {
+                "finding_id": "f-1",
+                "decision": "CHALLENGE",
+                "evidence_quality": "PARTIAL",
+                "challenge_code": "EVIDENCE_GAP",
+            }
+        ],
+    },
 ]
 
 
@@ -40,7 +70,21 @@ def test_analytics_is_deterministic_and_keeps_verdict_authoritative() -> None:
 
 
 def test_single_reviewer_has_no_fake_pairwise_agreement() -> None:
-    result = build_reviewer_analytics(REPORT, [{"reviewer_id": "alice", "findings": [{"finding_id": "f-1", "decision": "ACCEPT", "evidence_quality": "VERIFIED"}]}])
+    result = build_reviewer_analytics(
+        REPORT,
+        [
+            {
+                "reviewer_id": "alice",
+                "findings": [
+                    {
+                        "finding_id": "f-1",
+                        "decision": "ACCEPT",
+                        "evidence_quality": "VERIFIED",
+                    }
+                ],
+            }
+        ],
+    )
     item = next(item for item in result["findings"] if item["finding_id"] == "f-1")
     assert item["pairwise_agreement"] is None
     assert item["consensus_strength"] == 1.0
@@ -52,9 +96,25 @@ def test_rejects_duplicate_unknown_or_invalid_review_entries() -> None:
     with pytest.raises(ReviewAnalyticsError):
         build_reviewer_analytics(REPORT, duplicate)
     with pytest.raises(ReviewAnalyticsError):
-        build_reviewer_analytics(REPORT, [{"reviewer_id": "a", "findings": [{"finding_id": "missing", "decision": "ACCEPT"}]}])
+        build_reviewer_analytics(
+            REPORT,
+            [
+                {
+                    "reviewer_id": "a",
+                    "findings": [{"finding_id": "missing", "decision": "ACCEPT"}],
+                }
+            ],
+        )
     with pytest.raises(ReviewAnalyticsError):
-        build_reviewer_analytics(REPORT, [{"reviewer_id": "a", "findings": [{"finding_id": "f-1", "decision": "MAYBE"}]}])
+        build_reviewer_analytics(
+            REPORT,
+            [
+                {
+                    "reviewer_id": "a",
+                    "findings": [{"finding_id": "f-1", "decision": "MAYBE"}],
+                }
+            ],
+        )
 
 
 def test_reviewer_analytics_cli(tmp_path: Path, capsys) -> None:
@@ -65,6 +125,19 @@ def test_reviewer_analytics_cli(tmp_path: Path, capsys) -> None:
     output_path = tmp_path / "analytics.json"
     report_path.write_text(json.dumps(REPORT), encoding="utf-8")
     reviews_path.write_text(json.dumps({"reviews": REVIEWS}), encoding="utf-8")
-    assert main(["reviewer-analytics", str(report_path), str(reviews_path), "--out", str(output_path)]) == 0
+    assert (
+        main(
+            [
+                "reviewer-analytics",
+                str(report_path),
+                str(reviews_path),
+                "--out",
+                str(output_path),
+            ]
+        )
+        == 0
+    )
     assert "verdicts_changed=False" in capsys.readouterr().out
-    assert json.loads(output_path.read_text(encoding="utf-8"))["schema"].endswith("reviewer-disagreement.v1")
+    assert json.loads(output_path.read_text(encoding="utf-8"))["schema"].endswith(
+        "reviewer-disagreement.v1"
+    )

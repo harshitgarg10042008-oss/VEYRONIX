@@ -42,7 +42,13 @@ class IngestedConfig:
 
 
 class ConfigIngestionService:
-    def __init__(self, quarantine_dir: str | os.PathLike[str] | None = None, *, policy: IngestionPolicy | None = None, redactor: SecretRedactor | None = None) -> None:
+    def __init__(
+        self,
+        quarantine_dir: str | os.PathLike[str] | None = None,
+        *,
+        policy: IngestionPolicy | None = None,
+        redactor: SecretRedactor | None = None,
+    ) -> None:
         self.policy = policy or IngestionPolicy()
         self.redactor = redactor or SecretRedactor()
         self.quarantine_dir = Path(quarantine_dir).resolve() if quarantine_dir else None
@@ -115,7 +121,9 @@ class ConfigIngestionService:
             raise IngestionError("filename must be a simple basename")
         suffix = Path(filename).suffix.lower()
         if suffix not in self.policy.allowed_extensions:
-            raise IngestionError(f"unsupported configuration extension: {suffix or '<none>'}")
+            raise IngestionError(
+                f"unsupported configuration extension: {suffix or '<none>'}"
+            )
 
     def _validate_bytes(self, content: bytes) -> None:
         if len(content) == 0:
@@ -127,6 +135,9 @@ class ConfigIngestionService:
 
     @staticmethod
     def _safe_name(filename: str, ingestion_id: str) -> str:
-        stem = re.sub(r"[^A-Za-z0-9_.-]+", "_", Path(filename).stem).strip("._") or "config"
+        stem = (
+            re.sub(r"[^A-Za-z0-9_.-]+", "_", Path(filename).stem).strip("._")
+            or "config"
+        )
         suffix = Path(filename).suffix.lower()
         return f"{ingestion_id}_{stem[:64]}{suffix}"

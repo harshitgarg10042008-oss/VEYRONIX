@@ -40,7 +40,9 @@ def test_missing_request_is_rejected(tmp_path: Path):
 def test_rejection_is_terminal_no_override_possible(tmp_path: Path):
     """A rejected approval must remain rejected; no actor may flip it to approved."""
     ledger = ApprovalLedger(tmp_path / "events.jsonl")
-    ledger.request("rem_override", "operator", role=Role.OPERATOR, reason="first attempt")
+    ledger.request(
+        "rem_override", "operator", role=Role.OPERATOR, reason="first attempt"
+    )
     ledger.decide("rem_override", "reviewer", role=Role.REVIEWER, approve=False)
     assert ledger.status("rem_override") == "REJECTED"
     with pytest.raises(GovernanceError, match="terminal"):
@@ -52,21 +54,38 @@ def test_audit_trail_has_required_fields(tmp_path: Path):
     """Every event in the audit trail must carry actor, role, action, reason, timestamp, and event_id."""
     ledger = ApprovalLedger(tmp_path / "events.jsonl")
     ledger.request("rem_trail", "operator", role=Role.OPERATOR, reason="review request")
-    ledger.decide("rem_trail", "reviewer", role=Role.REVIEWER, approve=True, reason="accepted")
+    ledger.decide(
+        "rem_trail", "reviewer", role=Role.REVIEWER, approve=True, reason="accepted"
+    )
     events = ledger.events("rem_trail")
     assert len(events) == 2
     for event in events:
         d = event.as_dict()
-        for field in ("event_id", "resource_id", "actor_id", "role", "action", "reason", "created_at"):
+        for field in (
+            "event_id",
+            "resource_id",
+            "actor_id",
+            "role",
+            "action",
+            "reason",
+            "created_at",
+        ):
             assert d.get(field), f"audit trail event missing field: {field}"
-        assert d["created_at"].startswith("20"), "created_at must be an ISO-8601 UTC timestamp"
+        assert d["created_at"].startswith(
+            "20"
+        ), "created_at must be an ISO-8601 UTC timestamp"
 
 
 def test_only_operator_or_admin_can_request(tmp_path: Path):
     """Reviewers must not be able to self-submit an approval request."""
     ledger = ApprovalLedger(tmp_path / "events.jsonl")
     with pytest.raises(GovernanceError, match="operators or administrators"):
-        ledger.request("rem_bad_role", "reviewer_alice", role=Role.REVIEWER, reason="self-approval attempt")
+        ledger.request(
+            "rem_bad_role",
+            "reviewer_alice",
+            role=Role.REVIEWER,
+            reason="self-approval attempt",
+        )
     assert ledger.status("rem_bad_role") == "NOT_REQUESTED"
 
 

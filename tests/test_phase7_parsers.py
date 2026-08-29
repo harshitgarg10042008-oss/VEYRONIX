@@ -87,7 +87,7 @@ def test_parser_linux_nftables_accuracy():
         "  type filter hook input priority filter; policy drop;\n"
         "  tcp dport 22 accept\n"
         "  tcp dport 80 accept\n"
-        "  log prefix \"nftables-drop: \"\n"
+        '  log prefix "nftables-drop: "\n'
         " }\n"
         "}\n"
     )
@@ -118,9 +118,6 @@ def test_parser_generic_firewall_accuracy():
 
 def test_parser_auto_detection():
     # Test auto detection of Arista
-    text = (
-        "! Arista\n"
-        "management api http-commands\n"
-    )
+    text = "! Arista\n" "management api http-commands\n"
     parsed = detect_and_parse(text, vendor="auto")
     assert parsed.config.vendor == "arista"

@@ -13,7 +13,9 @@ from configsentinel.cli import main
 
 def _audit(vendor="cisco_ios"):
     text = "version 17.9\nline vty 0 4\n transport input telnet\n"
-    return ConfigSentinelClient(engine=DeterministicComplianceEngine()).audit_text(text, vendor=vendor)
+    return ConfigSentinelClient(engine=DeterministicComplianceEngine()).audit_text(
+        text, vendor=vendor
+    )
 
 
 def test_cisco_bundle_contains_preview_and_no_execution_path():
@@ -37,14 +39,19 @@ def test_unsupported_vendor_fails_closed():
 
 def test_command_validator_blocks_dangerous_templates(monkeypatch):
     from configsentinel import remediation
-    monkeypatch.setitem(remediation._COMMANDS, ("cisco_ios", "NET-MGMT-TELNET-001"), ("reload", "never"))
+
+    monkeypatch.setitem(
+        remediation._COMMANDS, ("cisco_ios", "NET-MGMT-TELNET-001"), ("reload", "never")
+    )
     with pytest.raises(RemediationError):
         generate_bundle(_audit())
 
 
 def test_cli_requires_dry_run_for_approval(tmp_path: Path, capsys):
     config = tmp_path / "edge.conf"
-    config.write_text("version 17.9\nline vty 0 4\n transport input telnet\n", encoding="utf-8")
+    config.write_text(
+        "version 17.9\nline vty 0 4\n transport input telnet\n", encoding="utf-8"
+    )
     code = main(["audit", str(config), "--vendor", "cisco_ios", "--approve"])
     captured = capsys.readouterr()
     assert code == 2
@@ -54,8 +61,21 @@ def test_cli_requires_dry_run_for_approval(tmp_path: Path, capsys):
 def test_cli_generates_preview_without_execution(tmp_path: Path, capsys):
     config = tmp_path / "edge.conf"
     output = tmp_path / "out.txt"
-    config.write_text("version 17.9\nline vty 0 4\n transport input telnet\n", encoding="utf-8")
-    code = main(["audit", str(config), "--vendor", "cisco_ios", "--dry-run", "--approve", "--remediation-out", str(output)])
+    config.write_text(
+        "version 17.9\nline vty 0 4\n transport input telnet\n", encoding="utf-8"
+    )
+    code = main(
+        [
+            "audit",
+            str(config),
+            "--vendor",
+            "cisco_ios",
+            "--dry-run",
+            "--approve",
+            "--remediation-out",
+            str(output),
+        ]
+    )
     captured = capsys.readouterr()
     assert code == 0
     assert output.exists()

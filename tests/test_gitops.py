@@ -23,7 +23,9 @@ def setup_repo(tmp_path: Path, content: str) -> tuple[Path, str]:
 
 def test_gitops_gate_blocks_high_impact_changed_configuration(tmp_path: Path):
     root, base = setup_repo(tmp_path, "version 17.9\nno ip http server\n")
-    (root / "edge.conf").write_text("version 17.9\nline vty 0 4\n transport input telnet\n", encoding="utf-8")
+    (root / "edge.conf").write_text(
+        "version 17.9\nline vty 0 4\n transport input telnet\n", encoding="utf-8"
+    )
     git(root, "add", ".")
     git(root, "commit", "-qm", "insecure change")
     result = run_gitops_gate(root, base, vendor="cisco_ios")
@@ -34,7 +36,9 @@ def test_gitops_gate_blocks_high_impact_changed_configuration(tmp_path: Path):
 
 def test_gitops_gate_passes_nonblocking_change_and_serializes(tmp_path: Path):
     root, base = setup_repo(tmp_path, "version 17.9\nno ip http server\n")
-    (root / "edge.conf").write_text("version 17.9\nno ip http server\nlogging host 10.0.0.20\n", encoding="utf-8")
+    (root / "edge.conf").write_text(
+        "version 17.9\nno ip http server\nlogging host 10.0.0.20\n", encoding="utf-8"
+    )
     git(root, "add", ".")
     git(root, "commit", "-qm", "logging change")
     result = run_gitops_gate(root, base, vendor="cisco_ios")

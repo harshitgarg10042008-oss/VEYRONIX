@@ -3,8 +3,20 @@ from pathlib import Path
 
 from configsentinel.ticketing import build_ticket_payload, render_ticket_markdown
 
-
-REPORT = {"audit": {"audit_id": "a-1", "vendor": "junos", "input_sha256": "b" * 64}, "findings": [{"control_id": "NET-MGMT-SSH-001", "status": "FAIL", "severity": "HIGH", "title": "SSH requires review", "evidence": [{"line": 2, "text": "transport input telnet"}], "secret": "do-not-export"}, {"control_id": "X", "status": "PASS", "severity": "LOW", "title": "fine"}]}
+REPORT = {
+    "audit": {"audit_id": "a-1", "vendor": "junos", "input_sha256": "b" * 64},
+    "findings": [
+        {
+            "control_id": "NET-MGMT-SSH-001",
+            "status": "FAIL",
+            "severity": "HIGH",
+            "title": "SSH requires review",
+            "evidence": [{"line": 2, "text": "transport input telnet"}],
+            "secret": "do-not-export",
+        },
+        {"control_id": "X", "status": "PASS", "severity": "LOW", "title": "fine"},
+    ],
+}
 
 
 def test_ticket_adapters_are_deterministic_and_review_only():

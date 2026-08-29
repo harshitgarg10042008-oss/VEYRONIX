@@ -41,13 +41,17 @@ def test_unknown_lines_are_preserved_and_never_compliant():
     result = detect_and_parse("version 17.9\nmagic future command\n", "cisco_ios")
     assert result.config.unknown_blocks
     client = ConfigSentinelClient(engine=DeterministicComplianceEngine())
-    audit = client.audit_text("version 17.9\nmagic future command\n", vendor="cisco_ios")
+    audit = client.audit_text(
+        "version 17.9\nmagic future command\n", vendor="cisco_ios"
+    )
     assert any(f.status == FindingStatus.UNKNOWN for f in audit.findings)
 
 
 def test_engine_produces_evidence_backed_failures():
     client = ConfigSentinelClient(engine=DeterministicComplianceEngine())
-    audit = client.audit_text("version 17.9\nline vty 0 4\n transport input telnet\n", vendor="cisco_ios")
+    audit = client.audit_text(
+        "version 17.9\nline vty 0 4\n transport input telnet\n", vendor="cisco_ios"
+    )
     telnet = next(f for f in audit.findings if f.control_id == "NET-MGMT-TELNET-001")
     assert telnet.status == FindingStatus.FAIL
     assert telnet.evidence
