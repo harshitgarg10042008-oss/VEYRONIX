@@ -39,7 +39,9 @@ class SecretRedactor:
                 def replace_password(match: re.Match[str]) -> str:
                     nonlocal redactions
                     redactions += 1
-                    return f"{match.group(1)}<REDACTED_{label}>{match.group(3)}"
+                    # group(1) = keyword prefix, group(2) = encryption type token,
+                    # group(3) = the actual secret value — drop both group(2) and group(3)
+                    return f"{match.group(1)}<REDACTED_{label}>"
                 redacted = pattern.sub(replace_password, redacted)
             else:
                 def replace_generic(match: re.Match[str], current_label: str = label) -> str:
@@ -51,8 +53,9 @@ class SecretRedactor:
 
 
 def assert_safe_for_llm(text: str) -> None:
-    """Fail closed if high-risk secret markers remain in text."""
-
+    """Fail closed if high-risk secret markers or unsafe bytes remain in text."""
+    if "\x00" in text:
+        raise ValueError("NUL bytes must be removed before LLM use")
     upper = text.upper()
     markers = ("BEGIN RSA PRIVATE KEY", "BEGIN OPENSSH PRIVATE KEY", "BEGIN EC PRIVATE KEY")
     if any(marker in upper for marker in markers):

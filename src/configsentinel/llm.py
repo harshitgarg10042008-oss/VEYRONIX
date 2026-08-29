@@ -135,10 +135,12 @@ class LLMCopilot:
         return cls(provider=OfflineExplanationProvider(), config=LLMConfig(enabled=True), redactor=redactor)
 
     def explain_finding(self, finding: Finding, configuration_context: str) -> LLMExplanation:
-        if finding.status.value not in {"PASS", "FAIL", "UNKNOWN", "REVIEW_REQUIRED"}:
+        if finding.status.value == "PASS":
+            raise LLMError("PASS verdicts are authoritative; no LLM explanation is permitted")
+        if finding.status.value not in {"FAIL", "UNKNOWN", "REVIEW_REQUIRED"}:
             raise LLMError("unsupported finding status for explanation")
-        if not finding.evidence and finding.status.value in {"PASS", "FAIL"}:
-            raise LLMError("refusing to explain a verdict without evidence")
+        if not finding.evidence and finding.status.value == "FAIL":
+            raise LLMError("refusing to explain a FAIL verdict without evidence")
         if not self.config.enabled or self.provider is None:
             raise LLMError("LLM copilot is disabled or not configured; use deterministic result")
 
