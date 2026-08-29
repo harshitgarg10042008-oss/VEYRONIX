@@ -12,7 +12,7 @@ import { useTheme } from "../contexts/ThemeContext";
 
 const logo = "/brand/configsentinel-mark-final.png";
 const API_BASE = (import.meta.env.VITE_API_BASE_URL || "").replace(/\/$/, "");
-const DEMO_CONFIGURATION = "version 17.9\nline vty 0 4\n transport input telnet\nlogging host 10.0.0.20\n";
+const DEMO_CONFIGURATION = "version 17.9\nhostname Router1\nline vty 0 4\n transport input telnet\nlogging host 10.0.0.20\n";
 const HISTORY_KEY = "veyronix.audit-history.v1";
 const MAX_CONFIG_BYTES = 5 * 1024 * 1024;
 
