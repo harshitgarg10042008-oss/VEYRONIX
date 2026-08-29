@@ -108,7 +108,10 @@ def verify_proof_bundle(proof: Mapping[str, Any], report: Mapping[str, Any]) -> 
     if actual_source != expected_source:
         mismatches.append("source contract mismatch")
     finding_by_id = {finding.finding_id: finding for finding in audit.findings}
-    for item in proof.get("proofs", []):
+    proofs = proof.get("proofs")
+    if not isinstance(proofs, list):
+        proofs = []
+    for item in proofs:
         if not isinstance(item, Mapping):
             mismatches.append("proof entry is not an object")
             continue
@@ -117,11 +120,17 @@ def verify_proof_bundle(proof: Mapping[str, Any], report: Mapping[str, Any]) -> 
             mismatches.append(f"missing finding: {item.get('finding_id')}")
             continue
         expected_evidence = [{"start_line": span.start_line, "end_line": span.end_line, "excerpt_sha256": _excerpt_hash(span), "redacted": span.redacted} for span in finding.evidence]
-        if item.get("source", {}).get("input_sha256") != audit.input_sha256:
+        source = item.get("source")
+        if not isinstance(source, Mapping):
+            source = {}
+        if source.get("input_sha256") != audit.input_sha256:
             mismatches.append(f"input hash mismatch: {item.get('finding_id')}")
-        if item.get("source", {}).get("evidence") != expected_evidence:
+        if source.get("evidence") != expected_evidence:
             mismatches.append(f"evidence binding mismatch: {item.get('finding_id')}")
-        if item.get("review", {}).get("executable") is not False or item.get("review", {}).get("requires_human_approval") is not True:
+        review = item.get("review")
+        if not isinstance(review, Mapping):
+            review = {}
+        if review.get("executable") is not False or review.get("requires_human_approval") is not True:
             mismatches.append(f"unsafe review flags: {item.get('finding_id')}")
     return {"schema": VERIFY_SCHEMA, "proof_bundle_id": str(proof.get("proof_bundle_id", "")), "verified": not mismatches, "mismatches": mismatches, "safety": {"raw_configuration_included": False, "device_connection": False, "verdicts_changed": False, "note": "Verification checks hash and evidence bindings only; it does not execute commands or prove post-change state."}}
 

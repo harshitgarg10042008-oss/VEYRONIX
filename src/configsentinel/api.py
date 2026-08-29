@@ -23,6 +23,8 @@ from .frameworks import normalize_frameworks
 from .governance import ApprovalLedger, GovernanceError, Role
 from .llm import LLMConfig, LLMError, LLMCopilot, OpenAICompatibleProvider
 from .reporting import report_dict
+from .proof import build_proof_bundle, verify_proof_bundle, ProofError, audit_from_report
+from .remediation import generate_bundle, build_diffs, RemediationError
 
 try:
     from fastapi import FastAPI, HTTPException, Request
@@ -231,6 +233,49 @@ def create_app(*, allowed_origins: list[str] | None = None) -> FastAPI:
     @app.get("/api/v1/health", tags=["audit"])
     def health_v1() -> dict[str, str | bool]:
         return health()
+
+    @app.post("/api/remediation", tags=["remediation"])
+    def generate_remediation(payload: dict[str, Any]) -> dict[str, Any]:
+        try:
+            audit = audit_from_report(payload)
+            bundle = generate_bundle(audit)
+            diffs = build_diffs(audit, bundle)
+            return {
+                "bundle_id": bundle.bundle_id,
+                "vendor": bundle.vendor,
+                "input_sha256": bundle.input_sha256,
+                "generated_at": bundle.generated_at,
+                "warnings": list(bundle.warnings),
+                "steps": [
+                    {
+                        "finding_id": step.finding_id,
+                        "control_id": step.control_id,
+                        "command": step.command,
+                        "rollback": step.rollback,
+                        "unified_diff": next((d.unified_preview for d in diffs if d.finding_id == step.finding_id), ""),
+                    } for step in bundle.steps
+                ]
+            }
+        except (ValueError, ProofError, RemediationError) as exc:
+            raise HTTPException(status_code=422, detail=str(exc)) from exc
+
+    @app.post("/api/remediation/proof", tags=["remediation"])
+    def generate_remediation_proof(payload: dict[str, Any]) -> dict[str, Any]:
+        try:
+            return build_proof_bundle(payload)
+        except (ValueError, ProofError, RemediationError) as exc:
+            raise HTTPException(status_code=422, detail=str(exc)) from exc
+
+    @app.post("/api/remediation/verify", tags=["remediation"])
+    def verify_remediation_proof(payload: dict[str, Any]) -> dict[str, Any]:
+        try:
+            proof = payload.get("proof")
+            report = payload.get("report")
+            if not isinstance(proof, dict) or not isinstance(report, dict):
+                raise ValueError("Payload must contain 'proof' and 'report' objects.")
+            return verify_proof_bundle(proof, report)
+        except (ValueError, ProofError, RemediationError) as exc:
+            raise HTTPException(status_code=422, detail=str(exc)) from exc
 
     return app
 
