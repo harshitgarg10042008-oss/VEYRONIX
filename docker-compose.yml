@@ -1,34 +1,104 @@
-version: '3.8'
+# ===========================================================================
+# ConfigSentinel AI — Production-like Local Compose
+#
+# Security hardening applied to BOTH services:
+#   - Non-root runtime user (set in Dockerfile)
+#   - read_only root filesystem
+#   - tmpfs for /tmp only (needed for Python, Node)
+#   - no-new-privileges seccomp constraint
+#   - ALL Linux capabilities dropped
+#   - Minimal networking
+#   - Writable state only via explicit named volume (backend) / tmpfs (frontend)
+#
+# Usage:
+#   cp .env.example .env        # edit secrets
+#   docker compose build --pull
+#   docker compose up -d
+#   docker compose ps
+#   docker compose logs -f
+#   docker compose down
+#
+# Health check endpoints:
+#   Backend:  http://localhost:5000/api/health (unauthenticated)
+#   Frontend: http://localhost:3000/            (HTTP 200)
+# ===========================================================================
 
 services:
   backend:
     build:
       context: .
       dockerfile: Dockerfile
+    image: configsentinel-backend:local
     ports:
       - "5000:5000"
     environment:
-      - VEYRONIX_API_HOST=0.0.0.0
-      - VEYRONIX_API_PORT=5000
+      VEYRONIX_API_HOST: "0.0.0.0"
+      VEYRONIX_API_PORT: "5000"
+      PYTHONPATH: "/app/src"
+      CONFIGSENTINEL_AUTH_REQUIRED: "${CONFIGSENTINEL_AUTH_REQUIRED:-false}"
+      CONFIGSENTINEL_API_TOKEN: "${CONFIGSENTINEL_API_TOKEN:-}"
+      CONFIGSENTINEL_RATE_LIMIT_PER_MINUTE: "${CONFIGSENTINEL_RATE_LIMIT_PER_MINUTE:-120}"
+      CONFIGSENTINEL_LLM_PROVIDER: "${CONFIGSENTINEL_LLM_PROVIDER:-offline}"
+      CONFIGSENTINEL_LLM_ENABLED: "${CONFIGSENTINEL_LLM_ENABLED:-false}"
+      CONFIGSENTINEL_GOVERNANCE_LEDGER: "/app/data/events.jsonl"
+      CONFIGSENTINEL_DATABASE_URL: "sqlite:////app/data/configsentinel.db"
+      CONFIGSENTINEL_WEB_SCAN_ENABLED: "${CONFIGSENTINEL_WEB_SCAN_ENABLED:-true}"
+      CONFIGSENTINEL_WEB_SCAN_TIMEOUT_SECONDS: "${CONFIGSENTINEL_WEB_SCAN_TIMEOUT_SECONDS:-15}"
+      CONFIGSENTINEL_WEB_SCAN_MAX_RESPONSE_BYTES: "${CONFIGSENTINEL_WEB_SCAN_MAX_RESPONSE_BYTES:-2000000}"
+      CONFIGSENTINEL_WEB_SCAN_ALLOW_PRIVATE_TARGETS: "false"
     volumes:
-      # Mount a local data directory for persistent ledgers/backups if needed
-      - ./data:/app/data
+      # Explicit writable data volume ONLY — root filesystem is read-only
+      - backend-data:/app/data
+    tmpfs:
+      # Python needs /tmp for bytecode caching in read-only mode
+      - /tmp:size=32m,mode=1777
+    read_only: true
+    security_opt:
+      - no-new-privileges:true
+    cap_drop:
+      - ALL
     healthcheck:
-      test: ["CMD", "curl", "-f", "http://127.0.0.1:5000/api/health"]
+      test: ["CMD", "curl", "-fsS", "http://127.0.0.1:5000/api/health"]
       interval: 30s
       timeout: 10s
       retries: 3
-      start_period: 5s
+      start_period: 15s
+    restart: unless-stopped
 
   frontend:
     build:
       context: ./frontend
       dockerfile: Dockerfile
+    image: configsentinel-frontend:local
     ports:
       - "3000:3000"
     depends_on:
       backend:
         condition: service_healthy
     environment:
-      # Optional explicit API URL, usually Vite handles it via proxy /api in preview mode
-      - VITE_API_URL=http://backend:5000
+      HOST: "0.0.0.0"
+      PORT: "3000"
+      NODE_ENV: "production"
+      # Backend URL used by Vite preview proxy for /api/* routes
+      VITE_API_URL: "http://backend:5000"
+    tmpfs:
+      # Node may need /tmp for runtime scratch
+      - /tmp:size=16m,mode=1777
+    read_only: true
+    security_opt:
+      - no-new-privileges:true
+    cap_drop:
+      - ALL
+    healthcheck:
+      test: ["CMD", "wget", "-q", "-O", "/dev/null", "http://127.0.0.1:3000/"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 20s
+    restart: unless-stopped
+
+volumes:
+  # Named volume for backend persistent state (governance ledger, SQLite DB, backups)
+  # Survives container restarts; NOT included in Docker image
+  backend-data:
+    driver: local

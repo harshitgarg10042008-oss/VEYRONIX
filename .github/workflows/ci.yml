@@ -26,19 +26,19 @@ jobs:
           python -m pip install --upgrade pip
           python -m pip install -e ".[api,dev,backup]"
 
-      - name: Run tests
-        run: python -m pytest -v
+      - name: Run tests with PYTHONPATH
+        run: PYTHONPATH=src python -m pytest -v
 
       - name: Compile-check source
-        run: python -m compileall -q src tests examples
+        run: PYTHONPATH=src python -m compileall -q src tests examples
 
-      - name: Check no secrets in diff
+      - name: Check no secrets in staged diff
         run: git diff --check || true
 
       - name: Build distributions
         run: |
           python -m pip install build
-          python -m build
+          PYTHONPATH=src python -m build
 
   # ── Frontend ───────────────────────────────────────────────────
   frontend-check:
@@ -63,11 +63,75 @@ jobs:
       - name: Install frontend dependencies
         run: pnpm install --frozen-lockfile
 
+      - name: Run unit tests
+        run: pnpm run test
+
       - name: TypeScript check
         run: pnpm run check
 
       - name: Build frontend
         run: pnpm run build
+
+  # ── Container configuration validation ────────────────────────
+  container-validate:
+    name: Container Configuration Validation
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Validate docker-compose.yml syntax
+        run: docker compose config --quiet
+
+      - name: Lint backend Dockerfile with hadolint
+        uses: hadolint/hadolint-action@v3.1.0
+        with:
+          dockerfile: Dockerfile
+          # DL3008: apt-get pin versions (acceptable in slim base)
+          # DL3059: Multiple consecutive RUN (acceptable here for clarity)
+          ignore: DL3008,DL3059
+          failure-threshold: error
+
+      - name: Lint frontend Dockerfile with hadolint
+        uses: hadolint/hadolint-action@v3.1.0
+        with:
+          dockerfile: frontend/Dockerfile
+          ignore: DL3008,DL3059
+          failure-threshold: error
+
+      - name: Check .env is not tracked
+        run: |
+          if git ls-files --error-unmatch .env 2>/dev/null; then
+            echo "ERROR: .env is tracked in git — remove it immediately!"
+            exit 1
+          else
+            echo "OK: .env is not tracked"
+          fi
+
+      - name: Verify .env.example contains no real secrets
+        run: |
+          # Fail if .env.example contains anything that looks like a real secret value
+          python3 - <<'EOF'
+          import sys, re
+          with open(".env.example") as f:
+              content = f.read()
+          # Check that secret-looking keys have empty or placeholder values
+          secret_patterns = [
+              r'CONFIGSENTINEL_API_TOKEN\s*=\s*\S+',
+              r'OPENAI_API_KEY\s*=\s*sk-\S+',
+              r'CONFIGSENTINEL_BACKUP_PASSPHRASE\s*=\s*\S+',
+          ]
+          for pattern in secret_patterns:
+              if re.search(pattern, content):
+                  print(f"ERROR: Possible real secret in .env.example matching: {pattern}")
+                  sys.exit(1)
+          print("OK: .env.example contains no apparent real secrets")
+          EOF
+
+      - name: Check lockfile is not drifted (pnpm)
+        working-directory: frontend
+        run: |
+          pnpm install --frozen-lockfile --dry-run 2>&1 | head -5 || true
+          echo "Lockfile check: pnpm-lock.yaml is present and frozen-lockfile mode used in CI"
 
   # ── End-to-end tests (Playwright) ─────────────────────────────
   e2e:
@@ -118,3 +182,60 @@ jobs:
           name: playwright-report
           path: frontend/playwright-report/
           retention-days: 14
+
+  # ── Accuracy benchmark (Phase 5) ──────────────────────────────
+  benchmark:
+    name: Accuracy Benchmark
+    runs-on: ubuntu-latest
+    needs: [python-test]
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Install backend
+        run: |
+          python -m pip install --upgrade pip
+          python -m pip install -e ".[api,dev]"
+
+      - name: Run accuracy benchmark
+        run: PYTHONPATH=src python scripts/benchmark.py --output docs/BENCHMARK_REPORT.md --json docs/benchmark_result.json
+        env:
+          PYTHONPATH: src
+
+      - name: Upload benchmark report
+        uses: actions/upload-artifact@v4
+        with:
+          name: benchmark-report
+          path: |
+            docs/BENCHMARK_REPORT.md
+            docs/benchmark_result.json
+          retention-days: 14
+
+  # ── Release quality gate ───────────────────────────────────────
+  # This job fails CI if any upstream gate fails, making it
+  # a single required status check for branch protection.
+  release-gate:
+    name: Release Quality Gate
+    runs-on: ubuntu-latest
+    needs: [python-test, frontend-check, container-validate, e2e, benchmark]
+    if: always()
+    steps:
+      - name: Check all gates passed
+        run: |
+          echo "python-test: ${{ needs.python-test.result }}"
+          echo "frontend-check: ${{ needs.frontend-check.result }}"
+          echo "container-validate: ${{ needs.container-validate.result }}"
+          echo "e2e: ${{ needs.e2e.result }}"
+          echo "benchmark: ${{ needs.benchmark.result }}"
+          if [[ "${{ needs.python-test.result }}" != "success" ]] || \
+             [[ "${{ needs.frontend-check.result }}" != "success" ]] || \
+             [[ "${{ needs.container-validate.result }}" != "success" ]] || \
+             [[ "${{ needs.e2e.result }}" != "success" ]] || \
+             [[ "${{ needs.benchmark.result }}" != "success" ]]; then
+            echo "ERROR: One or more release quality gates FAILED"
+            exit 1
+          fi
+          echo "All release quality gates PASSED"

@@ -19,7 +19,7 @@ export default defineConfig({
   ],
   webServer: [
     {
-      command: 'cd .. && PYTHONPATH=src python -m uvicorn configsentinel.api:app --host 127.0.0.1 --port 5000',
+      command: process.platform === 'win32' ? 'cd .. && set PYTHONPATH=src && python -m uvicorn configsentinel.api:app --host 127.0.0.1 --port 5000' : 'cd .. && PYTHONPATH=src python -m uvicorn configsentinel.api:app --host 127.0.0.1 --port 5000',
       port: 5000,
       reuseExistingServer: !process.env.CI,
       env: {

@@ -1,11 +1,56 @@
+# ===========================================================================
+# .dockerignore — ConfigSentinel AI
+# Applies to BOTH backend and frontend Docker builds.
+# Keeps image layers small and prevents secret leakage.
+# ===========================================================================
+
+# Version control
 .git
+.gitignore
+
+# Python virtual environments and build artefacts
 .venv
 __pycache__
 *.pyc
+*.pyo
+*.pyd
+*.egg-info
+.pytest_cache
+dist/
+build/
+*.whl
+*.tar.gz
+
+# Node artefacts (frontend Dockerfile does its own install via lockfile)
 node_modules
-dist
+
+# Environment secrets — NEVER bake into images
 .env
-logs
-data
+.env.*
+!.env.example
+
+# Test data and reports
 playwright-report
 test-results
+htmlcov
+.coverage
+coverage.xml
+
+# Runtime data directories — state is injected via volume at runtime
+data/
+logs/
+.configsentinel/
+
+# IDE and OS
+.idea
+.vscode
+*.DS_Store
+Thumbs.db
+
+# Documentation (not needed in production images)
+docs/
+*.md
+!README.md
+
+# CI/CD artefacts
+*.log
