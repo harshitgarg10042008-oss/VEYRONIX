@@ -1,0 +1,73 @@
+{
+  "manifest_version": "1.0",
+  "description": "ConfigSentinel AI fixture manifest for accuracy benchmarking. Labels are required for accuracy claims. Do not mix synthetic and real-world data without explicit labelling.",
+  "dataset_id": "configsentinel-synthetic-v1",
+  "generated_at": "2026-08-30",
+  "source_category": "SYNTHETIC",
+  "limitations": [
+    "All fixtures in this manifest are synthetically crafted to exercise specific control paths.",
+    "Synthetic fixtures do NOT constitute real-world validation.",
+    "False-positive and false-negative rates against real production configurations are PENDING_USER_EVIDENCE.",
+    "Parser accuracy on sanitized real-world configs requires user-provided, authorized, sanitized samples."
+  ],
+  "fixtures": [
+    {
+      "fixture_id": "cisco-001",
+      "filename": "cisco.conf",
+      "vendor_label": "cisco_ios",
+      "source": "SYNTHETIC",
+      "description": "Cisco IOS basic hardened configuration with SSH v2, AAA, NTP, SNMPv3, no HTTP server",
+      "expected_vendor_detection": "cisco_ios",
+      "expected_controls": {
+        "NET-MGMT-SSH-001": "PASS",
+        "NET-MGMT-TELNET-001": "PASS",
+        "NET-AUTH-AAA-001": "PASS",
+        "NET-LOG-001": "PASS",
+        "NET-TIME-001": "PASS",
+        "NET-SNMP-001": "PASS",
+        "NET-MGMT-HTTP-001": "PASS"
+      },
+      "notes": "Synthetic fixture designed so all tested controls should pass"
+    },
+    {
+      "fixture_id": "junos-001",
+      "filename": "junos.conf",
+      "vendor_label": "junos",
+      "source": "SYNTHETIC",
+      "description": "Juniper JunOS configuration with SSH, syslog, NTP, SNMPv3",
+      "expected_vendor_detection": "junos",
+      "expected_controls": {},
+      "notes": "Expected control outcomes not fully labeled — partial coverage"
+    },
+    {
+      "fixture_id": "arista-001",
+      "filename": "arista.conf",
+      "vendor_label": "arista_eos",
+      "source": "SYNTHETIC",
+      "description": "Arista EOS minimal configuration",
+      "expected_vendor_detection": "arista",
+      "expected_controls": {},
+      "notes": "Expected control outcomes not labeled — minimal fixture"
+    }
+  ],
+  "pending_fixtures": [
+    {
+      "slot_id": "REAL-001",
+      "status": "PENDING_USER_EVIDENCE",
+      "description": "Authorized, sanitized real-world Cisco IOS configuration from a pilot deployment",
+      "requirements": [
+        "Authorization from device owner required",
+        "All credentials, passwords, and private keys must be redacted before submission",
+        "Must be accompanied by a trusted ground-truth label for each control"
+      ]
+    },
+    {
+      "slot_id": "REAL-002",
+      "status": "PENDING_USER_EVIDENCE",
+      "description": "Authorized, sanitized real-world Juniper JunOS configuration",
+      "requirements": [
+        "Same as REAL-001"
+      ]
+    }
+  ]
+}

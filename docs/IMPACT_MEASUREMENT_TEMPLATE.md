@@ -24,9 +24,10 @@ This document is used to record genuine pilot and baseline review results from s
 ### Accuracy & Findings
 | Metric | Value |
 |---|---|
-| **Total Findings Reviewed** | *[Pending]* |
-| **Unknown Syntax Rate** | *[Pending]* |
-| **Prevented Regression Count**| *[Pending]* |
+| **Total Findings Reviewed** | *[PENDING_USER_EVIDENCE]* |
+| **Unknown Syntax Rate** | *[PENDING_USER_EVIDENCE]* |
+| **Prevented Regression Count**| *[PENDING_USER_EVIDENCE]* |
+| **Repeat Findings**| *[PENDING_USER_EVIDENCE]* |
 
 ## Limitations & Context
 *Document any limitations in this measurement (e.g., "Manual baseline did not verify all 7 controls, only top 3").*
