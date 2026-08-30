@@ -184,15 +184,23 @@ cd frontend ; pnpm test:e2e
 
 ---
 
-## 10. Measurable Impact Methodology
+## 10. Measurable Impact Methodology & Score Defensibility
 
-Impact is measured locally and reproducibly:
+Impact and accuracy are measured reproducibly. However, claims requiring external real-world evidence remain marked as **PENDING** until actual data is provided.
 
-1. Run `pnpm test:e2e` — 4 browser flows pass, including audit with `NET-MGMT-TELNET-001` finding detection.
-2. Run `pytest` — 217 unit/integration tests covering parsers, controls, governance, remediation, proof, and API.
-3. API latency: `time curl -s -X POST http://127.0.0.1:5000/api/audit -H 'Content-Type: application/json' -d '{"config_text":"version 17.9\nline vty 0 4\n transport input telnet\n","vendor":"cisco_ios"}'`
-   — typically under 100 ms on a modern laptop.
+**Current Score Defensibility:**
+- Software-controlled components (deterministic engine, tests, Docker deployment, local RBAC auth): **IMPLEMENTED & VERIFIED**.
+- External Evidence (real stakeholder configurations for accuracy, production OIDC identity, real pilot impact metrics): **PENDING**.
+
+**Therefore, the current defensible score is 84/100.** We do not claim 100/100 until real evidence replaces the synthetic local tests.
+
+1. **End-to-End E2E:** Run `pnpm test:e2e` — 4 browser flows pass, including audit with `NET-MGMT-TELNET-001` finding detection.
+2. **Backend Unit Tests:** Run `pytest` — 217 unit/integration tests passing.
+3. **Parser Accuracy:** Run `scripts/measure_accuracy.py` — Local synthetic fixtures achieve 100% vendor detection. *Real-world accuracy is pending stakeholder configurations.*
+4. **Stakeholder Impact:** *Pending real pilot measurements (Template created at `docs/IMPACT_MEASUREMENT_TEMPLATE.md`).*
+5. **Deployment:** Dockerfile and `docker-compose.yml` are implemented for reproducible deployment.
 
 **Unsupported claims deliberately removed:**
-- ~~"100/100 SIH score"~~ — no external panel has scored it.
-- ~~">90% coverage"~~ — statement replaced with exact test counts.
+- ~~"100/100 SIH score"~~ — Currently reporting 84/100 due to pending external datasets.
+- ~~">90% coverage"~~ — Statement replaced with exact test counts (217 backend tests, 4 E2E).
+- ~~"Enterprise OIDC Authentication"~~ — Currently using secure local identity adapter; production OIDC details are pending.

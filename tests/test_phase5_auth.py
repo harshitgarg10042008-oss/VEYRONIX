@@ -200,6 +200,9 @@ def test_approval_request_requires_session(public_client):
 
 
 def test_login_creates_session_and_rbac_works(public_client):
+    import uuid
+    resource_id = f"res-{uuid.uuid4().hex}"
+    
     """Logging in as operator allows request, logging in as reviewer allows approval, SoD prevents same user."""
     # 1. Login as operator
     response1 = public_client.post("/api/auth/login", json={"role": "operator"})
@@ -210,7 +213,7 @@ def test_login_creates_session_and_rbac_works(public_client):
     # 2. Request approval
     req_res = public_client.post(
         "/api/approval/request",
-        json={"resource_id": "res-999", "reason": "Test"},
+        json={"resource_id": resource_id, "reason": "Test"},
         cookies={"session_token": cookie_operator}
     )
     assert req_res.status_code == 200
@@ -218,7 +221,7 @@ def test_login_creates_session_and_rbac_works(public_client):
     # 3. Operator tries to approve their own request (should fail due to RBAC/SoD)
     dec_res_fail = public_client.post(
         "/api/approval/decision",
-        json={"resource_id": "res-999", "approve": True},
+        json={"resource_id": resource_id, "approve": True},
         cookies={"session_token": cookie_operator}
     )
     assert dec_res_fail.status_code == 422
@@ -232,8 +235,9 @@ def test_login_creates_session_and_rbac_works(public_client):
     # 5. Reviewer approves
     dec_res = public_client.post(
         "/api/approval/decision",
-        json={"resource_id": "res-999", "approve": True},
+        json={"resource_id": resource_id, "approve": True},
         cookies={"session_token": cookie_reviewer}
     )
+    print(dec_res.json())
     assert dec_res.status_code == 200
     assert dec_res.json()["status"] == "APPROVED"

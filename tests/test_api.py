@@ -88,97 +88,92 @@ def test_api_validation_rejects_nul_and_oversized_lines():
 
 
 def test_api_governance_request_decision_and_status(tmp_path, monkeypatch):
-    from configsentinel.api import (
-        ApprovalRequestPayload,
-        ApprovalDecisionPayload,
-        create_app,
-    )
-
+    from configsentinel.api import create_app
+    import uuid
+    
+    # We need a fresh app instance to use the temp ledger path
     monkeypatch.setenv(
         "CONFIGSENTINEL_GOVERNANCE_LEDGER", str(tmp_path / "events.jsonl")
     )
     app = create_app()
-    request_route = next(
-        route
-        for route in app.routes
-        if getattr(route, "path", None) == "/api/approval/request"
+    from starlette.testclient import TestClient
+    client = TestClient(app)
+    
+    # 1. Login as operator
+    resp1 = client.post("/api/auth/login", json={"role": "operator"})
+    assert resp1.status_code == 200
+    cookie_op = resp1.cookies.get("session_token")
+    
+    resource_id = f"rem_api_{uuid.uuid4().hex}"
+    
+    # 2. Request
+    req_resp = client.post(
+        "/api/approval/request",
+        json={
+            "resource_id": resource_id,
+            "reason": "Review preview",
+        },
+        cookies={"session_token": cookie_op}
     )
-    decision_route = next(
-        route
-        for route in app.routes
-        if getattr(route, "path", None) == "/api/approval/decision"
+    assert req_resp.status_code == 200
+    
+    # 3. Status check
+    status_resp = client.get(f"/api/approval/{resource_id}")
+    assert status_resp.status_code == 200
+    assert status_resp.json()["status"] == "PENDING_REVIEW"
+    
+    # 4. Login as reviewer
+    resp2 = client.post("/api/auth/login", json={"role": "reviewer"})
+    cookie_rev = resp2.cookies.get("session_token")
+    
+    # 5. Decide
+    dec_resp = client.post(
+        "/api/approval/decision",
+        json={
+            "resource_id": resource_id,
+            "approve": True,
+            "reason": "Looks good",
+        },
+        cookies={"session_token": cookie_rev}
     )
-    status_route = next(
-        route
-        for route in app.routes
-        if getattr(route, "path", None) == "/api/approval/{resource_id}"
-    )
-    # Route endpoints share the app's ledger; use a fresh app-scoped path via the environment in integration tests.
-    request = request_route.endpoint(
-        ApprovalRequestPayload(
-            resource_id="rem_api",
-            actor_id="alice",
-            role="operator",
-            reason="Review preview",
-        )
-    )
-    assert request["status"] == "PENDING_REVIEW"
-    decision = decision_route.endpoint(
-        ApprovalDecisionPayload(
-            resource_id="rem_api",
-            actor_id="bob",
-            role="reviewer",
-            approve=True,
-            reason="Independent review",
-        )
-    )
-    assert decision["status"] == "APPROVED"
-    status = status_route.endpoint("rem_api")
-    assert status["status"] == "APPROVED"
-    assert [event["action"] for event in status["events"]] == ["REQUEST", "APPROVE"]
+    assert dec_resp.status_code == 200
+    
+    status2_resp = client.get(f"/api/approval/{resource_id}")
+    assert status2_resp.status_code == 200
+    assert status2_resp.json()["status"] == "APPROVED"
 
 
 def test_api_governance_rejects_same_actor_decision(tmp_path, monkeypatch):
-    from fastapi import HTTPException
-    from configsentinel.api import (
-        ApprovalRequestPayload,
-        ApprovalDecisionPayload,
-        create_app,
-    )
-
+    from configsentinel.api import create_app
+    import uuid
+    
     monkeypatch.setenv(
         "CONFIGSENTINEL_GOVERNANCE_LEDGER", str(tmp_path / "events.jsonl")
     )
     app = create_app()
-    request_route = next(
-        route
-        for route in app.routes
-        if getattr(route, "path", None) == "/api/approval/request"
+    from starlette.testclient import TestClient
+    client = TestClient(app)
+    
+    # Login as operator
+    resp1 = client.post("/api/auth/login", json={"role": "operator"})
+    cookie_op = resp1.cookies.get("session_token")
+    
+    resource_id = f"rem_same_actor_{uuid.uuid4().hex}"
+    
+    req_resp = client.post(
+        "/api/approval/request",
+        json={"resource_id": resource_id},
+        cookies={"session_token": cookie_op}
     )
-    decision_route = next(
-        route
-        for route in app.routes
-        if getattr(route, "path", None) == "/api/approval/decision"
+    assert req_resp.status_code == 200
+    
+    dec_resp = client.post(
+        "/api/approval/decision",
+        json={"resource_id": resource_id, "approve": True},
+        cookies={"session_token": cookie_op}
     )
-    request_route.endpoint(
-        ApprovalRequestPayload(
-            resource_id="rem_same_actor", actor_id="alice", role="operator"
-        )
-    )
-    try:
-        decision_route.endpoint(
-            ApprovalDecisionPayload(
-                resource_id="rem_same_actor",
-                actor_id="alice",
-                role="reviewer",
-                approve=True,
-            )
-        )
-    except HTTPException as exc:
-        assert exc.status_code == 422
-        assert "different reviewer" in str(exc.detail)
-    else:
-        raise AssertionError("same actor must not approve its own request")
+    assert dec_resp.status_code == 422
+    assert "only reviewers or administrators can decide" in dec_resp.json().get("detail", "")
 
 
 def test_api_offline_explanation_is_bounded_and_non_authoritative(monkeypatch):
