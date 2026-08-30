@@ -4,7 +4,7 @@ import Home from '../src/pages/Home';
 
 // Mock wouter's useLocation and Context
 vi.mock('wouter', async (importOriginal) => {
-  const actual = await importOriginal();
+  const actual = await importOriginal<typeof import('wouter')>();
   return {
     ...actual,
     useLocation: () => ['/', vi.fn()],
