@@ -59,6 +59,7 @@ const fallbackReport: AuditReport = {
 const NAV_ITEMS: { label: string; path: string; icon: IconType; description: string }[] = [
   { label: "Overview", path: "/", icon: Layers3, description: "Posture at a glance" },
   { label: "Asset Inventory", path: "/inventory", icon: Server, description: "Manage tracked devices" },
+  { label: "Continuous Monitoring", path: "/monitoring", icon: Activity, description: "Scheduled checks" },
   { label: "Audits", path: "/audits", icon: ClipboardCheck, description: "Run and compare audits" },
   { label: "Drift Detection", path: "/drift", icon: GitBranch, description: "Compare configuration changes" },
   { label: "Website Security", path: "/website-security", icon: ShieldCheck, description: "Scan website posture" },
@@ -160,6 +161,10 @@ export default function Home() {
   const [assets, setAssets] = useState<any[]>([]);
   const [newAsset, setNewAsset] = useState({ name: "", vendor: "", role: "", owner: "", criticality: "medium", exposure: "internal" });
   const [loadingAssets, setLoadingAssets] = useState(false);
+  
+  const [monitors, setMonitors] = useState<any[]>([]);
+  const [newMonitor, setNewMonitor] = useState({ target_id: "", target_type: "asset", interval_minutes: 60 });
+  const [loadingMonitors, setLoadingMonitors] = useState(false);
 
   const switchRole = async (newRole: string) => {
     try {
@@ -240,40 +245,74 @@ export default function Home() {
     }
   };
 
-  const addAsset = async () => {
-    if (!newAsset.name) return setToast("Asset name required");
+  const fetchMonitors = async () => {
+    setLoadingMonitors(true);
     try {
-      const response = await fetch(`${API_BASE}/api/inventory`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(newAsset)
-      });
+      const response = await fetch(`${API_BASE}/api/monitors`);
       if (response.ok) {
-        setNewAsset({ name: "", vendor: "", role: "", owner: "", criticality: "medium", exposure: "internal" });
-        fetchAssets();
-        setToast("Asset added");
+        setMonitors(await response.json());
       }
     } catch (e) {
-      setToast("Failed to add asset");
+      console.error(e);
+    } finally {
+      setLoadingMonitors(false);
     }
   };
 
-  const deleteAsset = async (id: string) => {
+  const addMonitor = async () => {
+    if (!newMonitor.target_id) return setToast("Target ID required");
     try {
-      const response = await fetch(`${API_BASE}/api/inventory/${id}`, { method: "DELETE" });
+      const response = await fetch(`${API_BASE}/api/monitors`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(newMonitor)
+      });
       if (response.ok) {
-        fetchAssets();
-        setToast("Asset deleted");
+        setNewMonitor({ target_id: "", target_type: "asset", interval_minutes: 60 });
+        fetchMonitors();
+        setToast("Monitor added");
       }
     } catch (e) {
-      setToast("Failed to delete asset");
+      setToast("Failed to add monitor");
+    }
+  };
+
+  const toggleMonitor = async (id: string) => {
+    try {
+      const response = await fetch(`${API_BASE}/api/monitors/${id}/pause`, { method: "POST" });
+      if (response.ok) fetchMonitors();
+    } catch (e) {
+      setToast("Failed to toggle monitor");
+    }
+  };
+
+  const triggerMonitor = async (id: string) => {
+    try {
+      const response = await fetch(`${API_BASE}/api/monitors/${id}/trigger`, { method: "POST" });
+      if (response.ok) {
+        fetchMonitors();
+        setToast("Monitor triggered");
+      }
+    } catch (e) {
+      setToast("Failed to trigger monitor");
+    }
+  };
+
+  const deleteMonitor = async (id: string) => {
+    try {
+      const response = await fetch(`${API_BASE}/api/monitors/${id}`, { method: "DELETE" });
+      if (response.ok) {
+        fetchMonitors();
+        setToast("Monitor deleted");
+      }
+    } catch (e) {
+      setToast("Failed to delete monitor");
     }
   };
 
   useEffect(() => {
-    if (location === "/inventory") {
-      fetchAssets();
-    }
+    if (location === "/inventory") fetchAssets();
+    if (location === "/monitoring") fetchMonitors();
   }, [location]);
 
   useEffect(() => {
@@ -401,6 +440,7 @@ export default function Home() {
   const auditActions = <><label className="button button-secondary"><Upload size={15} /> Upload config<input type="file" accept=".cfg,.conf,.config,.txt" onChange={handleFileUpload} hidden /></label><button className="button button-primary" type="button" onClick={runAudit} disabled={running}><Play size={15} /> {running ? "Running…" : "Run local audit"}</button></>;
   const searchResultsCount = visibleFindings.length;
   const pageContent = () => {
+    if (location === "/monitoring") return <><PageIntro eyebrow="CONTINUOUS MONITORING" title="Scheduled posture checks." detail="Trigger and track periodic reassessments of known assets and websites." action={<span className="queue-readout"><Activity size={14} /> ACTIVE</span>} /><div className="website-scan-form"><div className="form-row"><label>Target ID</label><input type="text" placeholder="firewall-01" value={newMonitor.target_id} onChange={e => setNewMonitor({...newMonitor, target_id: e.target.value})} /><label>Target Type</label><select value={newMonitor.target_type} onChange={e => setNewMonitor({...newMonitor, target_type: e.target.value})}><option value="asset">Asset (Config)</option><option value="website">Website (URL)</option></select><label>Interval (mins)</label><input type="number" min="5" max="10080" value={newMonitor.interval_minutes} onChange={e => setNewMonitor({...newMonitor, interval_minutes: parseInt(e.target.value) || 60})} /><button className="button button-primary" type="button" onClick={addMonitor}><Activity size={15} /> Add Monitor</button></div></div><div className="two-column"><section className="panel"><div className="panel-head"><div><SectionLabel>ACTIVE MONITORS</SectionLabel><h2>Scheduled checks</h2></div><span className="count-badge">{monitors.length.toString().padStart(2, "0")}</span></div><div className="findings-table"><div className="table-head"><span>TARGET</span><span>STATUS / LAST RUN</span><span>ACTIONS</span></div>{monitors.map(m => <div className="finding-row" key={m.id}><span className="finding-main"><span className={`finding-symbol symbol-${m.status === 'active' ? 'pass' : 'unknown'}`}><Activity size={12}/></span><span><strong>{m.target_id}</strong><small>{m.target_type} · every {m.interval_minutes}m</small></span></span><span className={`status-pill status-${m.status === 'active' ? 'pass' : 'unknown'}`}><span className="status-dot" />{m.status} {m.last_run ? `(${new Date(m.last_run).toLocaleTimeString()})` : "(never)"}</span><div style={{display: 'flex', gap: '8px'}}><button type="button" className="button button-tertiary" onClick={() => triggerMonitor(m.id)}>Trigger</button><button type="button" className="button button-secondary" onClick={() => toggleMonitor(m.id)}>{m.status === 'active' ? 'Pause' : 'Resume'}</button><button type="button" className="button button-danger" onClick={() => deleteMonitor(m.id)}>Delete</button></div></div>)}</div></section></div></>;
     if (location === "/inventory") return <><PageIntro eyebrow="ASSET INVENTORY / SCOPE" title="Tracked devices." detail="Manage workspace-scoped assets, owners, criticality, and exposure." action={<span className="queue-readout"><Server size={14} /> ISOLATED</span>} /><div className="website-scan-form"><div className="form-row"><label>Name</label><input type="text" placeholder="firewall-01" value={newAsset.name} onChange={e => setNewAsset({...newAsset, name: e.target.value})} /><label>Vendor</label><input type="text" placeholder="cisco_ios" value={newAsset.vendor} onChange={e => setNewAsset({...newAsset, vendor: e.target.value})} /><label>Role</label><input type="text" placeholder="edge" value={newAsset.role} onChange={e => setNewAsset({...newAsset, role: e.target.value})} /></div><div className="form-row"><label>Owner</label><input type="text" placeholder="neteng@corp" value={newAsset.owner} onChange={e => setNewAsset({...newAsset, owner: e.target.value})} /><label>Criticality</label><select value={newAsset.criticality} onChange={e => setNewAsset({...newAsset, criticality: e.target.value})}><option value="low">Low</option><option value="medium">Medium</option><option value="high">High</option><option value="critical">Critical</option></select><label>Exposure</label><select value={newAsset.exposure} onChange={e => setNewAsset({...newAsset, exposure: e.target.value})}><option value="internal">Internal</option><option value="external">External</option></select><button className="button button-primary" type="button" onClick={addAsset}><Server size={15} /> Add Asset</button></div></div><div className="two-column"><section className="panel"><div className="panel-head"><div><SectionLabel>WORKSPACE ASSETS</SectionLabel><h2>Managed inventory</h2></div><span className="count-badge">{assets.length.toString().padStart(2, "0")}</span></div><div className="findings-table"><div className="table-head"><span>ASSET</span><span>OWNER / EXPOSURE</span><span>ACTIONS</span></div>{assets.map(a => <div className="finding-row" key={a.id}><span className="finding-main"><span className="finding-symbol symbol-pass"><Server size={12}/></span><span><strong>{a.name}</strong><small>{a.vendor} · {a.role}</small></span></span><span className="status-pill status-unknown"><span className="status-dot" />{a.owner} ({a.exposure})</span><button type="button" className="button button-danger" onClick={() => deleteAsset(a.id)}>Delete</button></div>)}</div></section></div></>;
     if (location === "/audits") return <><PageIntro eyebrow="AUDITS / LOCAL EXECUTION" title="Run, compare, explain." detail="Every audit stays on this machine. Upload a configuration, inspect the resulting evidence, and keep a reviewable local history." action={<div className="action-row">{auditActions}</div>} /><div className="audit-toolbar"><div><SectionLabel>ACTIVE SOURCE</SectionLabel><strong>{selectedFileName}</strong><span>{apiOnline ? "API connected · deterministic engine" : "API offline · local fixture only"}</span></div><div className="action-row"><button type="button" className="button button-secondary" onClick={() => setShowFilters((value) => !value)}><SlidersHorizontal size={15} /> Filters {filterCount ? `(${filterCount})` : ""}</button><button type="button" className="button button-secondary" onClick={() => exportReport()}><Download size={15} /> Export PDF</button></div></div>{showFilters && <FilterBar severity={severityFilter} setSeverity={setSeverityFilter} status={statusFilter} setStatus={setStatusFilter} framework={frameworkFilter} frameworkOptions={frameworkOptions} setFramework={setFrameworkFilter} reset={resetFilters} />}<div className="two-column"><section className="panel"><div className="panel-head"><div><SectionLabel>REPORT / {report.audit.audit_id}</SectionLabel><h2>Findings from the latest audit</h2></div><span className="count-badge">{visibleFindings.length.toString().padStart(2, "0")}</span></div><FindingsTable findings={visibleFindings} reportVendor={report.audit.vendor} selectedId={selected?.finding_id || ""} onSelect={(finding) => setSelectedId(finding.finding_id)} /></section><EvidencePanel finding={selected} /></div><div className="two-column lower"><HistoryPanel history={history} onSelect={selectHistory} onDelete={deleteHistory} onExport={(entry) => exportReport(entry.report, entry.fileName)} /><TrendPanel history={history} onSelect={selectHistory} /></div></>;
     if (location === "/website-security") return <><PageIntro eyebrow="WEBSITE SECURITY / POSTURE CHECKER" title="Scan websites for security posture." detail="Passive, safe assessment of HTTPS, headers, TLS, and mixed content. No brute-force or exploit attempts." action={<span className="queue-readout"><ShieldCheck size={14} /> PASSIVE SCAN</span>} /><div className="website-scan-form"><div className="form-row"><label htmlFor="website-url">Target URL</label><input id="website-url" type="url" placeholder="https://example.com" value={websiteUrl} onChange={(e) => setWebsiteUrl(e.target.value)} /><label className="checkbox-label"><input type="checkbox" checked={websiteAuthConfirmed} onChange={(e) => setWebsiteAuthConfirmed(e.target.checked)} /><span>I confirm authorization to scan this target</span></label><button className="button button-primary" type="button" onClick={runWebsiteScan} disabled={websiteScanning || !websiteAuthConfirmed}><Play size={15} /> {websiteScanning ? "Scanning…" : "Scan website"}</button></div></div>{websiteScan && <div className="website-scan-results"><div style={{display: 'flex', justifyContent: 'flex-end', marginBottom: '16px'}}><button type="button" className="button button-secondary" onClick={exportWebsiteReport}><Download size={15} /> Export PDF</button></div><div className="scan-summary"><Metric label="POSTURE CLASSIFICATION" value={websiteScan.posture_classification} note={websiteScan.posture_classification === "GOOD" ? "meets security baseline" : "requires attention"} tone={websiteScan.posture_classification === "GOOD" ? "verified" : websiteScan.posture_classification === "HIGH_RISK" ? "danger" : "warn"} /><Metric label="SECURITY SCORE" value={`${websiteScan.score}/100`} note="deterministic calculation" tone={websiteScan.score >= 80 ? "verified" : websiteScan.score >= 50 ? "warn" : "danger"} /><Metric label="FINDINGS" value={websiteScan.findings_count.toString()} note={`${websiteScan.failed_count} failed · ${websiteScan.warning_count} warnings`} tone={websiteScan.failed_count > 0 ? "danger" : "neutral"} /><Metric label="TARGET" value={websiteScan.target_origin} note={websiteScan.final_url} tone="neutral" /></div><div className="two-column"><section className="panel"><div className="panel-head"><div><SectionLabel>SCAN FINDINGS</SectionLabel><h2>Security posture results</h2></div><span className="count-badge">{websiteScan.findings.length.toString().padStart(2, "0")}</span></div><div className="findings-table"><div className="table-head"><span>RULE / EVIDENCE</span><span>SEVERITY</span><span>STATUS</span></div>{websiteScan.findings.map((finding) => <button type="button" className={`finding-row ${finding.finding_id === websiteSelectedId ? "finding-selected" : ""}`} key={finding.finding_id} onClick={() => setWebsiteSelectedId(finding.finding_id)}><span className="finding-main"><span className={`finding-symbol symbol-${finding.status.toLowerCase()}`}>{finding.status === "FAIL" ? "!" : finding.status === "PASS" ? "✓" : "?"}</span><span><strong>{finding.rule_id}</strong><small>{finding.rationale}</small><code>{finding.evidence.check_type}</code></span></span><span className={`severity severity-${finding.severity.toLowerCase()}`}>{finding.severity}</span><span className={`status-pill status-${finding.status.toLowerCase()}`}><span className="status-dot" />{finding.status}</span></button>)}</div></section><aside className="evidence-panel"><div className="evidence-top"><SectionLabel>SELECTED FINDING</SectionLabel><span className="proof-tag"><ShieldCheck size={12} /> WEBSITE SECURITY</span></div>{websiteScan.findings.find((f) => f.finding_id === websiteSelectedId) ? <><div className="evidence-id" style={{display: 'flex', justifyContent: 'space-between', alignItems: 'center'}}><span>{websiteScan.findings.find((f) => f.finding_id === websiteSelectedId)?.rule_id} · {websiteScan.findings.find((f) => f.finding_id === websiteSelectedId)?.severity}</span>{websiteScan.findings.find((f) => f.finding_id === websiteSelectedId)?.status !== "PASS" && (<button type="button" className="button button-tertiary" onClick={() => explainWebsiteFinding(websiteSelectedId)} disabled={websiteExplaining}><Sparkles size={14} /> {websiteExplaining ? "Explaining…" : "Explain with AI"}</button>)}</div><h2>{websiteScan.findings.find((f) => f.finding_id === websiteSelectedId)?.title}</h2><div className="evidence-block"><SectionLabel>EVIDENCE</SectionLabel><div className="evidence-state"><span className={`status-pill status-${websiteScan.findings.find((f) => f.finding_id === websiteSelectedId)?.status.toLowerCase()}`}><span className="status-dot" />{websiteScan.findings.find((f) => f.finding_id === websiteSelectedId)?.status}</span><span>Observed: {websiteScan.findings.find((f) => f.finding_id === websiteSelectedId)?.evidence.observed_value}</span></div><div className="evidence-state"><span>Expected: {websiteScan.findings.find((f) => f.finding_id === websiteSelectedId)?.evidence.expected_value}</span></div></div><div className="evidence-block"><SectionLabel>REMEDIATION</SectionLabel><p className="muted-copy">{websiteScan.findings.find((f) => f.finding_id === websiteSelectedId)?.remediation}</p></div><div className="evidence-footer"><span>{websiteScan.findings.find((f) => f.finding_id === websiteSelectedId)?.rule_version}</span><span>{websiteScan.limitations}</span></div>{websiteExplanation && websiteExplanation.finding_id === websiteSelectedId && (<div className="evidence-block explanation-block" style={{marginTop: '16px', padding: '16px', background: 'var(--panel-bg-alt)', borderRadius: '6px', border: '1px solid var(--border)'}}><SectionLabel><Sparkles size={13} style={{marginRight: '6px', display: 'inline'}}/> AI EXPLANATION</SectionLabel><p style={{marginBottom: '12px', fontSize: '13px'}}>{websiteExplanation.explanation}</p><div className="evidence-footer"><span className={`status-pill status-${websiteExplanation.safety_status.toLowerCase()}`}><span className="status-dot"/>{websiteExplanation.safety_status}</span></div></div>)}</> : <EmptyState title="Select a finding" detail="Security evidence and remediation will appear here." icon={Fingerprint} />}</aside></div></div>}</>;

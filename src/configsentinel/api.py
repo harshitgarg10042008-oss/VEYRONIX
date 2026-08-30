@@ -143,7 +143,14 @@ class AssetPayload(BaseModel):
     exposure: str = Field(default="internal")
     workspace_id: str = Field(default="local")
 
+class MonitorTaskPayload(BaseModel):
+    target_id: str = Field(min_length=1, max_length=128)
+    target_type: str = Field(default="asset")
+    interval_minutes: int = Field(default=60)
+    workspace_id: str = Field(default="local")
+
 MOCK_ASSETS: list[dict[str, Any]] = []
+MOCK_MONITORS: list[dict[str, Any]] = []
 
 
 class WebsiteExplainPayload(BaseModel):
@@ -587,6 +594,77 @@ def create_app(*, allowed_origins: list[str] | None = None) -> FastAPI:
                 deleted = MOCK_ASSETS.pop(i)
                 return {"status": "deleted", "asset": deleted}
         raise HTTPException(status_code=404, detail="Asset not found")
+
+    @app.get("/api/monitors", tags=["monitoring"])
+    def get_monitors(
+        request: Request = Depends(request_context),
+        session: dict[str, Any] | None = Depends(get_optional_session)
+    ) -> list[dict[str, Any]]:
+        principal = getattr(getattr(request, "state", None), "principal", None)
+        workspace_id = principal.workspace_id if principal else (session.get("workspace_id") if session else "local")
+        return [m for m in MOCK_MONITORS if m.get("workspace_id") == workspace_id]
+
+    @app.post("/api/monitors", tags=["monitoring"])
+    def create_monitor(
+        payload: MonitorTaskPayload,
+        request: Request = Depends(request_context),
+        session: dict[str, Any] | None = Depends(get_optional_session)
+    ) -> dict[str, Any]:
+        principal = getattr(getattr(request, "state", None), "principal", None)
+        workspace_id = principal.workspace_id if principal else (session.get("workspace_id") if session else "local")
+        
+        monitor = payload.model_dump()
+        monitor["id"] = str(uuid.uuid4())
+        monitor["status"] = "active"
+        monitor["last_run"] = None
+        monitor["workspace_id"] = workspace_id
+        MOCK_MONITORS.append(monitor)
+        return monitor
+
+    @app.post("/api/monitors/{monitor_id}/pause", tags=["monitoring"])
+    def pause_monitor(
+        monitor_id: str,
+        request: Request = Depends(request_context),
+        session: dict[str, Any] | None = Depends(get_optional_session)
+    ) -> dict[str, Any]:
+        principal = getattr(getattr(request, "state", None), "principal", None)
+        workspace_id = principal.workspace_id if principal else (session.get("workspace_id") if session else "local")
+        
+        for m in MOCK_MONITORS:
+            if m["id"] == monitor_id and m["workspace_id"] == workspace_id:
+                m["status"] = "paused" if m["status"] == "active" else "active"
+                return m
+        raise HTTPException(status_code=404, detail="Monitor not found")
+
+    @app.post("/api/monitors/{monitor_id}/trigger", tags=["monitoring"])
+    def trigger_monitor(
+        monitor_id: str,
+        request: Request = Depends(request_context),
+        session: dict[str, Any] | None = Depends(get_optional_session)
+    ) -> dict[str, Any]:
+        principal = getattr(getattr(request, "state", None), "principal", None)
+        workspace_id = principal.workspace_id if principal else (session.get("workspace_id") if session else "local")
+        
+        for m in MOCK_MONITORS:
+            if m["id"] == monitor_id and m["workspace_id"] == workspace_id:
+                m["last_run"] = datetime.datetime.now(datetime.UTC).isoformat()
+                return {"status": "triggered", "monitor": m}
+        raise HTTPException(status_code=404, detail="Monitor not found")
+
+    @app.delete("/api/monitors/{monitor_id}", tags=["monitoring"])
+    def delete_monitor(
+        monitor_id: str,
+        request: Request = Depends(request_context),
+        session: dict[str, Any] | None = Depends(get_optional_session)
+    ) -> dict[str, Any]:
+        principal = getattr(getattr(request, "state", None), "principal", None)
+        workspace_id = principal.workspace_id if principal else (session.get("workspace_id") if session else "local")
+        
+        for i, m in enumerate(MOCK_MONITORS):
+            if m["id"] == monitor_id and m["workspace_id"] == workspace_id:
+                deleted = MOCK_MONITORS.pop(i)
+                return {"status": "deleted", "monitor": deleted}
+        raise HTTPException(status_code=404, detail="Monitor not found")
 
     @app.post("/api/websites/scans", tags=["websites"])
     def create_website_scan(payload: WebsiteScanPayload) -> dict[str, Any]:
