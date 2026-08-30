@@ -127,7 +127,13 @@ CONTROL_PACK: tuple[ControlDefinition, ...] = (
             "Secure remote administration",
             "Require secure SSH management and SSHv2.",
             Severity.HIGH,
-            {"cis": ("NET-MGMT-SSH-001",), "nist_800_53": ("AC-17", "SC-8")},
+            {
+                "cis": ("NET-MGMT-SSH-001",),
+                "nist_800_53": ("AC-17", "SC-8"),
+                "iso-27001-2022": ("A.8.19",),
+                "pci-dss-4-0-1": ("4.2.1", "8.2.1"),
+                "nist-csf-2": ("PR.DS-02",)
+            },
             ("cisco_ios", "junos", "firewall_generic", "arista_eos", "linux_nftables"),
             CONTROL_PACK_VERSION,
         ),
@@ -140,7 +146,12 @@ CONTROL_PACK: tuple[ControlDefinition, ...] = (
             "Disable Telnet management",
             "Prohibit insecure Telnet administration.",
             Severity.CRITICAL,
-            {"cis": ("NET-MGMT-TELNET-001",), "nist_800_53": ("AC-17",)},
+            {
+                "cis": ("NET-MGMT-TELNET-001",),
+                "nist_800_53": ("AC-17",),
+                "iso-27001-2022": ("A.8.19",),
+                "pci-dss-4-0-1": ("4.2.1", "2.2.3")
+            },
             ("cisco_ios", "junos", "firewall_generic", "arista_eos", "linux_nftables"),
             CONTROL_PACK_VERSION,
         ),
@@ -153,7 +164,12 @@ CONTROL_PACK: tuple[ControlDefinition, ...] = (
             "Centralized authentication",
             "Use AAA or an approved centralized access-control mechanism.",
             Severity.HIGH,
-            {"nist_800_53": ("IA-2", "AC-2")},
+            {
+                "nist_800_53": ("IA-2", "AC-2"),
+                "iso-27001-2022": ("A.9.2.1",),
+                "pci-dss-4-0-1": ("8.2.1",),
+                "nist-csf-2": ("PR.AA-01",)
+            },
             ("cisco_ios", "junos", "arista_eos"),
             CONTROL_PACK_VERSION,
         ),
@@ -166,7 +182,12 @@ CONTROL_PACK: tuple[ControlDefinition, ...] = (
             "Security logging",
             "Enable security-relevant logging for auditability.",
             Severity.MEDIUM,
-            {"nist_800_53": ("AU-2", "AU-12")},
+            {
+                "nist_800_53": ("AU-2", "AU-12"),
+                "iso-27001-2022": ("A.12.4.1",),
+                "pci-dss-4-0-1": ("10.2.1",),
+                "nist-csf-2": ("DE.AE-03",)
+            },
             ("cisco_ios", "junos", "arista_eos"),
             CONTROL_PACK_VERSION,
         ),
@@ -179,7 +200,11 @@ CONTROL_PACK: tuple[ControlDefinition, ...] = (
             "Consistent network time",
             "Configure network time for reliable event correlation.",
             Severity.MEDIUM,
-            {"nist_800_53": ("AU-8",)},
+            {
+                "nist_800_53": ("AU-8",),
+                "iso-27001-2022": ("A.12.4.4",),
+                "pci-dss-4-0-1": ("10.4",)
+            },
             ("cisco_ios", "junos", "arista_eos"),
             CONTROL_PACK_VERSION,
         ),
@@ -192,7 +217,11 @@ CONTROL_PACK: tuple[ControlDefinition, ...] = (
             "Secure monitoring protocol",
             "Avoid insecure SNMP configurations.",
             Severity.HIGH,
-            {"nist_800_53": ("SC-8",)},
+            {
+                "nist_800_53": ("SC-8",),
+                "iso-27001-2022": ("A.8.19",),
+                "pci-dss-4-0-1": ("4.2.1",)
+            },
             ("cisco_ios", "junos", "arista_eos"),
             CONTROL_PACK_VERSION,
         ),
@@ -205,7 +234,12 @@ CONTROL_PACK: tuple[ControlDefinition, ...] = (
             "Disable plain HTTP administration",
             "Prohibit unencrypted web management.",
             Severity.HIGH,
-            {"cis": ("NET-MGMT-HTTP-001",), "nist_800_53": ("SC-8",)},
+            {
+                "cis": ("NET-MGMT-HTTP-001",),
+                "nist_800_53": ("SC-8",),
+                "iso-27001-2022": ("A.8.19",),
+                "pci-dss-4-0-1": ("4.2.1", "2.2.3")
+            },
             ("cisco_ios", "junos", "firewall_generic", "arista_eos", "linux_nftables"),
             CONTROL_PACK_VERSION,
         ),
