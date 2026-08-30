@@ -124,6 +124,10 @@ class ExplainPayload(AuditPayload):
     finding_id: str | None = Field(default=None, max_length=256)
     control_id: str | None = Field(default=None, max_length=128)
 
+class DriftPayload(BaseModel):
+    baseline_report: dict[str, Any]
+    current_report: dict[str, Any]
+
 
 class WebsiteScanPayload(BaseModel):
     url: str = Field(min_length=1, max_length=2048)
@@ -271,6 +275,44 @@ def create_app(*, allowed_origins: list[str] | None = None) -> FastAPI:
     @app.post("/api/v1/audit", tags=["audit"])
     def audit_v1(payload: AuditPayload) -> dict[str, Any]:
         return service.audit(payload)
+
+    @app.post("/api/drift", tags=["audit"])
+    def compare_drift(payload: DriftPayload) -> dict[str, Any]:
+        baseline_findings = {f["control_id"]: f["status"] for f in payload.baseline_report.get("findings", [])}
+        current_findings = {f["control_id"]: f["status"] for f in payload.current_report.get("findings", [])}
+        
+        resolved = []
+        regressed = []
+        changed = []
+        
+        all_controls = set(baseline_findings.keys()).union(set(current_findings.keys()))
+        for c in all_controls:
+            b_status = baseline_findings.get(c, "MISSING")
+            c_status = current_findings.get(c, "MISSING")
+            if b_status == c_status:
+                continue
+                
+            transition = {"control_id": c, "from_status": b_status, "to_status": c_status}
+            if b_status in ("FAIL", "WARN", "UNKNOWN") and c_status == "PASS":
+                resolved.append(transition)
+            elif b_status in ("PASS", "UNKNOWN") and c_status in ("FAIL", "WARN"):
+                regressed.append(transition)
+            else:
+                changed.append(transition)
+                
+        b_score = payload.baseline_report.get("summary", {}).get("posture_score", 0)
+        c_score = payload.current_report.get("summary", {}).get("posture_score", 0)
+        
+        return {
+            "baseline_audit_id": payload.baseline_report.get("audit", {}).get("audit_id", "unknown"),
+            "current_audit_id": payload.current_report.get("audit", {}).get("audit_id", "unknown"),
+            "baseline_score": b_score,
+            "current_score": c_score,
+            "score_movement": c_score - b_score,
+            "resolved_controls": resolved,
+            "regressed_controls": regressed,
+            "other_changes": changed,
+        }
 
     @app.post("/api/detect", tags=["audit"])
     def detect(payload: DetectPayload | dict[str, str]) -> dict[str, Any]:
