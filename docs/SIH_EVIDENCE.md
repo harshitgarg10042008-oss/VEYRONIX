@@ -81,7 +81,82 @@ evaluating network hardening without live infrastructure.
 
 ---
 
-## 5. Supported Vendors and Controls
+## 5. Website Security Posture Checker
+
+ConfigSentinel AI includes a **Website Security Posture Checker** for passive, safe security assessments of websites.
+
+### Scanner Architecture
+
+```
+┌─────────────────────────────────────────────────────────────┐
+│  Website Scanner (website_scanner.py)                       │
+│  ┌──────────────────────────────────────────────────────┐  │
+│  │  SafeHTTPClient (SSRF protection, timeouts)          │  │
+│  │  → TargetSafetyPolicy (blocks private IPs)           │  │
+│  │  → RedirectInspector (chain analysis)                │  │
+│  │  → TLSInspector (certificate validation)             │  │
+│  └──────────────────────────────────────────────────────┘  │
+│  ┌──────────────────────────────────────────────────────┐  │
+│  │  HeaderInspector (HSTS, CSP, X-Frame-Options)        │  │
+│  │  CookieInspector (Secure, HttpOnly, SameSite)        │  │
+│  │  MixedContentDetector (HTTP resources on HTTPS)      │  │
+│  └──────────────────────────────────────────────────────┘  │
+│  ┌──────────────────────────────────────────────────────┐  │
+│  │  WebsiteRuleEngine (deterministic evaluation)         │  │
+│  │  → 7 security rules (HTTPS, HSTS, CSP, etc.)         │  │
+│  │  → Score calculation (0-100, severity-weighted)      │  │
+│  └──────────────────────────────────────────────────────┘  │
+│  ┌──────────────────────────────────────────────────────┐  │
+│  │  WebsiteScanStorage (SQLite)                          │  │
+│  │  → Durable scan results with retention policy        │  │
+│  └──────────────────────────────────────────────────────┘  │
+└─────────────────────────────────────────────────────────────┘
+```
+
+### Security Rules (web-posture.v1)
+
+| Rule ID | Title | Severity | Check Family |
+|---|---|---|---|
+| WEB-HTTPS-001 | HTTPS Required | CRITICAL | tls |
+| WEB-HSTS-001 | HSTS Header | HIGH | headers |
+| WEB-CSP-001 | Content Security Policy | HIGH | headers |
+| WEB-FRAME-001 | Clickjacking Protection | MEDIUM | headers |
+| WEB-MIME-001 | MIME Sniffing Protection | LOW | headers |
+| WEB-TLS-001 | TLS Version | HIGH | tls |
+| WEB-REDIRECT-001 | Redirect Safety | MEDIUM | redirects |
+
+### Scoring Model
+
+Score starts at 100 and deducts points based on severity:
+- Critical findings: 25 points each
+- High findings: 15 points each
+- Medium findings: 8 points each
+- Low findings: 3 points each
+- Warnings: 5 points each
+- Unknown: 2 points each
+
+Classification:
+- **HIGH_RISK**: Any critical finding, 3+ high findings, or score < 50
+- **NEEDS_REVIEW**: Any high finding, 5+ medium findings, or score < 75
+- **GOOD**: Otherwise
+
+### Safety Boundaries
+
+- **SSRF Protection**: Private IP ranges (10.0.0.0/8, 172.16.0.0/12, 192.168.0.0/16, 127.0.0.0/8) are blocked by default
+- **Timeouts**: 15-second timeout, 2MB max response size, max 5 redirects
+- **Passive Only**: No brute-force, credential testing, or exploit attempts
+- **Observable Only**: Only evaluates HTTP/TLS signals; does not prove absence of vulnerabilities
+
+### Test Coverage
+
+```powershell
+.\.venv\Scripts\python.exe -m pytest tests/test_website_*.py -v
+# Expected: 118 passed (61 models/scoring + 25 HTTP/redirect + 32 inspectors + 9 API)
+```
+
+---
+
+## 6. Supported Vendors and Controls
 
 Vendors: `cisco_ios`, `junos` (detected automatically).
 
@@ -108,12 +183,12 @@ curl http://127.0.0.1:5000/api/control-pack | python -m json.tool | grep control
 
 All commands run from the repository root with `.venv` active.
 
-### Backend — 217 deterministic tests
+### Backend — 335 deterministic tests
 
 ```powershell
 $env:PYTHONPATH = "src"
 .\.venv\Scripts\python.exe -m pytest -v
-# Expected: 217 passed
+# Expected: 335 passed (217 network + 118 website)
 ```
 
 ### Source compile check

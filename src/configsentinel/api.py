@@ -8,7 +8,7 @@ allows the LLM to create verdicts.
 
 from __future__ import annotations
 
-import hmac
+import json
 import os
 import time
 import uuid
@@ -31,6 +31,10 @@ from .proof import (
     audit_from_report,
 )
 from .remediation import generate_bundle, build_diffs, RemediationError
+from .website_scanner import WebsiteScanner
+from .website_models import WebsiteScanRequest
+from .website_http import HTTPClientConfig, TargetSafetyError
+from .website_storage import WebsiteScanStorage
 
 try:
     from fastapi import FastAPI, HTTPException, Request, Response, Depends, Cookie
@@ -103,6 +107,12 @@ class ExplainPayload(AuditPayload):
     control_id: str | None = Field(default=None, max_length=128)
 
 
+class WebsiteScanPayload(BaseModel):
+    url: str = Field(min_length=1, max_length=2048)
+    authorization_confirmed: bool = True
+    workspace_id: str = Field(default="local", max_length=128)
+
+
 class AuditApi:
     def __init__(self) -> None:
         self.client = ConfigSentinelClient(engine=DeterministicComplianceEngine())
@@ -149,6 +159,9 @@ def create_app(*, allowed_origins: list[str] | None = None) -> FastAPI:
     service = AuditApi()
     ledger = ApprovalLedger(
         os.getenv("CONFIGSENTINEL_GOVERNANCE_LEDGER", ".configsentinel/events.jsonl")
+    )
+    website_storage = WebsiteScanStorage(
+        os.getenv("CONFIGSENTINEL_DATABASE_URL", "sqlite:///./.configsentinel/configsentinel.db")
     )
     api_token = os.getenv("CONFIGSENTINEL_API_TOKEN", "").strip()
     auth_required = os.getenv("CONFIGSENTINEL_AUTH_REQUIRED", "false").lower() == "true"
@@ -461,6 +474,145 @@ def create_app(*, allowed_origins: list[str] | None = None) -> FastAPI:
             return verify_proof_bundle(proof, report)
         except (ValueError, ProofError, RemediationError) as exc:
             raise HTTPException(status_code=422, detail=str(exc)) from exc
+
+    @app.post("/api/websites/scans", tags=["websites"])
+    def create_website_scan(payload: WebsiteScanPayload) -> dict[str, Any]:
+        """Create a new website security scan."""
+        try:
+            # Create scan request
+            request = WebsiteScanRequest(
+                url=payload.url,
+                authorization_confirmed=payload.authorization_confirmed,
+                workspace_id=payload.workspace_id,
+            )
+            
+            # Configure scanner from environment
+            http_config = HTTPClientConfig(
+                timeout_seconds=float(os.getenv("CONFIGSENTINEL_WEB_SCAN_TIMEOUT_SECONDS", "15")),
+                max_response_bytes=int(os.getenv("CONFIGSENTINEL_WEB_SCAN_MAX_RESPONSE_BYTES", "2000000")),
+                max_redirects=int(os.getenv("CONFIGSENTINEL_WEB_SCAN_MAX_REDIRECTS", "5")),
+                allow_private_targets=os.getenv("CONFIGSENTINEL_WEB_SCAN_ALLOW_PRIVATE_TARGETS", "false").lower() == "true",
+                user_agent=os.getenv("CONFIGSENTINEL_WEB_SCAN_USER_AGENT", "ConfigSentinel-Posture-Checker/1.0"),
+            )
+            
+            # Create scanner and perform scan
+            scanner = WebsiteScanner(http_config=http_config)
+            result = scanner.scan(request)
+            
+            # Save to storage
+            website_storage.save_scan(result)
+            
+            # Convert to dict for JSON response
+            return {
+                "scan_id": result.scan_id,
+                "target_origin": result.target_origin,
+                "final_url": result.final_url,
+                "posture_classification": result.posture_classification.value,
+                "score": result.score,
+                "findings_count": len(result.findings),
+                "passed_count": result.passed_count,
+                "failed_count": result.failed_count,
+                "warning_count": result.warning_count,
+                "unknown_count": result.unknown_count,
+                "critical_count": result.critical_count,
+                "high_count": result.high_count,
+                "medium_count": result.medium_count,
+                "low_count": result.low_count,
+                "rule_pack_version": result.rule_pack_version,
+                "scan_timestamp": result.scan_timestamp.isoformat(),
+                "limitations": result.limitations,
+                "findings": [
+                    {
+                        "finding_id": f.finding_id,
+                        "rule_id": f.rule_id,
+                        "title": f.title,
+                        "status": f.status.value,
+                        "severity": f.severity.value,
+                        "evidence": {
+                            "check_type": f.evidence.check_type,
+                            "observed_value": f.evidence.observed_value,
+                            "expected_value": f.evidence.expected_value,
+                        },
+                        "rationale": f.rationale,
+                        "remediation": f.remediation,
+                        "observed_at": f.observed_at.isoformat(),
+                        "rule_version": f.rule_version,
+                        "limitations": f.limitations,
+                    }
+                    for f in result.findings
+                ],
+            }
+        except (ValueError, TargetSafetyError) as exc:
+            raise HTTPException(status_code=422, detail=str(exc)) from exc
+        except Exception as exc:
+            raise HTTPException(status_code=500, detail=f"Scan failed: {str(exc)}") from exc
+
+    @app.get("/api/websites/scans/{scan_id}", tags=["websites"])
+    def get_website_scan(scan_id: str) -> dict[str, Any]:
+        """Get a website scan result by ID."""
+        scan_data = website_storage.get_scan(scan_id)
+        if scan_data is None:
+            raise HTTPException(status_code=404, detail="Scan not found")
+        
+        # Parse findings JSON
+        findings = json.loads(scan_data["findings_json"])
+        
+        return {
+            "scan_id": scan_data["scan_id"],
+            "target_origin": scan_data["target_origin"],
+            "final_url": scan_data["final_url"],
+            "posture_classification": scan_data["posture_classification"],
+            "score": scan_data["score"],
+            "findings_count": scan_data["findings_count"],
+            "passed_count": scan_data["passed_count"],
+            "failed_count": scan_data["failed_count"],
+            "warning_count": scan_data["warning_count"],
+            "unknown_count": scan_data["unknown_count"],
+            "rule_pack_version": scan_data["rule_pack_version"],
+            "scan_timestamp": scan_data["scan_timestamp"],
+            "limitations": scan_data["limitations"],
+            "findings": findings,
+        }
+
+    @app.get("/api/websites/rules", tags=["websites"])
+    def get_website_rules() -> dict[str, Any]:
+        """Get the website security rule pack."""
+        from .website_rules import WEBSITE_RULE_PACK, WEBSITE_RULE_PACK_VERSION
+        
+        rules = []
+        for rule_def in WEBSITE_RULE_PACK:
+            rules.append({
+                "rule_id": rule_def.rule.rule_id,
+                "title": rule_def.rule.title,
+                "intent": rule_def.rule.intent,
+                "severity": rule_def.rule.severity.value,
+                "check_family": rule_def.rule.check_family,
+                "version": rule_def.rule.version,
+                "remediation": rule_def.remediation,
+            })
+        
+        return {
+            "version": WEBSITE_RULE_PACK_VERSION,
+            "rule_count": len(rules),
+            "rules": rules,
+        }
+
+    @app.get("/api/websites/health", tags=["websites"])
+    def website_health() -> dict[str, Any]:
+        """Health check for website scanner."""
+        return {
+            "status": "ok",
+            "scanner_enabled": os.getenv("CONFIGSENTINEL_WEB_SCAN_ENABLED", "true").lower() == "true",
+            "version": "1.0.0",
+        }
+
+    @app.delete("/api/websites/scans/{scan_id}", tags=["websites"])
+    def delete_website_scan(scan_id: str) -> dict[str, Any]:
+        """Delete a website scan result."""
+        deleted = website_storage.delete_scan(scan_id)
+        if not deleted:
+            raise HTTPException(status_code=404, detail="Scan not found")
+        return {"status": "deleted", "scan_id": scan_id}
 
     return app
 

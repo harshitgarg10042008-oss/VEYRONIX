@@ -1,7 +1,57 @@
-# START HERE — VEYRONIX / ConfigSentinel AI
+# START HERE — VEYRONIX / ConfigSentinel AI - Local Setup Guide
 
-> **Local-first, evidence-backed network compliance auditing.**
-> No cloud account. No device connections. No autonomous changes.
+This guide walks you through setting up ConfigSentinel AI locally for development and testing.
+
+## Website Security Posture Checker
+
+ConfigSentinel AI now includes a **Website Security Posture Checker** that performs passive, safe security assessments of websites. This feature:
+
+- Scans websites for HTTPS, HSTS, CSP, and other security headers
+- Inspects TLS certificate validity and protocol versions
+- Detects mixed content and redirect chain issues
+- Provides a deterministic security score (0-100)
+- Stores scan results in SQLite for historical tracking
+- Includes SSRF protection to prevent scanning internal networks
+
+### API Endpoints
+
+- `POST /api/websites/scans` - Create a new website security scan
+- `GET /api/websites/scans/{scan_id}` - Retrieve a scan result
+- `DELETE /api/websites/scans/{scan_id}` - Delete a scan result
+- `GET /api/websites/rules` - Get the website security rule pack
+- `GET /api/websites/health` - Health check for the scanner
+
+### Configuration
+
+Add these to your `.env` file:
+
+```bash
+# Website Scanner
+CONFIGSENTINEL_WEB_SCAN_ENABLED=true
+CONFIGSENTINEL_WEB_SCAN_TIMEOUT_SECONDS=15
+CONFIGSENTINEL_WEB_SCAN_MAX_RESPONSE_BYTES=2000000
+CONFIGSENTINEL_WEB_SCAN_MAX_REDIRECTS=5
+CONFIGSENTINEL_WEB_SCAN_ALLOW_PRIVATE_TARGETS=false
+CONFIGSENTINEL_WEB_SCAN_USER_AGENT=ConfigSentinel-Posture-Checker/1.0
+```
+
+### Example Usage
+
+```bash
+curl -X POST http://localhost:5000/api/websites/scans \
+  -H "Content-Type: application/json" \
+  -d '{
+    "url": "https://example.com",
+    "authorization_confirmed": true
+  }'
+```
+
+### Safety Notes
+
+- The scanner **never** performs brute-force attacks, credential testing, or exploit attempts
+- Private/internal IP ranges are blocked by default (SSRF protection)
+- All scans are passive and observable only
+- Scan results include explicit limitations about what was not tested
 
 ---
 
