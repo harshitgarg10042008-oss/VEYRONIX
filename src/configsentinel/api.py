@@ -8,6 +8,7 @@ allows the LLM to create verdicts.
 
 from __future__ import annotations
 
+import hmac
 import json
 import os
 import time
@@ -101,6 +102,12 @@ MOCK_SESSIONS: dict[str, dict[str, str]] = {}
 def get_current_session(session_token: str | None = Cookie(default=None)):
     if not session_token or session_token not in MOCK_SESSIONS:
         raise HTTPException(status_code=401, detail="Valid session required")
+    return MOCK_SESSIONS[session_token]
+
+
+def get_optional_session(session_token: str | None = Cookie(default=None)) -> dict[str, str] | None:
+    if not session_token or session_token not in MOCK_SESSIONS:
+        return None
     return MOCK_SESSIONS[session_token]
 
 
@@ -391,10 +398,12 @@ def create_app(*, allowed_origins: list[str] | None = None) -> FastAPI:
     def approval_request(
         payload: ApprovalRequestPayload,
         request: Request = Depends(request_context),
-        session: dict[str, Any] = Depends(get_current_session),
+        session: dict[str, Any] | None = Depends(get_optional_session),
     ) -> dict[str, Any]:
         try:
             principal = getattr(getattr(request, "state", None), "principal", None)
+            if principal is None and session is None:
+                raise HTTPException(status_code=401, detail="Valid session or strict authenticated identity required")
             actor_id = principal.actor_id if principal else session["actor_id"]
             role = principal.role if principal else Role(session["role"])
             event = ledger.request(payload.resource_id, actor_id, role=role, reason=payload.reason)
@@ -406,10 +415,12 @@ def create_app(*, allowed_origins: list[str] | None = None) -> FastAPI:
     def approval_decision(
         payload: ApprovalDecisionPayload,
         request: Request = Depends(request_context),
-        session: dict[str, Any] = Depends(get_current_session),
+        session: dict[str, Any] | None = Depends(get_optional_session),
     ) -> dict[str, Any]:
         try:
             principal = getattr(getattr(request, "state", None), "principal", None)
+            if principal is None and session is None:
+                raise HTTPException(status_code=401, detail="Valid session or strict authenticated identity required")
             actor_id = principal.actor_id if principal else session["actor_id"]
             role = principal.role if principal else Role(session["role"])
             event = ledger.decide(payload.resource_id, actor_id, role=role, approve=payload.approve, reason=payload.reason)
