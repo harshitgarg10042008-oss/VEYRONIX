@@ -17,6 +17,7 @@ function Router() {
       <Route path="/remediation" component={Home} />
       <Route path="/settings" component={Home} />
       <Route path="/operator-guide" component={Home} />
+      <Route path="/website-security" component={Home} />
       <Route path="/404" component={NotFound} />
       <Route component={NotFound} />
     </Switch>

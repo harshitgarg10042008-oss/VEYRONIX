@@ -29,7 +29,7 @@ class HTTPClientConfig:
     max_response_bytes: int = 2_000_000  # 2 MB
     max_redirects: int = 5
     allow_private_targets: bool = False
-    user_agent: str = "ConfigSentinel-Posture-Checker/1.0"
+    user_agent: str = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/125.0.0.0 Safari/537.36"
     verify_ssl: bool = True
     
     def __post_init__(self) -> None:
