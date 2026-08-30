@@ -134,6 +134,17 @@ class WebsiteScanPayload(BaseModel):
     authorization_confirmed: bool = True
     workspace_id: str = Field(default="local", max_length=128)
 
+class AssetPayload(BaseModel):
+    name: str = Field(min_length=1, max_length=128)
+    vendor: str = Field(default="unknown")
+    role: str = Field(default="unknown")
+    owner: str = Field(default="unassigned")
+    criticality: str = Field(default="medium")
+    exposure: str = Field(default="internal")
+    workspace_id: str = Field(default="local")
+
+MOCK_ASSETS: list[dict[str, Any]] = []
+
 
 class WebsiteExplainPayload(BaseModel):
     finding_id: str = Field(min_length=1, max_length=256)
@@ -537,6 +548,45 @@ def create_app(*, allowed_origins: list[str] | None = None) -> FastAPI:
             return verify_proof_bundle(proof, report)
         except (ValueError, ProofError, RemediationError) as exc:
             raise HTTPException(status_code=422, detail=str(exc)) from exc
+
+    @app.get("/api/inventory", tags=["inventory"])
+    def get_inventory(
+        request: Request = Depends(request_context),
+        session: dict[str, Any] | None = Depends(get_optional_session)
+    ) -> list[dict[str, Any]]:
+        principal = getattr(getattr(request, "state", None), "principal", None)
+        workspace_id = principal.workspace_id if principal else (session.get("workspace_id") if session else "local")
+        return [asset for asset in MOCK_ASSETS if asset.get("workspace_id") == workspace_id]
+
+    @app.post("/api/inventory", tags=["inventory"])
+    def create_asset(
+        payload: AssetPayload,
+        request: Request = Depends(request_context),
+        session: dict[str, Any] | None = Depends(get_optional_session)
+    ) -> dict[str, Any]:
+        principal = getattr(getattr(request, "state", None), "principal", None)
+        workspace_id = principal.workspace_id if principal else (session.get("workspace_id") if session else "local")
+        
+        asset = payload.model_dump()
+        asset["id"] = str(uuid.uuid4())
+        asset["workspace_id"] = workspace_id
+        MOCK_ASSETS.append(asset)
+        return asset
+
+    @app.delete("/api/inventory/{asset_id}", tags=["inventory"])
+    def delete_asset(
+        asset_id: str,
+        request: Request = Depends(request_context),
+        session: dict[str, Any] | None = Depends(get_optional_session)
+    ) -> dict[str, Any]:
+        principal = getattr(getattr(request, "state", None), "principal", None)
+        workspace_id = principal.workspace_id if principal else (session.get("workspace_id") if session else "local")
+        
+        for i, asset in enumerate(MOCK_ASSETS):
+            if asset["id"] == asset_id and asset["workspace_id"] == workspace_id:
+                deleted = MOCK_ASSETS.pop(i)
+                return {"status": "deleted", "asset": deleted}
+        raise HTTPException(status_code=404, detail="Asset not found")
 
     @app.post("/api/websites/scans", tags=["websites"])
     def create_website_scan(payload: WebsiteScanPayload) -> dict[str, Any]:
