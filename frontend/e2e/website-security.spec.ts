@@ -7,8 +7,8 @@ test.describe('Website Security Scanner', () => {
     const websiteSecurityBtn = page.getByRole('button', { name: /Website security/i });
     await websiteSecurityBtn.click();
     
-    await expect(page.locator('text=WEBSITE SECURITY')).toBeVisible();
-    await expect(page.locator('text=POSTURE CHECKER')).toBeVisible();
+    await expect(page.getByText('WEBSITE SECURITY', { exact: true })).toBeVisible();
+    await expect(page.locator('.section-label').filter({ hasText: 'WEBSITE SECURITY / POSTURE CHECKER' })).toBeVisible();
   });
 
   test('should show authorization confirmation checkbox', async ({ page }) => {
@@ -17,7 +17,7 @@ test.describe('Website Security Scanner', () => {
     const checkbox = page.locator('input[type="checkbox"]');
     await expect(checkbox).toBeVisible();
     
-    const scanButton = page.getByRole('button', { name: /Scan website/i });
+    const scanButton = page.getByRole('button', { name: 'Scan website', exact: true });
     await expect(scanButton).toBeDisabled();
   });
 
@@ -27,7 +27,7 @@ test.describe('Website Security Scanner', () => {
     const checkbox = page.locator('input[type="checkbox"]');
     await checkbox.check();
     
-    const scanButton = page.getByRole('button', { name: /Scan website/i });
+    const scanButton = page.getByRole('button', { name: 'Scan website', exact: true });
     await expect(scanButton).toBeEnabled();
   });
 
@@ -37,7 +37,7 @@ test.describe('Website Security Scanner', () => {
     const checkbox = page.locator('input[type="checkbox"]');
     await checkbox.check();
     
-    const scanButton = page.getByRole('button', { name: /Scan website/i });
+    const scanButton = page.getByRole('button', { name: 'Scan website', exact: true });
     await scanButton.click();
     
     // Should show toast error about empty URL
@@ -53,7 +53,7 @@ test.describe('Website Security Scanner', () => {
     const checkbox = page.locator('input[type="checkbox"]');
     await checkbox.check();
     
-    const scanButton = page.getByRole('button', { name: /Scan website/i });
+    const scanButton = page.getByRole('button', { name: 'Scan website', exact: true });
     await scanButton.click();
     
     // Should show scanning state
@@ -74,7 +74,7 @@ test.describe('Website Security Scanner', () => {
     const checkbox = page.locator('input[type="checkbox"]');
     await checkbox.check();
     
-    const scanButton = page.getByRole('button', { name: /Scan website/i });
+    const scanButton = page.getByRole('button', { name: 'Scan website', exact: true });
     await scanButton.click();
     
     // Wait for scan to complete
@@ -93,7 +93,7 @@ test.describe('Website Security Scanner', () => {
     const checkbox = page.locator('input[type="checkbox"]');
     await checkbox.check();
     
-    const scanButton = page.getByRole('button', { name: /Scan website/i });
+    const scanButton = page.getByRole('button', { name: 'Scan website', exact: true });
     await scanButton.click();
     
     // Wait for scan to complete
@@ -105,7 +105,7 @@ test.describe('Website Security Scanner', () => {
     
     // Should show evidence panel
     await expect(page.locator('text=SELECTED FINDING')).toBeVisible();
-    await expect(page.locator('text=EVIDENCE')).toBeVisible();
-    await expect(page.locator('text=REMEDIATION')).toBeVisible();
+    await expect(page.getByText('EVIDENCE', { exact: true })).toBeVisible();
+    await expect(page.getByText('REMEDIATION', { exact: true })).toBeVisible();
   });
 });
