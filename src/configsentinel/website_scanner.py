@@ -20,6 +20,8 @@ from .website_models import (
     WebsiteScanRequest,
     WebsiteScanResult,
     WebsiteFinding,
+    WebsiteFindingStatus,
+    WebsiteSeverity,
     PostureClassification,
     compute_target_hash,
 )
@@ -191,6 +193,16 @@ class WebsiteScanner:
                 "origin_change": redirect_evidence.origin_change,
             }
         
+        # Extract raw set-cookie headers (dict(headers) loses duplicates)
+        raw_set_cookies = []
+        if hasattr(response, "headers") and hasattr(response.headers, "get_list"):
+            raw_set_cookies = response.headers.get_list("set-cookie")
+        elif "set-cookie" in response.headers:
+            # Fallback if get_list is not available
+            raw_set_cookies = [response.headers["set-cookie"]]
+            
+        observation["set_cookies"] = raw_set_cookies
+        
         # Add HTML content for mixed content detection
         content_type = response.headers.get("content-type", "")
         if "text/html" in content_type:
@@ -206,5 +218,19 @@ class WebsiteScanner:
                     for f in mixed_content_findings
                 ),
             }
+            
+        # Try to fetch security.txt
+        security_txt_url = ""
+        parsed_url = __import__("urllib.parse").parse.urlparse(str(response.url))
+        if parsed_url.scheme and parsed_url.netloc:
+            security_txt_url = f"{parsed_url.scheme}://{parsed_url.netloc}/.well-known/security.txt"
+            try:
+                sec_txt_response = self.http_client.fetch(security_txt_url)
+                if sec_txt_response.status_code == 200 and "text/plain" in sec_txt_response.headers.get("content-type", ""):
+                    observation["security_txt"] = sec_txt_response.text
+                else:
+                    observation["security_txt"] = None
+            except Exception:
+                observation["security_txt"] = None
         
         return observation

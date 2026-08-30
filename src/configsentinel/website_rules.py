@@ -308,6 +308,229 @@ def _check_redirect_safety(observation: dict[str, Any]) -> tuple[WebsiteFindingS
     )
 
 
+def _check_referrer_policy(observation: dict[str, Any]) -> tuple[WebsiteFindingStatus, str, WebsiteEvidence]:
+    headers = observation.get("headers", {})
+    ref_policy = headers.get("Referrer-Policy", "")
+    
+    if not ref_policy:
+        return (
+            WebsiteFindingStatus.WARN,
+            "Referrer-Policy header is missing",
+            WebsiteEvidence(
+                check_type="referrer_policy",
+                observed_value="missing",
+                expected_value="strict-origin-when-cross-origin or similar"
+            )
+        )
+    
+    if "unsafe-url" in ref_policy:
+        return (
+            WebsiteFindingStatus.FAIL,
+            "Referrer-Policy is unsafe",
+            WebsiteEvidence(
+                check_type="referrer_policy",
+                observed_value=ref_policy[:50],
+                expected_value="restrictive policy"
+            )
+        )
+        
+    return (
+        WebsiteFindingStatus.PASS,
+        "Referrer-Policy is present",
+        WebsiteEvidence(
+            check_type="referrer_policy",
+            observed_value=ref_policy[:50],
+            expected_value="present"
+        )
+    )
+
+
+def _check_permissions_policy(observation: dict[str, Any]) -> tuple[WebsiteFindingStatus, str, WebsiteEvidence]:
+    headers = observation.get("headers", {})
+    perm_policy = headers.get("Permissions-Policy", "")
+    
+    if not perm_policy:
+        return (
+            WebsiteFindingStatus.WARN,
+            "Permissions-Policy header is missing",
+            WebsiteEvidence(
+                check_type="permissions_policy",
+                observed_value="missing",
+                expected_value="present"
+            )
+        )
+        
+    return (
+        WebsiteFindingStatus.PASS,
+        "Permissions-Policy is present",
+        WebsiteEvidence(
+            check_type="permissions_policy",
+            observed_value=perm_policy[:50],
+            expected_value="present"
+        )
+    )
+
+
+def _check_server_disclosure(observation: dict[str, Any]) -> tuple[WebsiteFindingStatus, str, WebsiteEvidence]:
+    headers = observation.get("headers", {})
+    server_header = headers.get("Server", "")
+    x_powered_by = headers.get("X-Powered-By", "")
+    
+    issues = []
+    if server_header and any(char.isdigit() for char in server_header):
+        issues.append(f"Server: {server_header[:20]}")
+    if x_powered_by:
+        issues.append("X-Powered-By header present")
+        
+    if issues:
+        return (
+            WebsiteFindingStatus.WARN,
+            "Server version or technology disclosed",
+            WebsiteEvidence(
+                check_type="server_disclosure",
+                observed_value=", ".join(issues),
+                expected_value="minimal disclosure"
+            )
+        )
+        
+    return (
+        WebsiteFindingStatus.PASS,
+        "No unnecessary server disclosure detected",
+        WebsiteEvidence(
+            check_type="server_disclosure",
+            observed_value="clean headers",
+            expected_value="minimal disclosure"
+        )
+    )
+
+
+def _check_cookie_flags(observation: dict[str, Any]) -> tuple[WebsiteFindingStatus, str, WebsiteEvidence]:
+    set_cookies = observation.get("set_cookies", [])
+    
+    if not set_cookies:
+        return (
+            WebsiteFindingStatus.NOT_APPLICABLE,
+            "No cookies set in response",
+            WebsiteEvidence(
+                check_type="cookies",
+                observed_value="no cookies",
+                expected_value="N/A"
+            )
+        )
+        
+    issues = []
+    for cookie in set_cookies:
+        cookie_lower = cookie.lower()
+        if "secure" not in cookie_lower:
+            issues.append("missing Secure flag")
+        if "httponly" not in cookie_lower:
+            issues.append("missing HttpOnly flag")
+            
+    if issues:
+        return (
+            WebsiteFindingStatus.FAIL,
+            "Cookies missing security attributes",
+            WebsiteEvidence(
+                check_type="cookies",
+                observed_value=", ".join(list(set(issues))),
+                expected_value="Secure and HttpOnly"
+            )
+        )
+        
+    return (
+        WebsiteFindingStatus.PASS,
+        "Cookies have proper security attributes",
+        WebsiteEvidence(
+            check_type="cookies",
+            observed_value=f"{len(set_cookies)} cookies secure",
+            expected_value="Secure and HttpOnly"
+        )
+    )
+
+
+def _check_mixed_content(observation: dict[str, Any]) -> tuple[WebsiteFindingStatus, str, WebsiteEvidence]:
+    mixed = observation.get("mixed_content")
+    
+    if not mixed:
+        return (
+            WebsiteFindingStatus.UNKNOWN,
+            "Mixed content analysis unavailable",
+            WebsiteEvidence(
+                check_type="mixed_content",
+                observed_value="unknown",
+                expected_value="no mixed content"
+            )
+        )
+        
+    if mixed.get("has_active_mixed_content"):
+        return (
+            WebsiteFindingStatus.FAIL,
+            "Active mixed content (scripts/styles) detected",
+            WebsiteEvidence(
+                check_type="mixed_content",
+                observed_value="active mixed content",
+                expected_value="no mixed content"
+            )
+        )
+        
+    if mixed.get("findings_count", 0) > 0:
+        return (
+            WebsiteFindingStatus.WARN,
+            "Passive mixed content (images/media) detected",
+            WebsiteEvidence(
+                check_type="mixed_content",
+                observed_value=f"{mixed['findings_count']} resources",
+                expected_value="no mixed content"
+            )
+        )
+        
+    return (
+        WebsiteFindingStatus.PASS,
+        "No mixed content detected",
+        WebsiteEvidence(
+            check_type="mixed_content",
+            observed_value="0 resources",
+            expected_value="no mixed content"
+        )
+    )
+
+
+def _check_security_txt(observation: dict[str, Any]) -> tuple[WebsiteFindingStatus, str, WebsiteEvidence]:
+    sec_txt = observation.get("security_txt")
+    
+    if sec_txt is None:
+        return (
+            WebsiteFindingStatus.WARN,
+            "security.txt not found",
+            WebsiteEvidence(
+                check_type="security_txt",
+                observed_value="missing",
+                expected_value="present"
+            )
+        )
+        
+    if "Contact:" not in sec_txt:
+        return (
+            WebsiteFindingStatus.FAIL,
+            "security.txt missing required Contact directive",
+            WebsiteEvidence(
+                check_type="security_txt",
+                observed_value="missing Contact",
+                expected_value="Contact: directive"
+            )
+        )
+        
+    return (
+        WebsiteFindingStatus.PASS,
+        "security.txt is present",
+        WebsiteEvidence(
+            check_type="security_txt",
+            observed_value="valid file",
+            expected_value="present"
+        )
+    )
+
+
 WEBSITE_RULE_PACK_VERSION = "web-posture.v1"
 
 WEBSITE_RULE_PACK: tuple[WebsiteRuleDefinition, ...] = (
@@ -387,6 +610,72 @@ WEBSITE_RULE_PACK: tuple[WebsiteRuleDefinition, ...] = (
         ),
         _check_redirect_safety,
         "Ensure redirects don't downgrade schemes or loop excessively",
+    ),
+    WebsiteRuleDefinition(
+        WebsiteRule(
+            "WEB-REFERRER-001",
+            "Referrer Policy",
+            "Referrer-Policy header should be restrictive",
+            WebsiteSeverity.LOW,
+            "headers"
+        ),
+        _check_referrer_policy,
+        "Configure Referrer-Policy to strict-origin-when-cross-origin",
+    ),
+    WebsiteRuleDefinition(
+        WebsiteRule(
+            "WEB-PERMISSIONS-001",
+            "Permissions Policy",
+            "Permissions-Policy header should be present",
+            WebsiteSeverity.INFO,
+            "headers"
+        ),
+        _check_permissions_policy,
+        "Configure Permissions-Policy to restrict browser features",
+    ),
+    WebsiteRuleDefinition(
+        WebsiteRule(
+            "WEB-SERVER-001",
+            "Server Disclosure",
+            "Server versions should not be disclosed",
+            WebsiteSeverity.LOW,
+            "headers"
+        ),
+        _check_server_disclosure,
+        "Remove version numbers from Server header and disable X-Powered-By",
+    ),
+    WebsiteRuleDefinition(
+        WebsiteRule(
+            "WEB-COOKIE-001",
+            "Cookie Security",
+            "Cookies must have Secure and HttpOnly flags",
+            WebsiteSeverity.MEDIUM,
+            "cookies"
+        ),
+        _check_cookie_flags,
+        "Add Secure and HttpOnly attributes to all cookies",
+    ),
+    WebsiteRuleDefinition(
+        WebsiteRule(
+            "WEB-MIXED-001",
+            "Mixed Content",
+            "HTTPS pages should not load HTTP resources",
+            WebsiteSeverity.HIGH,
+            "html"
+        ),
+        _check_mixed_content,
+        "Update all resource links to use HTTPS",
+    ),
+    WebsiteRuleDefinition(
+        WebsiteRule(
+            "WEB-SECTXT-001",
+            "Security Contact",
+            "/.well-known/security.txt should be present",
+            WebsiteSeverity.INFO,
+            "metadata"
+        ),
+        _check_security_txt,
+        "Publish a valid security.txt file with Contact information",
     ),
 )
 

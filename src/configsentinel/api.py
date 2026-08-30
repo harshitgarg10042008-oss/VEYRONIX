@@ -113,6 +113,10 @@ class WebsiteScanPayload(BaseModel):
     workspace_id: str = Field(default="local", max_length=128)
 
 
+class WebsiteExplainPayload(BaseModel):
+    finding_id: str = Field(min_length=1, max_length=256)
+
+
 class AuditApi:
     def __init__(self) -> None:
         self.client = ConfigSentinelClient(engine=DeterministicComplianceEngine())
@@ -613,6 +617,71 @@ def create_app(*, allowed_origins: list[str] | None = None) -> FastAPI:
         if not deleted:
             raise HTTPException(status_code=404, detail="Scan not found")
         return {"status": "deleted", "scan_id": scan_id}
+
+    @app.post("/api/websites/scans/{scan_id}/explanation", tags=["websites"])
+    def explain_website_finding_endpoint(scan_id: str, payload: WebsiteExplainPayload) -> dict[str, Any]:
+        """Explain a website finding using the LLM copilot."""
+        scan_data = website_storage.get_scan(scan_id)
+        if scan_data is None:
+            raise HTTPException(status_code=404, detail="Scan not found")
+            
+        findings = json.loads(scan_data["findings_json"])
+        
+        # Find the specific finding
+        finding_dict = next((f for f in findings if f["finding_id"] == payload.finding_id), None)
+        if finding_dict is None:
+            raise HTTPException(status_code=404, detail="Finding not found in scan")
+            
+        if finding_dict["status"] == "PASS":
+            raise HTTPException(status_code=422, detail="PASS findings do not need explanation")
+            
+        # Reconstruct WebsiteFinding object roughly
+        from .website_models import WebsiteFinding, WebsiteFindingStatus, WebsiteSeverity, WebsiteEvidence
+        
+        evidence_dict = finding_dict.get("evidence", {})
+        evidence_obj = None
+        if evidence_dict:
+            evidence_obj = WebsiteEvidence(
+                check_type=evidence_dict.get("check_type", "unknown"),
+                observed_value=evidence_dict.get("observed_value", "unknown"),
+                expected_value=evidence_dict.get("expected_value", "unknown"),
+            )
+            
+        finding = WebsiteFinding(
+            finding_id=finding_dict["finding_id"],
+            scan_id=scan_id,
+            rule_id=finding_dict["rule_id"],
+            title=finding_dict["title"],
+            status=WebsiteFindingStatus(finding_dict["status"]),
+            severity=WebsiteSeverity(finding_dict["severity"]),
+            evidence=evidence_obj,
+            rationale=finding_dict["rationale"],
+            remediation=finding_dict["remediation"],
+            observed_at=finding_dict["observed_at"], # Keep as string for this passing
+            rule_version=finding_dict["rule_version"],
+            target_hash="unknown",
+            limitations=finding_dict.get("limitations", ""),
+        )
+        
+        config = LLMConfig.from_environment()
+        if os.getenv("CONFIGSENTINEL_LLM_PROVIDER", "").strip().lower() == "offline":
+            copilot = LLMCopilot.offline()
+        else:
+            copilot = LLMCopilot(provider=OpenAICompatibleProvider(config), config=config)
+            
+        try:
+            explanation = copilot.explain_website_finding(finding)
+            return {
+                "finding_id": finding.finding_id,
+                "explanation": {
+                    "explanation": explanation.explanation,
+                    "confidence": explanation.confidence,
+                    "evidence_needed": list(explanation.evidence_needed),
+                    "safety_status": explanation.safety_status,
+                }
+            }
+        except Exception as exc:
+            raise HTTPException(status_code=422, detail=str(exc)) from exc
 
     return app
 
