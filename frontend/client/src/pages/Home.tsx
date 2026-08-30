@@ -2,9 +2,9 @@
 import { useEffect, useMemo, useState, type ChangeEvent, type ReactNode } from "react";
 import { jsPDF } from "jspdf";
 import {
-  AlertTriangle, ArrowRight, Check, ChevronDown, CircleHelp, ClipboardCheck,
+  AlertTriangle, ArrowRight, Activity, Check, ChevronDown, CircleHelp, ClipboardCheck,
   Clock3, Download, FileCheck2, FileText, Fingerprint, GitBranch, Layers3,
-  LifeBuoy, LockKeyhole, Moon, Network, PanelRight, Play, Search, Settings2,
+  LifeBuoy, LockKeyhole, Moon, Network, PanelRight, Play, Search, Server, Settings2,
   ShieldCheck, SlidersHorizontal, Sparkles, Sun, TerminalSquare, Upload, X, Zap,
 } from "lucide-react";
 import { useLocation } from "wouter";
@@ -242,6 +242,36 @@ export default function Home() {
       console.error(e);
     } finally {
       setLoadingAssets(false);
+    }
+  };
+
+  const addAsset = async () => {
+    if (!newAsset.name) return setToast("Asset name required");
+    try {
+      const response = await fetch(`${API_BASE}/api/inventory`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(newAsset),
+      });
+      if (response.ok) {
+        setNewAsset({ name: "", vendor: "", role: "", owner: "", criticality: "medium", exposure: "internal" });
+        fetchAssets();
+        setToast("Asset added");
+      }
+    } catch (e) {
+      setToast("Failed to add asset");
+    }
+  };
+
+  const deleteAsset = async (id: string) => {
+    try {
+      const response = await fetch(`${API_BASE}/api/inventory/${id}`, { method: "DELETE" });
+      if (response.ok) {
+        fetchAssets();
+        setToast("Asset deleted");
+      }
+    } catch (e) {
+      setToast("Failed to delete asset");
     }
   };
 

@@ -12,6 +12,9 @@ function Router() {
     <Switch>
       <Route path="/" component={Home} />
       <Route path="/audits" component={Home} />
+      <Route path="/inventory" component={Home} />
+      <Route path="/monitoring" component={Home} />
+      <Route path="/drift" component={Home} />
       <Route path="/review-queue" component={Home} />
       <Route path="/control-packs" component={Home} />
       <Route path="/remediation" component={Home} />
