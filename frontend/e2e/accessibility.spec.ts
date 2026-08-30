@@ -22,4 +22,23 @@ test.describe('ConfigSentinel Accessibility', () => {
 
     expect(critical).toHaveLength(0);
   });
+
+  test('keyboard navigation should function for primary actions', async ({ page }) => {
+    await page.goto('/');
+    
+    // Press Tab to focus the first interactive element
+    await page.keyboard.press('Tab');
+    
+    // The focused element should have a visible outline or be identifiable
+    const isFocusVisible = await page.evaluate(() => {
+      const el = document.activeElement;
+      return el && (el.tagName === 'A' || el.tagName === 'BUTTON' || el.tagName === 'INPUT' || el.tagName === 'SELECT');
+    });
+    
+    expect(isFocusVisible).toBeTruthy();
+    
+    // Check main audit button specifically
+    const uploadInput = page.locator('input[type="file"]');
+    await expect(uploadInput).not.toBeFocused();
+  });
 });
