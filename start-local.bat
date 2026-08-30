@@ -42,7 +42,7 @@ echo.
 :: ── Check for Python 3.11+ ───────────────────────────────────
 where py >nul 2>&1
 if errorlevel 1 (
-    echo [ERROR] Python Launcher (py.exe) not found.
+    echo [ERROR] Python Launcher ^(py.exe^) not found.
     echo         Install Python 3.11+ from https://python.org and ensure
     echo         "Add python.exe to PATH" is checked during installation.
     pause
@@ -108,7 +108,7 @@ if errorlevel 1 (
         cd /d "%REPO%\frontend"
         call pnpm install --frozen-lockfile
         if errorlevel 1 (
-            echo [ERROR] Frontend dependency installation failed (pnpm install).
+            echo [ERROR] Frontend dependency installation failed ^(pnpm install^).
             pause
             exit /b 1
         )
@@ -133,7 +133,7 @@ if exist "%REPO%\.env" (
 :: ── Check port availability ──────────────────────────────────
 netstat -ano | find ":%BACKEND_PORT% " | find "LISTENING" >nul 2>&1
 if not errorlevel 1 (
-    echo [WARN] Port %BACKEND_PORT% is already in use (backend port).
+    echo [WARN] Port %BACKEND_PORT% is already in use ^(backend port^).
     echo        Another process may already be running the backend.
     echo        Either stop the other process, or the existing backend will be reused.
     set "BACKEND_RUNNING=1"
@@ -143,7 +143,7 @@ if not errorlevel 1 (
 
 netstat -ano | find ":%FRONTEND_PORT% " | find "LISTENING" >nul 2>&1
 if not errorlevel 1 (
-    echo [WARN] Port %FRONTEND_PORT% is already in use (frontend port).
+    echo [WARN] Port %FRONTEND_PORT% is already in use ^(frontend port^).
     echo        If the app is already running, just open http://localhost:%FRONTEND_PORT%
     set "FRONTEND_RUNNING=1"
 ) else (
