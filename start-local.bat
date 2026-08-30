@@ -191,7 +191,7 @@ if not defined SKIP_FRONTEND (
     start "VEYRONIX-Frontend" /min cmd /c "cd /d "%REPO%\frontend" && pnpm dev > "%LOG_DIR%\frontend.log" 2>&1"
     echo [LOG] Frontend log: %LOG_DIR%\frontend.log
 
-    echo [WAIT] Waiting for frontend to start (up to 20 seconds) ...
+    echo [WAIT] Waiting for frontend to start ^(up to 20 seconds^) ...
     for /l %%i in (1,1,20) do (
         "%PYTHON%" -c "import urllib.request, sys; urllib.request.urlopen('http://localhost:%FRONTEND_PORT%', timeout=1); sys.exit(0)" >nul 2>&1
         if not errorlevel 1 (
