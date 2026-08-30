@@ -1,9 +1,8 @@
 @echo off
-chcp 65001 >nul 2>&1
 setlocal EnableDelayedExpansion
 
 :: ============================================================
-:: VEYRONIX / ConfigSentinel AI  —  One-click Windows launcher
+:: VEYRONIX / ConfigSentinel AI  --  One-click Windows launcher
 :: Double-click this file from Windows Explorer to start.
 :: ============================================================
 :: What this script does:
@@ -31,16 +30,16 @@ set "PYTHON=%VENV%\Scripts\python.exe"
 set "PIP=%VENV%\Scripts\pip.exe"
 set "LOG_DIR=%REPO%\logs"
 
-:: ── Ensure log directory exists ──────────────────────────────
+:: -- Ensure log directory exists ------------------------------
 if not exist "%LOG_DIR%" mkdir "%LOG_DIR%"
 
 echo.
-echo ╔══════════════════════════════════════════════════════════╗
-echo ║        VEYRONIX / ConfigSentinel AI  —  Starting...     ║
-echo ╚══════════════════════════════════════════════════════════╝
+echo ===========================================================
+echo   VEYRONIX / ConfigSentinel AI  --  Starting...
+echo ===========================================================
 echo.
 
-:: ── Check for Python 3.11+ ───────────────────────────────────
+:: -- Check for Python 3.11+ ----------------------------------
 where py >nul 2>&1
 if errorlevel 1 (
     echo [ERROR] Python Launcher ^(py.exe^) not found.
@@ -51,7 +50,7 @@ if errorlevel 1 (
 )
 set "PY_LAUNCHER=py -3.11"
 
-:: ── Create virtual environment if missing ────────────────────
+:: -- Create virtual environment if missing -------------------
 if not exist "%PYTHON%" (
     echo [SETUP] Creating Python virtual environment in .venv ...
     %PY_LAUNCHER% -m venv "%VENV%"
@@ -64,11 +63,11 @@ if not exist "%PYTHON%" (
     echo [SETUP] Virtual environment created.
 )
 
-:: ── Upgrade pip silently ─────────────────────────────────────
+:: -- Upgrade pip silently ------------------------------------
 echo [SETUP] Checking pip ...
 "%PYTHON%" -m pip install --upgrade pip --quiet
 
-:: ── Install/verify backend dependencies from pyproject.toml ──
+:: -- Install/verify backend dependencies from pyproject.toml -
 echo [SETUP] Installing backend dependencies (api + dev extras) ...
 "%PYTHON%" -m pip install -e "%REPO%[api,dev]" --quiet
 if errorlevel 1 (
@@ -79,14 +78,14 @@ if errorlevel 1 (
 )
 echo [SETUP] Backend dependencies OK.
 
-:: ── Verify frontend folder exists ────────────────────────────
+:: -- Verify frontend folder exists ---------------------------
 if not exist "%REPO%\frontend\package.json" (
     echo [ERROR] Frontend not found: %REPO%\frontend\package.json
     pause
     exit /b 1
 )
 
-:: ── Enable pnpm via Corepack if available ────────────────────
+:: -- Enable pnpm via Corepack if available -------------------
 where node >nul 2>&1
 if errorlevel 1 (
     echo [WARN] Node.js not found. Frontend will not start.
@@ -95,11 +94,11 @@ if errorlevel 1 (
 ) else (
     where pnpm >nul 2>&1
     if errorlevel 1 (
-        echo [SETUP] pnpm not found — enabling via corepack ...
+        echo [SETUP] pnpm not found -- enabling via corepack ...
         corepack enable pnpm >nul 2>&1
         where pnpm >nul 2>&1
         if errorlevel 1 (
-            echo [SETUP] corepack enable failed — trying npm install -g pnpm ...
+            echo [SETUP] corepack enable failed -- trying npm install -g pnpm ...
             call npm install -g pnpm --silent
         )
     )
@@ -118,7 +117,7 @@ if errorlevel 1 (
     )
 )
 
-:: ── Load .env silently (values are never echoed) ─────────────
+:: -- Load .env silently (values are never echoed) ------------
 if exist "%REPO%\.env" (
     echo [ENV] Loading .env ...
     for /f "usebackq tokens=1,* delims==" %%A in ("%REPO%\.env") do (
@@ -131,7 +130,7 @@ if exist "%REPO%\.env" (
     )
 )
 
-:: ── Check port availability ──────────────────────────────────
+:: -- Check port availability ---------------------------------
 netstat -ano | find ":%BACKEND_PORT% " | find "LISTENING" >nul 2>&1
 if not errorlevel 1 (
     echo [WARN] Port %BACKEND_PORT% is already in use ^(backend port^).
@@ -148,11 +147,10 @@ if not errorlevel 1 (
     echo        If the app is already running, just open http://localhost:%FRONTEND_PORT%
     set "FRONTEND_RUNNING=1"
 ) else (
-    set "FRONTEND_RUNNING=1"
     set "FRONTEND_RUNNING=0"
 )
 
-:: ── Start backend ────────────────────────────────────────────
+:: -- Start backend -------------------------------------------
 if "%BACKEND_RUNNING%"=="0" (
     echo [START] Launching backend on http://127.0.0.1:%BACKEND_PORT% ...
     set "PYTHONPATH=%REPO%\src"
@@ -162,8 +160,8 @@ if "%BACKEND_RUNNING%"=="0" (
     echo [INFO] Reusing existing backend process on port %BACKEND_PORT%.
 )
 
-:: ── Wait for backend health endpoint (up to 30s) ────────────
-echo [WAIT] Waiting for backend health check (up to 30 seconds) ...
+:: -- Wait for backend health endpoint (up to 30s) ------------
+echo [WAIT] Waiting for backend health check ^(up to 30 seconds^) ...
 set "HEALTH_OK=0"
 for /l %%i in (1,1,30) do (
     if "!HEALTH_OK!"=="0" (
@@ -186,7 +184,7 @@ if "!HEALTH_OK!"=="0" (
     exit /b 1
 )
 
-:: ── Start frontend ───────────────────────────────────────────
+:: -- Start frontend ------------------------------------------
 if not defined SKIP_FRONTEND (
     echo [START] Launching frontend on http://localhost:%FRONTEND_PORT% ...
     start "VEYRONIX-Frontend" /min cmd /c "cd /d "%REPO%\frontend" && pnpm dev > "%LOG_DIR%\frontend.log" 2>&1"
@@ -206,11 +204,11 @@ if not defined SKIP_FRONTEND (
 
 :open_browser
 echo.
-echo ╔══════════════════════════════════════════════════════════╗
-echo ║  VEYRONIX is running at: http://localhost:%FRONTEND_PORT%           ║
-echo ║  Backend API:            http://127.0.0.1:%BACKEND_PORT%           ║
-echo ║  Close this window to continue (processes run in background) ║
-echo ╚══════════════════════════════════════════════════════════╝
+echo ===========================================================
+echo   VEYRONIX is running at: http://localhost:%FRONTEND_PORT%
+echo   Backend API:            http://127.0.0.1:%BACKEND_PORT%
+echo   Close this window to stop ^(or close the backend/frontend windows^)
+echo ===========================================================
 echo.
 start "" "http://localhost:%FRONTEND_PORT%"
 
