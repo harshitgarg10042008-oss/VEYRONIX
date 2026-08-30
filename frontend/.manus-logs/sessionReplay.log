@@ -30,3 +30,4 @@
 [2026-08-30T05:39:55.271Z] {"timestamp":1788068395053,"kind":"scroll","url":"http://localhost:3000/","viewport":{"width":1536,"height":730},"payload":{"scrollX":0,"scrollY":615.2000122070312,"documentHeight":1690,"viewportHeight":730}}
 [2026-08-30T05:39:57.267Z] {"timestamp":1788068396236,"kind":"scroll","url":"http://localhost:3000/","viewport":{"width":1536,"height":730},"payload":{"scrollX":0,"scrollY":884.7999877929688,"documentHeight":1690,"viewportHeight":730}}
 [2026-08-30T05:39:57.267Z] {"timestamp":1788068396752,"kind":"scroll","url":"http://localhost:3000/","viewport":{"width":1536,"height":730},"payload":{"scrollX":0,"scrollY":116,"documentHeight":1690,"viewportHeight":730}}
+[2026-08-30T05:46:12.582Z] {"timestamp":1788068770833,"kind":"network_error","url":"http://localhost:3000/","viewport":{"width":1536,"height":730},"payload":{"kind":"fetch","method":"GET","url":"/api/auth/me","status":401,"statusText":"Unauthorized"}}
