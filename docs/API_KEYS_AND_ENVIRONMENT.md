@@ -71,3 +71,23 @@ The implementation must never put server secrets in `VITE_*` variables because V
 ## SIH judge setup
 
 For the recommended offline/GitOps demo, use no external API keys. Start the local API and frontend with `VITE_API_BASE_URL` only. If demonstrating API protection, add a temporary `CONFIGSENTINEL_API_TOKEN`. Demonstrate AI only if the team has an approved provider and has verified redaction and privacy handling; otherwise present AI as disabled-by-default architecture and do not expose a fake live claim.
+
+## Strict server-derived identity mode
+
+For a deployment that must not trust browser-supplied approval identity fields, enable:
+
+```env
+CONFIGSENTINEL_AUTH_REQUIRED=true
+CONFIGSENTINEL_API_TOKEN=<secret bearer token>
+CONFIGSENTINEL_IDENTITY_REQUIRED=true
+```
+
+In this mode, protected API requests must carry principal headers supplied by a trusted identity boundary:
+
+```text
+X-Authenticated-User: <server-verified user id>
+X-Authenticated-Role: operator|reviewer|admin
+X-Authenticated-Workspace: <server-verified workspace id>
+```
+
+The approval API derives `actor_id` and `role` from this server-side principal and ignores spoofed values in the request body. Requests without a valid authenticated identity, role, and workspace receive `403`. This header adapter is intended for a trusted local gateway or development identity adapter; it is not a replacement for a full OIDC provider in a public production deployment. The default local mode remains compatible with the existing demonstration workflow.

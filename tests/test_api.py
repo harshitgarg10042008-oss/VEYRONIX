@@ -195,3 +195,29 @@ def test_api_offline_explanation_is_bounded_and_non_authoritative(monkeypatch):
     assert response["deterministic_status"] == "UNKNOWN"
     assert response["explanation"]["safety_status"] == "REVIEW_REQUIRED"
     assert "NET-MGMT-HTTP-001" in response["explanation"]["explanation"]
+
+
+def test_strict_identity_mode_derives_governance_actor_from_authenticated_headers(monkeypatch, tmp_path):
+    from fastapi.testclient import TestClient
+    from configsentinel.api import create_app
+
+    monkeypatch.setenv("CONFIGSENTINEL_GOVERNANCE_LEDGER", str(tmp_path / "strict-events.jsonl"))
+    monkeypatch.setenv("CONFIGSENTINEL_AUTH_REQUIRED", "true")
+    monkeypatch.setenv("CONFIGSENTINEL_API_TOKEN", "strict-test-token")
+    monkeypatch.setenv("CONFIGSENTINEL_IDENTITY_REQUIRED", "true")
+    client = TestClient(create_app())
+    payload = {"resource_id": "strict-api-rem", "actor_id": "spoofed", "role": "reviewer", "reason": "review"}
+    bearer = {"Authorization": "Bearer strict-test-token"}
+
+    assert client.post("/api/approval/request", json=payload, headers=bearer).status_code == 403
+    operator = {**bearer, "X-Authenticated-User": "operator-a", "X-Authenticated-Role": "operator", "X-Authenticated-Workspace": "team-a"}
+    reviewer = {**bearer, "X-Authenticated-User": "reviewer-b", "X-Authenticated-Role": "reviewer", "X-Authenticated-Workspace": "team-a"}
+    requested = client.post("/api/approval/request", json=payload, headers=operator)
+    decided = client.post("/api/approval/decision", json={**payload, "approve": True}, headers=reviewer)
+
+    assert requested.status_code == 200
+    assert requested.json()["event"]["actor_id"] == "operator-a"
+    assert requested.json()["event"]["role"] == "operator"
+    assert decided.status_code == 200
+    assert decided.json()["event"]["actor_id"] == "reviewer-b"
+    assert decided.json()["event"]["role"] == "reviewer"

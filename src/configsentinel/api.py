@@ -16,6 +16,8 @@ import secrets
 from collections import defaultdict, deque
 from typing import Any
 
+from dataclasses import dataclass
+
 from .client import ConfigSentinelClient
 from .controls import CONTROL_PACK, CONTROL_PACK_VERSION
 from .detection import detect_vendor
@@ -37,7 +39,7 @@ from .website_http import HTTPClientConfig, TargetSafetyError
 from .website_storage import WebsiteScanStorage
 
 try:
-    from fastapi import FastAPI, HTTPException, Request, Response, Depends, Cookie
+    from fastapi import Cookie, Depends, FastAPI, HTTPException, Request, Response
     from fastapi.middleware.cors import CORSMiddleware
     from fastapi.responses import JSONResponse
     from pydantic import BaseModel, Field
@@ -100,6 +102,15 @@ def get_current_session(session_token: str | None = Cookie(default=None)):
     if not session_token or session_token not in MOCK_SESSIONS:
         raise HTTPException(status_code=401, detail="Valid session required")
     return MOCK_SESSIONS[session_token]
+
+
+@dataclass(frozen=True)
+class Principal:
+    """Authenticated request identity used by strict governance mode."""
+
+    actor_id: str
+    role: Role
+    workspace_id: str
 
 
 class ExplainPayload(AuditPayload):
@@ -169,6 +180,7 @@ def create_app(*, allowed_origins: list[str] | None = None) -> FastAPI:
     )
     api_token = os.getenv("CONFIGSENTINEL_API_TOKEN", "").strip()
     auth_required = os.getenv("CONFIGSENTINEL_AUTH_REQUIRED", "false").lower() == "true"
+    identity_required = os.getenv("CONFIGSENTINEL_IDENTITY_REQUIRED", "false").lower() == "true"
     if auth_required and not api_token:
         raise RuntimeError(
             "CONFIGSENTINEL_AUTH_REQUIRED is enabled but CONFIGSENTINEL_API_TOKEN is missing"
@@ -213,6 +225,21 @@ def create_app(*, allowed_origins: list[str] | None = None) -> FastAPI:
                     )
                     response.headers["X-Request-ID"] = request_id
                     return response
+        if identity_required and protected:
+            actor_id = request.headers.get("x-authenticated-user", "").strip()[:128]
+            role_value = request.headers.get("x-authenticated-role", "").strip().lower()
+            workspace_id = request.headers.get("x-authenticated-workspace", "").strip()[:128]
+            try:
+                principal = Principal(actor_id=actor_id, role=Role(role_value), workspace_id=workspace_id)
+            except ValueError:
+                response = JSONResponse(status_code=403, content={"detail": "authenticated identity, role, and workspace headers are required", "request_id": request_id})
+                response.headers["X-Request-ID"] = request_id
+                return response
+            if not principal.actor_id or not principal.workspace_id:
+                response = JSONResponse(status_code=403, content={"detail": "authenticated identity, role, and workspace headers are required", "request_id": request_id})
+                response.headers["X-Request-ID"] = request_id
+                return response
+            request.state.principal = principal
         response = await call_next(request)
         response.headers["X-Request-ID"] = request_id
         response.headers["X-Content-Type-Options"] = "nosniff"
@@ -340,22 +367,15 @@ def create_app(*, allowed_origins: list[str] | None = None) -> FastAPI:
         except (LLMError, ValueError, RuntimeError) as exc:
             raise HTTPException(status_code=422, detail=str(exc)) from exc
 
+    def request_context(request: Request) -> Request:
+        return request
+
     @app.post("/api/auth/login", tags=["auth"])
     def login(payload: LoginPayload, response: Response) -> dict[str, Any]:
         session_token = secrets.token_hex(32)
         actor_id = "local-reviewer" if payload.role == "reviewer" else "local-operator"
-        MOCK_SESSIONS[session_token] = {
-            "actor_id": actor_id,
-            "role": payload.role,
-            "workspace_id": "local-workspace"
-        }
-        response.set_cookie(
-            key="session_token",
-            value=session_token,
-            httponly=True,
-            samesite="lax",
-            path="/"
-        )
+        MOCK_SESSIONS[session_token] = {"actor_id": actor_id, "role": payload.role, "workspace_id": "local-workspace"}
+        response.set_cookie(key="session_token", value=session_token, httponly=True, samesite="lax", path="/")
         return {"status": "ok", "actor_id": actor_id, "role": payload.role}
 
     @app.post("/api/auth/logout", tags=["auth"])
@@ -370,47 +390,33 @@ def create_app(*, allowed_origins: list[str] | None = None) -> FastAPI:
     @app.post("/api/approval/request", tags=["audit"])
     def approval_request(
         payload: ApprovalRequestPayload,
-        session: dict[str, Any] = Depends(get_current_session)
+        request: Request = Depends(request_context),
+        session: dict[str, Any] = Depends(get_current_session),
     ) -> dict[str, Any]:
         try:
-            event = ledger.request(
-                payload.resource_id,
-                session["actor_id"],
-                role=Role(session["role"]),
-                reason=payload.reason,
-            )
-            return {
-                "status": ledger.status(payload.resource_id),
-                "event": event.as_dict(),
-                "events": [
-                    item.as_dict() for item in ledger.events(payload.resource_id)
-                ],
-            }
+            principal = getattr(getattr(request, "state", None), "principal", None)
+            actor_id = principal.actor_id if principal else session["actor_id"]
+            role = principal.role if principal else Role(session["role"])
+            event = ledger.request(payload.resource_id, actor_id, role=role, reason=payload.reason)
+            return {"status": ledger.status(payload.resource_id), "event": event.as_dict(), "events": [item.as_dict() for item in ledger.events(payload.resource_id)]}
         except (GovernanceError, ValueError) as exc:
             raise HTTPException(status_code=422, detail=str(exc)) from exc
 
     @app.post("/api/approval/decision", tags=["audit"])
     def approval_decision(
         payload: ApprovalDecisionPayload,
-        session: dict[str, Any] = Depends(get_current_session)
+        request: Request = Depends(request_context),
+        session: dict[str, Any] = Depends(get_current_session),
     ) -> dict[str, Any]:
         try:
-            event = ledger.decide(
-                payload.resource_id,
-                session["actor_id"],
-                role=Role(session["role"]),
-                approve=payload.approve,
-                reason=payload.reason,
-            )
-            return {
-                "status": ledger.status(payload.resource_id),
-                "event": event.as_dict(),
-                "events": [
-                    item.as_dict() for item in ledger.events(payload.resource_id)
-                ],
-            }
+            principal = getattr(getattr(request, "state", None), "principal", None)
+            actor_id = principal.actor_id if principal else session["actor_id"]
+            role = principal.role if principal else Role(session["role"])
+            event = ledger.decide(payload.resource_id, actor_id, role=role, approve=payload.approve, reason=payload.reason)
+            return {"status": ledger.status(payload.resource_id), "event": event.as_dict(), "events": [item.as_dict() for item in ledger.events(payload.resource_id)]}
         except (GovernanceError, ValueError) as exc:
             raise HTTPException(status_code=422, detail=str(exc)) from exc
+
 
     @app.get("/api/approval/{resource_id}", tags=["audit"])
     def approval_status(resource_id: str) -> dict[str, Any]:
@@ -691,6 +697,9 @@ app = create_app()
 __all__ = [
     "AuditPayload",
     "DetectPayload",
+    "ApprovalRequestPayload",
+    "ApprovalDecisionPayload",
+    "Principal",
     "AuditApi",
     "create_app",
     "app",
