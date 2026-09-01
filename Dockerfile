@@ -50,9 +50,8 @@ ENV PYTHONPATH=/app/src \
     CONFIGSENTINEL_DATABASE_URL=sqlite:////app/data/configsentinel.db
 
 # Health check — unauthenticated endpoint, safe for container orchestrators
-HEALTHCHECK --interval=30s --timeout=10s --start-period=15s --retries=3 \
-  CMD curl -fsS http://127.0.0.1:5000/api/health || exit 1
+HEALTHCHECK --interval=30s --timeout=10s --start-period=5s --retries=3 \
+  CMD curl -f http://127.0.0.1:5000/api/health || exit 1
 
 # Use uvicorn directly — examples/api_server.py delegates to the same app
-CMD ["python", "-m", "uvicorn", "configsentinel.api:app", \
-     "--host", "0.0.0.0", "--port", "5000", "--no-access-log"]
+CMD ["python", "-m", "uvicorn", "configsentinel.api:app", "--host", "0.0.0.0", "--port", "5000"]
