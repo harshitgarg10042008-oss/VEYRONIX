@@ -144,11 +144,13 @@ class WebsiteScanner:
                 scan_id=scan_id,
                 target_origin=request.target_origin,
                 final_url=request.url,
-                posture_classification=PostureClassification.NEEDS_REVIEW,
-                score=50,
+                # A scan error is not evidence of a healthy posture. Fail closed
+                # instead of returning the old hardcoded 50-point placeholder.
+                posture_classification=PostureClassification.HIGH_RISK,
+                score=0,
                 findings=(finding,),
                 rule_pack_version=WEBSITE_RULE_PACK_VERSION,
-                limitations="Scan encountered an error",
+                limitations="Scan encountered an error; posture score is unavailable",
             )
     
     def _collect_observations(self, url: str, response) -> dict:

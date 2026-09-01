@@ -142,17 +142,16 @@ class SafeHTTPClient:
     
     def _create_client(self) -> httpx.Client:
         """Create an httpx client with our restrictions."""
-        limits = httpx.Limits(max_redirects=self.config.max_redirects)
+        # `max_redirects` belongs to `httpx.Client`, not `httpx.Limits`.
+        # Passing it to Limits raises at runtime with current HTTPX releases and
+        # silently routes the scanner into its generic error result.
         timeout = httpx.Timeout(self.config.timeout_seconds)
-        
-        # Create SSL context with verification
-        verify = self.config.verify_ssl
-        
+
         return httpx.Client(
             timeout=timeout,
-            limits=limits,
-            verify=verify,
+            verify=self.config.verify_ssl,
             follow_redirects=True,
+            max_redirects=self.config.max_redirects,
             headers={"User-Agent": self.config.user_agent},
         )
     
