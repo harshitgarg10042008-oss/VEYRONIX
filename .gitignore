@@ -40,3 +40,6 @@ logs/
 
 # Black formatter cache
 .black_cache/
+
+# Manus debug logs (dev-only, not for version control)
+.manus-logs/

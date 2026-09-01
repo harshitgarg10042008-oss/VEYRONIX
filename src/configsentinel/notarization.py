@@ -29,6 +29,13 @@ class SignatureAlgorithm(str, Enum):
     RSA_PSS_SHA256 = "RSA_PSS_SHA256"
 
 
+class VerificationOutcome(str, Enum):
+    """Result of verifying a notarization signature."""
+    VALID = "VALID"
+    INVALID = "INVALID"
+    UNVERIFIABLE = "UNVERIFIABLE"
+
+
 class NotarizationError(Exception):
     """Raised when notarization operations fail."""
 
@@ -54,6 +61,9 @@ class Notarization:
     signature_value: str
     signed_at: str
     evidence_digest: str  # Digest of the evidence that was signed
+    source_commit: str
+    rule_pack_version: str
+    redaction_state: str
 
 
 def generate_key_pair(
@@ -110,6 +120,10 @@ def generate_key_pair(
 def sign_evidence(
     evidence: dict[str, Any],
     notary_key: NotaryKey,
+    *,
+    source_commit: str = "unknown",
+    rule_pack_version: str = "unknown",
+    redaction_state: str = "none",
 ) -> Notarization:
     """Cryptographically sign evidence.
     
@@ -180,6 +194,9 @@ def sign_evidence(
         signature_value=signature_hex,
         signed_at=datetime.now(timezone.utc).isoformat(),
         evidence_digest=evidence_sha256,
+        source_commit=source_commit,
+        rule_pack_version=rule_pack_version,
+        redaction_state=redaction_state,
     )
 
 
@@ -187,7 +204,7 @@ def verify_notarization(
     evidence: dict[str, Any],
     notarization: Notarization,
     notary_key: NotaryKey,
-) -> bool:
+) -> VerificationOutcome:
     """Verify a notarization signature.
     
     Args:
@@ -196,13 +213,10 @@ def verify_notarization(
         notary_key: NotaryKey with public key
     
     Returns:
-        True if signature is valid, False otherwise
-    
-    Raises:
-        NotarizationError: If cryptography library is not available
+        VerificationOutcome.VALID if valid, INVALID if invalid, UNVERIFIABLE if crypto missing
     """
     if not CRYPTOGRAPHY_AVAILABLE:
-        raise NotarizationError("cryptography library is required for verification")
+        return VerificationOutcome.UNVERIFIABLE
     
     # Serialize evidence as canonical JSON
     evidence_json = json.dumps(
@@ -217,7 +231,7 @@ def verify_notarization(
     
     # Verify digest matches
     if evidence_sha256 != notarization.evidence_digest:
-        return False
+        return VerificationOutcome.INVALID
     
     # Load public key
     public_key = serialization.load_pem_public_key(
@@ -247,9 +261,9 @@ def verify_notarization(
             )
         else:
             raise NotarizationError(f"Unsupported algorithm: {notarization.signature_algorithm}")
-        return True
+        return VerificationOutcome.VALID
     except InvalidSignature:
-        return False
+        return VerificationOutcome.INVALID
 
 
 def create_notarization_bundle(
@@ -279,6 +293,9 @@ def create_notarization_bundle(
             "signature_value": notarization.signature_value,
             "signed_at": notarization.signed_at,
             "evidence_digest": notarization.evidence_digest,
+            "source_commit": notarization.source_commit,
+            "rule_pack_version": notarization.rule_pack_version,
+            "redaction_state": notarization.redaction_state,
         },
         "notary_key": {
             "key_id": notary_key.key_id,

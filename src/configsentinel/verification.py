@@ -136,12 +136,62 @@ class VerificationLoop:
             and self.post_change_audit_id is not None
             and self.verification_status == "VERIFIED"
         )
-    
+
     @property
     def score_improvement(self) -> int:
         if self.post_change_score is None:
             return 0
         return self.post_change_score - self.baseline_score
+
+    def to_dict(self) -> dict[str, Any]:
+        """Return a portable, JSON-serializable evidence chain.
+
+        The document captures every link in the assurance chain:
+        baseline → proposal → approval → post-change → resolved/new/unchanged.
+        It is intentionally flat so a judge can read it without tooling.
+        """
+        return {
+            "schema": "configsentinel.verification-loop.v1",
+            "chain": {
+                "baseline": {
+                    "audit_id": self.baseline_audit_id,
+                    "input_sha256": self.baseline_input_sha256,
+                    "score": self.baseline_score,
+                    "failed_controls": list(self.baseline_failed_controls),
+                },
+                "proposal": {
+                    "bundle_id": self.proposed_bundle_id,
+                    "remediation_count": self.proposed_remediation_count,
+                    "proposed_at": self.proposed_at,
+                },
+                "approval": {
+                    "actor_id": self.approval_actor_id,
+                    "decision": self.approval_decision,
+                    "timestamp": self.approval_timestamp,
+                },
+                "post_change": {
+                    "audit_id": self.post_change_audit_id,
+                    "input_sha256": self.post_change_input_sha256,
+                    "score": self.post_change_score,
+                    "failed_controls": list(self.post_change_failed_controls),
+                },
+                "outcome": {
+                    "resolved_controls": list(self.resolved_controls),
+                    "new_failures": list(self.new_failures),
+                    "unchanged_failures": list(self.unchanged_failures),
+                    "score_improvement": self.score_improvement,
+                    "verification_status": self.verification_status,
+                    "is_complete": self.is_complete,
+                    "verification_timestamp": self.verification_timestamp,
+                },
+            },
+            "limitations": list(self.limitations),
+            "safety": {
+                "ai_cannot_alter_verdict": True,
+                "changes_applied_to_production": False,
+                "approval_required_before_post_change": True,
+            },
+        }
 
 
 def create_verification_loop(

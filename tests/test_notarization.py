@@ -10,6 +10,7 @@ from configsentinel.notarization import (
     NotarizationError,
     NotaryKey,
     SignatureAlgorithm,
+    VerificationOutcome,
     create_notarization_bundle,
     generate_key_pair,
     sign_evidence,
@@ -111,7 +112,7 @@ def test_verify_notarization_valid():
     
     result = verify_notarization(evidence, notarization, public_key)
     
-    assert result is True
+    assert result == VerificationOutcome.VALID
 
 
 def test_verify_notarization_invalid_evidence():
@@ -143,7 +144,7 @@ def test_verify_notarization_invalid_evidence():
     
     result = verify_notarization(modified_evidence, notarization, public_key)
     
-    assert result is False
+    assert result == VerificationOutcome.INVALID
 
 
 def test_verify_notarization_wrong_key():
@@ -172,7 +173,7 @@ def test_verify_notarization_wrong_key():
     
     result = verify_notarization(evidence, notarization, public_key)
     
-    assert result is False
+    assert result == VerificationOutcome.INVALID
 
 
 def test_sign_without_private_key():

@@ -5,6 +5,7 @@ from __future__ import annotations
 import hashlib
 import hmac
 import json
+from datetime import datetime, timedelta, timezone
 from pathlib import Path
 from typing import Any, Mapping
 
@@ -68,6 +69,7 @@ def build_exchange_capsule(
     purpose: str = "audit-review",
     key: bytes | None = None,
     include_risk: bool = True,
+    expiry_seconds: int = 86400,
 ) -> dict[str, Any]:
     """Minimize an audit report into a hash-bound exchange capsule."""
     metadata = _report_metadata(report)
@@ -146,10 +148,19 @@ def build_exchange_capsule(
             "verdicts_changed": False,
         },
     }
+    now = datetime.now(timezone.utc)
     envelope = {
         "schema": EXCHANGE_SCHEMA,
         "payload": payload,
         "capsule_sha256": _digest(payload),
+        "expires_at": (now + timedelta(seconds=expiry_seconds)).isoformat(),
+        "access_log": [
+            {
+                "action": "created",
+                "timestamp": now.isoformat(),
+                "actor": "system",
+            }
+        ],
     }
     if key:
         envelope["integrity"] = {
@@ -196,6 +207,55 @@ def verify_exchange_capsule(
     }
 
 
+def build_recipient_view(
+    capsule: Mapping[str, Any], role: str, actor_id: str = "unknown"
+) -> dict[str, Any]:
+    """Build a filtered view of the capsule tailored for a specific role.
+    
+    Logs the access event to the capsule's access_log if mutable.
+    """
+    if not isinstance(capsule, Mapping) or capsule.get("schema") != EXCHANGE_SCHEMA:
+        raise ExchangeError("unsupported exchange capsule")
+        
+    view = dict(capsule)
+    # Filter payload based on role
+    payload = dict(capsule.get("payload", {}))
+    
+    if role == "operator":
+        # Operators need remediation details but maybe not risk scores
+        findings = []
+        for finding in payload.get("findings", []):
+            f = dict(finding)
+            f.pop("risk", None)
+            findings.append(f)
+        payload["findings"] = findings
+    elif role == "auditor":
+        # Auditors see everything in the capsule
+        pass
+    else:
+        # Default restricted view: hide evidence hashes and risk
+        findings = []
+        for finding in payload.get("findings", []):
+            f = dict(finding)
+            f.pop("evidence", None)
+            f.pop("risk", None)
+            findings.append(f)
+        payload["findings"] = findings
+        
+    view["payload"] = payload
+    
+    # Append access log if we're mutating the object (in practice this would be persistent)
+    access_log = list(view.get("access_log", []))
+    access_log.append({
+        "action": "view_generated",
+        "timestamp": datetime.now(timezone.utc).isoformat(),
+        "actor": actor_id,
+        "role": role,
+    })
+    view["access_log"] = access_log
+    return view
+
+
 def write_exchange_capsule(
     report: Mapping[str, Any],
     output: str | Path,
@@ -224,4 +284,5 @@ __all__ = [
     "build_exchange_capsule",
     "verify_exchange_capsule",
     "write_exchange_capsule",
+    "build_recipient_view",
 ]

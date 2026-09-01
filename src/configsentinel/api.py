@@ -41,6 +41,13 @@ from .verification import (
     record_approval,
     complete_verification,
 )
+from .simulation import (
+    ProposedChange,
+    simulate_blast_radius,
+    simulate_remediation_blast_radius,
+)
+from .freshness import build_freshness_assessment, FreshnessError
+from .incident_timeline import TIMELINE_STORE, EventType
 from .website_scanner import WebsiteScanner
 from .website_models import WebsiteScanRequest
 from .website_http import HTTPClientConfig, TargetSafetyError
@@ -178,6 +185,36 @@ class VerificationCompletionPayload(BaseModel):
     post_change_input_sha256: str = Field(min_length=1, max_length=64)
     post_change_score: int = Field(ge=0, le=100)
     post_change_failed_controls: list[str] = Field(default_factory=list)
+
+
+class SimulationPayload(BaseModel):
+    """Payload for blast-radius simulation."""
+    change_id: str = Field(min_length=1, max_length=256)
+    change_type: str = Field(default="remediation", max_length=64)
+    target_resource_id: str = Field(default="multiple", max_length=256)
+    description: str = Field(default="", max_length=512)
+    affected_controls: list[str] = Field(default_factory=list, max_length=50)
+    affected_assets: list[str] = Field(default_factory=list, max_length=50)
+    control_dependencies: dict[str, list[str]] | None = None
+    asset_dependencies: dict[str, list[str]] | None = None
+
+
+class FreshnessPayload(BaseModel):
+    """Payload for evidence freshness assessment."""
+    report: dict[str, Any]
+    observed_at: str | None = None
+    as_of: str
+    ttl_seconds: int = Field(default=86400, ge=1, le=31536000)
+    baseline: dict[str, Any] | None = None
+
+
+class TimelineEventPayload(BaseModel):
+    """Payload for adding an event to the incident timeline."""
+    case_id: str = Field(min_length=1, max_length=256)
+    event_type: str = Field(min_length=1, max_length=64)
+    actor_id: str = Field(min_length=1, max_length=256)
+    payload: dict[str, Any] = Field(default_factory=dict)
+
 
 MOCK_ASSETS: list[dict[str, Any]] = []
 MOCK_MONITORS: list[dict[str, Any]] = []
@@ -1007,6 +1044,118 @@ def create_app(*, allowed_origins: list[str] | None = None) -> FastAPI:
             }
         except Exception as exc:
             raise HTTPException(status_code=422, detail=str(exc)) from exc
+
+    # ── Verification Chain evidence export ──────────────────────────────────
+    @app.get("/api/v1/verification-loops/{loop_id}/evidence-chain", tags=["verification"])
+    def get_evidence_chain(loop_id: str) -> dict[str, Any]:
+        """Return a portable, integrity-verifiable evidence chain for the full
+        verification loop.  The document is intentionally flat and human-readable
+        so a judge or auditor can review it without additional tooling.
+        """
+        if loop_id not in VERIFICATION_LOOPS:
+            raise HTTPException(status_code=404, detail="Verification loop not found")
+        loop = VERIFICATION_LOOPS[loop_id]
+        return {"loop_id": loop_id, **loop.to_dict()}
+
+    # ── Blast-radius simulation ───────────────────────────────────────────────
+    @app.post("/api/v1/simulation/blast-radius", tags=["simulation"])
+    def simulation_blast_radius(payload: SimulationPayload) -> dict[str, Any]:
+        """Simulate the blast radius of a proposed change.  Never applies any
+        change.  Returns DIRECT / DEPENDENT / POSSIBLE / UNKNOWN impact labels
+        plus required post-change checks.
+        """
+        try:
+            proposed = ProposedChange(
+                change_id=payload.change_id,
+                change_type=payload.change_type,
+                target_resource_id=payload.target_resource_id,
+                description=payload.description,
+                affected_controls=tuple(payload.affected_controls),
+                affected_assets=tuple(payload.affected_assets),
+            )
+            control_deps = (
+                {k: tuple(v) for k, v in payload.control_dependencies.items()}
+                if payload.control_dependencies
+                else None
+            )
+            asset_deps = (
+                {k: tuple(v) for k, v in payload.asset_dependencies.items()}
+                if payload.asset_dependencies
+                else None
+            )
+            result = simulate_blast_radius(
+                proposed,
+                control_dependencies=control_deps,
+                asset_dependencies=asset_deps,
+            )
+            return {
+                "simulation_id": result.simulation_id,
+                "proposed_change_id": result.proposed_change_id,
+                "proposed_at": result.proposed_at,
+                "total_affected": result.total_affected,
+                "direct_impact_count": result.direct_impact_count,
+                "dependent_impact_count": result.dependent_impact_count,
+                "possible_impact_count": result.possible_impact_count,
+                "unknown_impact_count": result.unknown_impact_count,
+                "required_post_change_checks": list(result.required_post_change_checks),
+                "impacts": [
+                    {
+                        "target_id": impact.target_id,
+                        "target_type": impact.target_type,
+                        "impact_label": impact.impact_label.value,
+                        "rationale": impact.rationale,
+                        "evidence_required": impact.evidence_required,
+                    }
+                    for impact in result.impacts
+                ],
+                "limitations": list(result.limitations),
+                "safety": {
+                    "changes_applied": False,
+                    "production_mutation": False,
+                    "simulation_only": True,
+                },
+            }
+        except (ValueError, TypeError) as exc:
+            raise HTTPException(status_code=422, detail=str(exc)) from exc
+
+    # ── Evidence freshness assessment ─────────────────────────────────────────
+    @app.post("/api/v1/freshness/assess", tags=["freshness"])
+    def freshness_assess(payload: FreshnessPayload) -> dict[str, Any]:
+        """Assess evidence freshness and semantic drift for a given report.
+        Returns FRESH / STALE / EXPIRED / DRIFTED / AGING / CURRENT assurance
+        states.  A stale pass must not remain visually identical to a current pass.
+        """
+        try:
+            return build_freshness_assessment(
+                payload.report,
+                observed_at=payload.observed_at,
+                as_of=payload.as_of,
+                ttl_seconds=payload.ttl_seconds,
+                baseline=payload.baseline,
+            )
+        except FreshnessError as exc:
+            raise HTTPException(status_code=422, detail=str(exc)) from exc
+
+    # ── Incident Timeline ─────────────────────────────────────────────────────
+    @app.post("/api/v1/timeline/events", tags=["timeline"])
+    def record_timeline_event(payload: TimelineEventPayload) -> dict[str, Any]:
+        """Record an immutable event into an incident's timeline."""
+        try:
+            event_type = EventType(payload.event_type)
+            event = TIMELINE_STORE.record_event(
+                case_id=payload.case_id,
+                event_type=event_type,
+                actor_id=payload.actor_id,
+                payload=payload.payload,
+            )
+            return {"status": "recorded", "event": event.to_dict()}
+        except (ValueError, TypeError) as exc:
+            raise HTTPException(status_code=422, detail=str(exc)) from exc
+
+    @app.get("/api/v1/timeline/{case_id}", tags=["timeline"])
+    def get_timeline(case_id: str) -> dict[str, Any]:
+        """Retrieve the immutable chronological timeline for a specific case."""
+        return TIMELINE_STORE.get_timeline_summary(case_id)
 
     return app
 

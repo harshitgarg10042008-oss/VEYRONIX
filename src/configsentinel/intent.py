@@ -3,9 +3,18 @@
 from __future__ import annotations
 
 import json
+from enum import Enum
 from typing import Any, Mapping
 
 INTENT_SCHEMA = "configsentinel.resource-intent.v1"
+
+
+class ProvenanceLabel(str, Enum):
+    """Source of the intent statement."""
+    OBSERVED = "OBSERVED"
+    DECLARED = "DECLARED"
+    INFERRED = "INFERRED"
+    UNKNOWN = "UNKNOWN"
 
 
 class IntentError(ValueError):
@@ -101,6 +110,13 @@ def compile_resource_intent(
     resource = _bounded_text(intent.get("resource"), "intent.resource")
     allowed_via = intent.get("allowed_via", [])
     protocols = intent.get("protocols", ["ssh"])
+    threat_models = intent.get("threat_models", [])
+    provenance = str(intent.get("provenance", "DECLARED")).upper()
+    try:
+        provenance_label = ProvenanceLabel(provenance).value
+    except ValueError:
+        provenance_label = ProvenanceLabel.UNKNOWN.value
+
     requirements = intent.get(
         "requirements", ["ssh_management", "no_telnet", "no_plain_http"]
     )
@@ -148,8 +164,17 @@ def compile_resource_intent(
             "resource": resource,
             "allowed_via": [str(item)[:128] for item in allowed_via],
             "protocols": [str(item)[:64] for item in protocols],
+            "threat_models": [str(item)[:256] for item in threat_models],
             "requirements": normalized_requirements,
-            "provenance": "operator_declared",
+            "provenance": provenance_label,
+            "evidence_obligations": [
+                {
+                    "control_id": c["control_id"],
+                    "required_evidence": "deterministic_audit_finding",
+                    "mapped_threats": [str(t)[:256] for t in threat_models]
+                }
+                for c in checks
+            ],
         },
         "checks": checks,
         "summary": {

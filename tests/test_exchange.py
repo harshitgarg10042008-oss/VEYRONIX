@@ -60,6 +60,12 @@ REPORT = {
 def test_capsule_is_deterministic_minimized_and_hash_bound() -> None:
     first = build_exchange_capsule(REPORT, recipient="reviewer-a", key=b"exchange-key")
     second = build_exchange_capsule(REPORT, recipient="reviewer-a", key=b"exchange-key")
+    
+    # Remove volatile timestamp-based fields before deterministic equality check
+    for capsule in (first, second):
+        capsule.pop("expires_at", None)
+        capsule.pop("access_log", None)
+        
     assert first == second
     encoded = json.dumps(first, sort_keys=True)
     assert "transport input telnet" not in encoded

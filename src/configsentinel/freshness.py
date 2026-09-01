@@ -125,8 +125,20 @@ def build_freshness_assessment(
     as_of: str,
     ttl_seconds: int = 86400,
     baseline: Mapping[str, Any] | None = None,
+    invalidation_reason: str | None = None,
 ) -> dict[str, Any]:
-    """Build a deterministic freshness and drift assessment from explicit timestamps."""
+    """Build a deterministic freshness and drift assessment from explicit timestamps.
+
+    Args:
+        report: The audit report to assess.
+        observed_at: ISO-8601 UTC timestamp when the observation was made.
+        as_of: ISO-8601 UTC timestamp to evaluate freshness as of.
+        ttl_seconds: Time-to-live in seconds before the assurance is stale.
+        baseline: Optional baseline report for drift comparison.
+        invalidation_reason: If provided, forces assurance_state to INVALIDATED
+            regardless of age. Use when a rule-pack change or incident explicitly
+            revokes the assurance claim (e.g. 'rule_pack_updated', 'incident_related').
+    """
     if ttl_seconds <= 0 or ttl_seconds > 365 * 24 * 60 * 60:
         raise FreshnessError("ttl_seconds must be between 1 second and 365 days")
     current = _metadata(report, "report")
@@ -154,7 +166,9 @@ def build_freshness_assessment(
     drift = _drift(
         current, _metadata(baseline, "baseline") if baseline is not None else None
     )
-    if drift["drifted"]:
+    if invalidation_reason:
+        assurance_state = "INVALIDATED"
+    elif drift["drifted"]:
         assurance_state = "DRIFTED"
     elif state == "EXPIRED":
         assurance_state = "EXPIRED"
@@ -181,9 +195,10 @@ def build_freshness_assessment(
         "drift": drift,
         "assurance": {
             "state": assurance_state,
-            "needs_reaudit": assurance_state in {"AGING", "EXPIRED", "DRIFTED"},
+            "needs_reaudit": assurance_state in {"AGING", "EXPIRED", "DRIFTED", "INVALIDATED"},
             "authoritative_verdict_source": "current_deterministic_audit",
             "verdicts_changed": False,
+            "invalidation_reason": invalidation_reason,
         },
         "safety": {
             "raw_configuration_included": False,

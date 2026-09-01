@@ -58,6 +58,7 @@ const fallbackReport: AuditReport = {
 
 const NAV_ITEMS: { label: string; path: string; icon: IconType; description: string }[] = [
   { label: "Overview", path: "/", icon: Layers3, description: "Posture at a glance" },
+  { label: "Assurance Chain", path: "/assurance-chain", icon: LockKeyhole, description: "Verify evidence timeline" },
   { label: "Asset Inventory", path: "/inventory", icon: Server, description: "Manage tracked devices" },
   { label: "Continuous Monitoring", path: "/monitoring", icon: Activity, description: "Scheduled checks" },
   { label: "Audits", path: "/audits", icon: ClipboardCheck, description: "Run and compare audits" },
