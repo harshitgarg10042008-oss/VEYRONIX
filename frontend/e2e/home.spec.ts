@@ -17,4 +17,18 @@ test.describe('ConfigSentinel Home Page', () => {
     await expect(page.locator('text=NET-MGMT-TELNET-001').first()).toBeVisible({ timeout: 20000 });
     await expect(page.locator('text=FAIL').first()).toBeVisible();
   });
+
+  test('should verify new feature pages load correctly', async ({ page }) => {
+    const routes = [
+      '/blast-radius', '/freshness', '/timeline', '/notary', '/mutation-lab',
+      '/parser-diff', '/graph', '/counterfactual', '/decision-quality', '/secrets-gate',
+      '/supply-chain', '/provenance', '/threat-model', '/api-contract', '/resilience',
+      '/debt', '/exchange', '/regulatory', '/knowledge-graph'
+    ];
+
+    for (const route of routes) {
+      await page.goto(route);
+      await expect(page.locator('h1').first()).toBeVisible();
+    }
+  });
 });
