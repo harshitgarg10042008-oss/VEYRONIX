@@ -1,8 +1,9 @@
-"""Deterministic safety invariants for audit reports and benchmark fixtures."""
+"""Deterministic safety invariants and post-change verification loop."""
 
 from __future__ import annotations
 
 from dataclasses import dataclass
+from datetime import datetime, timezone
 from typing import Any
 
 
@@ -96,3 +97,170 @@ def run_benchmark() -> dict[str, Any]:
         "passed": all(item["expected"] == item["actual"] for item in results),
         "cases": results,
     }
+
+
+@dataclass(frozen=True)
+class VerificationLoop:
+    """Complete post-change verification evidence chain."""
+    
+    baseline_audit_id: str
+    baseline_input_sha256: str
+    baseline_score: int
+    baseline_failed_controls: tuple[str, ...]
+    
+    proposed_bundle_id: str | None
+    proposed_remediation_count: int
+    proposed_at: str
+    
+    approval_actor_id: str | None
+    approval_decision: str | None  # "APPROVED", "REJECTED", or None
+    approval_timestamp: str | None
+    
+    post_change_audit_id: str | None
+    post_change_input_sha256: str | None
+    post_change_score: int | None
+    post_change_failed_controls: tuple[str, ...]
+    
+    resolved_controls: tuple[str, ...]
+    new_failures: tuple[str, ...]
+    unchanged_failures: tuple[str, ...]
+    
+    verification_timestamp: str
+    verification_status: str  # "VERIFIED", "PARTIAL", "FAILED", "PENDING"
+    limitations: tuple[str, ...]
+    
+    @property
+    def is_complete(self) -> bool:
+        return (
+            self.approval_decision == "APPROVED"
+            and self.post_change_audit_id is not None
+            and self.verification_status == "VERIFIED"
+        )
+    
+    @property
+    def score_improvement(self) -> int:
+        if self.post_change_score is None:
+            return 0
+        return self.post_change_score - self.baseline_score
+
+
+def create_verification_loop(
+    baseline_audit_id: str,
+    baseline_input_sha256: str,
+    baseline_score: int,
+    baseline_failed_controls: tuple[str, ...],
+    proposed_bundle_id: str | None = None,
+    proposed_remediation_count: int = 0,
+) -> VerificationLoop:
+    """Initialize a verification loop from baseline state."""
+    now = datetime.now(timezone.utc).isoformat()
+    return VerificationLoop(
+        baseline_audit_id=baseline_audit_id,
+        baseline_input_sha256=baseline_input_sha256,
+        baseline_score=baseline_score,
+        baseline_failed_controls=baseline_failed_controls,
+        proposed_bundle_id=proposed_bundle_id,
+        proposed_remediation_count=proposed_remediation_count,
+        proposed_at=now,
+        approval_actor_id=None,
+        approval_decision=None,
+        approval_timestamp=None,
+        post_change_audit_id=None,
+        post_change_input_sha256=None,
+        post_change_score=None,
+        post_change_failed_controls=(),
+        resolved_controls=(),
+        new_failures=(),
+        unchanged_failures=(),
+        verification_timestamp=now,
+        verification_status="PENDING",
+        limitations=(
+            "Post-change verification requires operator to apply remediation and re-audit",
+            "Verification assumes same input context and control pack version",
+        ),
+    )
+
+
+def record_approval(
+    loop: VerificationLoop,
+    actor_id: str,
+    decision: str,
+) -> VerificationLoop:
+    """Record human approval decision in verification loop."""
+    if decision not in ("APPROVED", "REJECTED"):
+        raise ValueError(f"Invalid approval decision: {decision}")
+    
+    return VerificationLoop(
+        baseline_audit_id=loop.baseline_audit_id,
+        baseline_input_sha256=loop.baseline_input_sha256,
+        baseline_score=loop.baseline_score,
+        baseline_failed_controls=loop.baseline_failed_controls,
+        proposed_bundle_id=loop.proposed_bundle_id,
+        proposed_remediation_count=loop.proposed_remediation_count,
+        proposed_at=loop.proposed_at,
+        approval_actor_id=actor_id,
+        approval_decision=decision,
+        approval_timestamp=datetime.now(timezone.utc).isoformat(),
+        post_change_audit_id=loop.post_change_audit_id,
+        post_change_input_sha256=loop.post_change_input_sha256,
+        post_change_score=loop.post_change_score,
+        post_change_failed_controls=loop.post_change_failed_controls,
+        resolved_controls=loop.resolved_controls,
+        new_failures=loop.new_failures,
+        unchanged_failures=loop.unchanged_failures,
+        verification_timestamp=loop.verification_timestamp,
+        verification_status="PENDING" if decision == "APPROVED" else "FAILED",
+        limitations=loop.limitations,
+    )
+
+
+def complete_verification(
+    loop: VerificationLoop,
+    post_change_audit_id: str,
+    post_change_input_sha256: str,
+    post_change_score: int,
+    post_change_failed_controls: tuple[str, ...],
+) -> VerificationLoop:
+    """Complete verification loop with post-change audit results."""
+    if loop.approval_decision != "APPROVED":
+        raise ValueError("Cannot complete verification without approval")
+    
+    baseline_set = set(loop.baseline_failed_controls)
+    post_set = set(post_change_failed_controls)
+    
+    resolved = tuple(sorted(baseline_set - post_set))
+    new_failures = tuple(sorted(post_set - baseline_set))
+    unchanged = tuple(sorted(baseline_set & post_set))
+    
+    # Determine verification status
+    if not new_failures and resolved:
+        status = "VERIFIED"
+    elif resolved and not new_failures:
+        status = "VERIFIED"
+    elif resolved:
+        status = "PARTIAL"
+    else:
+        status = "FAILED"
+    
+    return VerificationLoop(
+        baseline_audit_id=loop.baseline_audit_id,
+        baseline_input_sha256=loop.baseline_input_sha256,
+        baseline_score=loop.baseline_score,
+        baseline_failed_controls=loop.baseline_failed_controls,
+        proposed_bundle_id=loop.proposed_bundle_id,
+        proposed_remediation_count=loop.proposed_remediation_count,
+        proposed_at=loop.proposed_at,
+        approval_actor_id=loop.approval_actor_id,
+        approval_decision=loop.approval_decision,
+        approval_timestamp=loop.approval_timestamp,
+        post_change_audit_id=post_change_audit_id,
+        post_change_input_sha256=post_change_input_sha256,
+        post_change_score=post_change_score,
+        post_change_failed_controls=post_change_failed_controls,
+        resolved_controls=resolved,
+        new_failures=new_failures,
+        unchanged_failures=unchanged,
+        verification_timestamp=datetime.now(timezone.utc).isoformat(),
+        verification_status=status,
+        limitations=loop.limitations,
+    )

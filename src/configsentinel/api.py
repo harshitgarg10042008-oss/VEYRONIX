@@ -8,6 +8,7 @@ allows the LLM to create verdicts.
 
 from __future__ import annotations
 
+import datetime
 import hmac
 import json
 import os
@@ -34,6 +35,12 @@ from .proof import (
     audit_from_report,
 )
 from .remediation import generate_bundle, build_diffs, RemediationError
+from .verification import (
+    VerificationLoop,
+    create_verification_loop,
+    record_approval,
+    complete_verification,
+)
 from .website_scanner import WebsiteScanner
 from .website_models import WebsiteScanRequest
 from .website_http import HTTPClientConfig, TargetSafetyError
@@ -149,8 +156,32 @@ class MonitorTaskPayload(BaseModel):
     interval_minutes: int = Field(default=60)
     workspace_id: str = Field(default="local")
 
+
+class VerificationLoopPayload(BaseModel):
+    baseline_audit_id: str = Field(min_length=1, max_length=256)
+    baseline_input_sha256: str = Field(min_length=1, max_length=64)
+    baseline_score: int = Field(ge=0, le=100)
+    baseline_failed_controls: list[str] = Field(default_factory=list)
+    proposed_bundle_id: str | None = Field(default=None, max_length=64)
+    proposed_remediation_count: int = Field(default=0, ge=0)
+
+
+class ApprovalPayload(BaseModel):
+    loop_id: str = Field(min_length=1, max_length=256)
+    actor_id: str = Field(min_length=1, max_length=128)
+    decision: str = Field(pattern="^(APPROVED|REJECTED)$")
+
+
+class VerificationCompletionPayload(BaseModel):
+    loop_id: str = Field(min_length=1, max_length=256)
+    post_change_audit_id: str = Field(min_length=1, max_length=256)
+    post_change_input_sha256: str = Field(min_length=1, max_length=64)
+    post_change_score: int = Field(ge=0, le=100)
+    post_change_failed_controls: list[str] = Field(default_factory=list)
+
 MOCK_ASSETS: list[dict[str, Any]] = []
 MOCK_MONITORS: list[dict[str, Any]] = []
+VERIFICATION_LOOPS: dict[str, VerificationLoop] = {}
 
 
 class WebsiteExplainPayload(BaseModel):
@@ -647,7 +678,7 @@ def create_app(*, allowed_origins: list[str] | None = None) -> FastAPI:
         
         for m in MOCK_MONITORS:
             if m["id"] == monitor_id and m["workspace_id"] == workspace_id:
-                m["last_run"] = datetime.datetime.now(datetime.UTC).isoformat()
+                m["last_run"] = datetime.datetime.now(datetime.timezone.utc).isoformat()
                 return {"status": "triggered", "monitor": m}
         raise HTTPException(status_code=404, detail="Monitor not found")
 
@@ -665,6 +696,113 @@ def create_app(*, allowed_origins: list[str] | None = None) -> FastAPI:
                 deleted = MOCK_MONITORS.pop(i)
                 return {"status": "deleted", "monitor": deleted}
         raise HTTPException(status_code=404, detail="Monitor not found")
+
+    @app.post("/api/verification/loops", tags=["verification"])
+    def create_loop(payload: VerificationLoopPayload) -> dict[str, Any]:
+        """Create a new verification loop from baseline audit state."""
+        loop = create_verification_loop(
+            baseline_audit_id=payload.baseline_audit_id,
+            baseline_input_sha256=payload.baseline_input_sha256,
+            baseline_score=payload.baseline_score,
+            baseline_failed_controls=tuple(payload.baseline_failed_controls),
+            proposed_bundle_id=payload.proposed_bundle_id,
+            proposed_remediation_count=payload.proposed_remediation_count,
+        )
+        loop_id = f"loop_{payload.baseline_audit_id}"
+        VERIFICATION_LOOPS[loop_id] = loop
+        return {
+            "loop_id": loop_id,
+            "baseline_audit_id": loop.baseline_audit_id,
+            "baseline_score": loop.baseline_score,
+            "baseline_failed_controls": list(loop.baseline_failed_controls),
+            "proposed_bundle_id": loop.proposed_bundle_id,
+            "proposed_remediation_count": loop.proposed_remediation_count,
+            "verification_status": loop.verification_status,
+            "limitations": list(loop.limitations),
+        }
+
+    @app.post("/api/verification/loops/{loop_id}/approve", tags=["verification"])
+    def approve_loop(loop_id: str, payload: ApprovalPayload) -> dict[str, Any]:
+        """Record human approval decision in verification loop."""
+        if loop_id not in VERIFICATION_LOOPS:
+            raise HTTPException(status_code=404, detail="Verification loop not found")
+        
+        loop = VERIFICATION_LOOPS[loop_id]
+        updated = record_approval(loop, actor_id=payload.actor_id, decision=payload.decision)
+        VERIFICATION_LOOPS[loop_id] = updated
+        
+        return {
+            "loop_id": loop_id,
+            "approval_actor_id": updated.approval_actor_id,
+            "approval_decision": updated.approval_decision,
+            "approval_timestamp": updated.approval_timestamp,
+            "verification_status": updated.verification_status,
+        }
+
+    @app.post("/api/verification/loops/{loop_id}/complete", tags=["verification"])
+    def complete_loop(loop_id: str, payload: VerificationCompletionPayload) -> dict[str, Any]:
+        """Complete verification loop with post-change audit results."""
+        if loop_id not in VERIFICATION_LOOPS:
+            raise HTTPException(status_code=404, detail="Verification loop not found")
+        
+        loop = VERIFICATION_LOOPS[loop_id]
+        try:
+            completed = complete_verification(
+                loop,
+                post_change_audit_id=payload.post_change_audit_id,
+                post_change_input_sha256=payload.post_change_input_sha256,
+                post_change_score=payload.post_change_score,
+                post_change_failed_controls=tuple(payload.post_change_failed_controls),
+            )
+        except ValueError as exc:
+            raise HTTPException(status_code=422, detail=str(exc)) from exc
+        
+        VERIFICATION_LOOPS[loop_id] = completed
+        
+        return {
+            "loop_id": loop_id,
+            "post_change_audit_id": completed.post_change_audit_id,
+            "post_change_score": completed.post_change_score,
+            "resolved_controls": list(completed.resolved_controls),
+            "new_failures": list(completed.new_failures),
+            "unchanged_failures": list(completed.unchanged_failures),
+            "verification_status": completed.verification_status,
+            "is_complete": completed.is_complete,
+            "score_improvement": completed.score_improvement,
+        }
+
+    @app.get("/api/verification/loops/{loop_id}", tags=["verification"])
+    def get_loop(loop_id: str) -> dict[str, Any]:
+        """Retrieve verification loop state."""
+        if loop_id not in VERIFICATION_LOOPS:
+            raise HTTPException(status_code=404, detail="Verification loop not found")
+        
+        loop = VERIFICATION_LOOPS[loop_id]
+        return {
+            "loop_id": loop_id,
+            "baseline_audit_id": loop.baseline_audit_id,
+            "baseline_input_sha256": loop.baseline_input_sha256,
+            "baseline_score": loop.baseline_score,
+            "baseline_failed_controls": list(loop.baseline_failed_controls),
+            "proposed_bundle_id": loop.proposed_bundle_id,
+            "proposed_remediation_count": loop.proposed_remediation_count,
+            "proposed_at": loop.proposed_at,
+            "approval_actor_id": loop.approval_actor_id,
+            "approval_decision": loop.approval_decision,
+            "approval_timestamp": loop.approval_timestamp,
+            "post_change_audit_id": loop.post_change_audit_id,
+            "post_change_input_sha256": loop.post_change_input_sha256,
+            "post_change_score": loop.post_change_score,
+            "post_change_failed_controls": list(loop.post_change_failed_controls),
+            "resolved_controls": list(loop.resolved_controls),
+            "new_failures": list(loop.new_failures),
+            "unchanged_failures": list(loop.unchanged_failures),
+            "verification_timestamp": loop.verification_timestamp,
+            "verification_status": loop.verification_status,
+            "is_complete": loop.is_complete,
+            "score_improvement": loop.score_improvement,
+            "limitations": list(loop.limitations),
+        }
 
     @app.post("/api/websites/scans", tags=["websites"])
     def create_website_scan(payload: WebsiteScanPayload) -> dict[str, Any]:
