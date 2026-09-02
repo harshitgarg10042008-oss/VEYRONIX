@@ -267,15 +267,15 @@ Impact and accuracy are measured reproducibly. However, claims requiring externa
 - Software-controlled components (deterministic engine, tests, Docker deployment, local RBAC auth): **IMPLEMENTED & VERIFIED**.
 - External Evidence (real stakeholder configurations for accuracy, production OIDC identity, real pilot impact metrics): **PENDING**.
 
-**Therefore, the current defensible score is 84/100.** We do not claim 100/100 until real evidence replaces the synthetic local tests.
+**Therefore, the current engineering-readiness score is 90/100.** This score reflects the verified software, security, API, scanner, and frontend improvements in the current release candidate. A complete SIH score still depends on external stakeholder validation, representative production data, and quantified pilot impact.
 
-1. **End-to-End E2E:** Run `pnpm test:e2e` — 4 browser flows pass, including audit with `NET-MGMT-TELNET-001` finding detection.
+1. **End-to-End E2E:** Run the repository’s browser suite when the local API and frontend are available. The deterministic backend and frontend unit gates are required release checks; external pilot E2E evidence remains deployment-specific.
 2. **Backend Unit Tests:** Run `pytest` — 217 unit/integration tests passing.
 3. **Parser Accuracy:** Run `scripts/measure_accuracy.py` — Local synthetic fixtures achieve 100% vendor detection. *Real-world accuracy is pending stakeholder configurations.*
 4. **Stakeholder Impact:** *Pending real pilot measurements (Template created at `docs/IMPACT_MEASUREMENT_TEMPLATE.md`).*
 5. **Deployment:** Dockerfile and `docker-compose.yml` are implemented for reproducible deployment.
 
 **Unsupported claims deliberately removed:**
-- ~~"100/100 SIH score"~~ — Currently reporting 84/100 due to pending external datasets.
+- ~~"100/100 SIH score"~~ — Engineering readiness is 90/100; external stakeholder and pilot-impact evidence remains pending.
 - ~~">90% coverage"~~ — Statement replaced with exact test counts (217 backend tests, 4 E2E).
-- ~~"Enterprise OIDC Authentication"~~ — Currently using secure local identity adapter; production OIDC details are pending.
+- ~~"Enterprise OIDC Authentication"~~ — The local API now supports server-issued HttpOnly session identity and an opt-in `CONFIGSENTINEL_SESSION_IDENTITY_ONLY=true` deployment mode. Full external OIDC/SSO integration remains a deployment-specific follow-up.

@@ -22,6 +22,8 @@ The project should not request an API key from a judge for the core SIH demo. Ex
 | `CONFIGSENTINEL_API_TOKEN` | **Yes** | No for local-only demo; required when strict auth is enabled | Enables a bearer-token guard for non-health API routes. | Generate a long random value. This is not user authentication, RBAC, or tenant isolation. Never commit it. |
 
 | `CONFIGSENTINEL_AUTH_REQUIRED` | No | No | Makes the bearer guard mandatory and fails startup if the token is missing. | Set `true` for any non-loopback deployment. |
+| `CONFIGSENTINEL_IDENTITY_REQUIRED` | No | No | Enables identity and workspace checks for protected routes. | Set `true` behind a trusted identity gateway or when using local session login. |
+| `CONFIGSENTINEL_SESSION_IDENTITY_ONLY` | No | No | Requires a server-issued HttpOnly `session_token` and ignores gateway identity headers. | Set `true` for the strongest local/session deployment mode; unauthenticated requests receive `401`. |
 | `CONFIGSENTINEL_RATE_LIMIT_PER_MINUTE` | No | No | Per-client in-memory API request limit. | Defaults to `120`; use a reverse proxy for distributed enforcement. |
 
 Example:
@@ -80,9 +82,10 @@ For a deployment that must not trust browser-supplied approval identity fields, 
 CONFIGSENTINEL_AUTH_REQUIRED=true
 CONFIGSENTINEL_API_TOKEN=<secret bearer token>
 CONFIGSENTINEL_IDENTITY_REQUIRED=true
+CONFIGSENTINEL_SESSION_IDENTITY_ONLY=true
 ```
 
-In this mode, protected API requests must carry principal headers supplied by a trusted identity boundary:
+With `CONFIGSENTINEL_SESSION_IDENTITY_ONLY=true`, protected API requests must carry the server-issued HttpOnly `session_token` created by `/api/auth/login`; browser-supplied identity headers are ignored. Without that flag, protected requests may use principal headers supplied by a trusted identity boundary:
 
 ```text
 X-Authenticated-User: <server-verified user id>

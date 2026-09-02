@@ -322,6 +322,7 @@ def create_app(*, allowed_origins: list[str] | None = None) -> FastAPI:
     api_token = os.getenv("CONFIGSENTINEL_API_TOKEN", "").strip()
     auth_required = os.getenv("CONFIGSENTINEL_AUTH_REQUIRED", "false").lower() == "true"
     identity_required = os.getenv("CONFIGSENTINEL_IDENTITY_REQUIRED", "false").lower() == "true"
+    session_identity_only = os.getenv("CONFIGSENTINEL_SESSION_IDENTITY_ONLY", "false").lower() == "true"
     if auth_required and not api_token:
         raise RuntimeError(
             "CONFIGSENTINEL_AUTH_REQUIRED is enabled but CONFIGSENTINEL_API_TOKEN is missing"
@@ -337,6 +338,9 @@ def create_app(*, allowed_origins: list[str] | None = None) -> FastAPI:
         protected = request.url.path.startswith("/api/") and request.url.path not in {
             "/api/health",
             "/api/v1/health",
+            "/api/auth/login",
+            "/api/auth/logout",
+            "/api/auth/me",
         }
         if protected:
             now = time.monotonic()
@@ -367,20 +371,44 @@ def create_app(*, allowed_origins: list[str] | None = None) -> FastAPI:
                     response.headers["X-Request-ID"] = request_id
                     return response
         if identity_required and protected:
-            actor_id = request.headers.get("x-authenticated-user", "").strip()[:128]
-            role_value = request.headers.get("x-authenticated-role", "").strip().lower()
-            workspace_id = request.headers.get("x-authenticated-workspace", "").strip()[:128]
-            try:
-                principal = Principal(actor_id=actor_id, role=Role(role_value), workspace_id=workspace_id)
-            except ValueError:
-                response = JSONResponse(status_code=403, content={"detail": "authenticated identity, role, and workspace headers are required", "request_id": request_id})
+            # Production deployments can require a server-issued HttpOnly session
+            # with CONFIGSENTINEL_SESSION_IDENTITY_ONLY=true. The default remains
+            # compatible with a trusted reverse-proxy identity gateway, while
+            # rejecting incomplete or invalid identity assertions.
+            session_token = request.cookies.get("session_token")
+            session = MOCK_SESSIONS.get(session_token or "")
+            if session:
+                try:
+                    request.state.principal = Principal(
+                        actor_id=session["actor_id"],
+                        role=Role(session["role"]),
+                        workspace_id=session["workspace_id"],
+                    )
+                except (KeyError, ValueError):
+                    session = None
+            if session is None and not session_identity_only:
+                actor_id = request.headers.get("x-authenticated-user", "").strip()[:128]
+                role_value = request.headers.get("x-authenticated-role", "").strip().lower()
+                workspace_id = request.headers.get("x-authenticated-workspace", "").strip()[:128]
+                try:
+                    principal = Principal(actor_id=actor_id, role=Role(role_value), workspace_id=workspace_id)
+                except ValueError:
+                    principal = None
+                if principal and principal.actor_id and principal.workspace_id:
+                    request.state.principal = principal
+                    session = {"actor_id": principal.actor_id, "role": principal.role.value, "workspace_id": principal.workspace_id}
+            if session is None:
+                # Header-based strict mode reports malformed or absent gateway
+                # assertions as forbidden. Session-only mode uses 401 so callers
+                # can distinguish an unauthenticated browser session.
+                status_code = 401 if session_identity_only else 403
+                detail = "valid authenticated session required" if session_identity_only else "authenticated identity, role, and workspace headers are required"
+                response = JSONResponse(
+                    status_code=status_code,
+                    content={"detail": detail, "request_id": request_id},
+                )
                 response.headers["X-Request-ID"] = request_id
                 return response
-            if not principal.actor_id or not principal.workspace_id:
-                response = JSONResponse(status_code=403, content={"detail": "authenticated identity, role, and workspace headers are required", "request_id": request_id})
-                response.headers["X-Request-ID"] = request_id
-                return response
-            request.state.principal = principal
         response = await call_next(request)
         response.headers["X-Request-ID"] = request_id
         response.headers["X-Content-Type-Options"] = "nosniff"
@@ -551,9 +579,12 @@ def create_app(*, allowed_origins: list[str] | None = None) -> FastAPI:
 
     @app.post("/api/auth/login", tags=["auth"])
     def login(payload: LoginPayload, response: Response) -> dict[str, Any]:
+        role_value = payload.role.strip().lower()
+        if role_value not in {"operator", "reviewer", "admin"}:
+            raise HTTPException(status_code=422, detail="role must be operator, reviewer, or admin")
         session_token = secrets.token_hex(32)
-        actor_id = "local-reviewer" if payload.role == "reviewer" else "local-operator"
-        MOCK_SESSIONS[session_token] = {"actor_id": actor_id, "role": payload.role, "workspace_id": "local-workspace"}
+        actor_id = f"local-{role_value}"
+        MOCK_SESSIONS[session_token] = {"actor_id": actor_id, "role": role_value, "workspace_id": "local-workspace"}
         response.set_cookie(key="session_token", value=session_token, httponly=True, samesite="lax", path="/")
         return {"status": "ok", "actor_id": actor_id, "role": payload.role}
 

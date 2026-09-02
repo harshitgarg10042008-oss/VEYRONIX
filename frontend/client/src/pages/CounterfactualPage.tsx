@@ -153,7 +153,7 @@ export default function CounterfactualPage() {
                       onClick={() => setSelected(f)}
                     >
                       <span className="finding-main">
-                        <span className={`finding-symbol symbol-${f.status_changed ? (f.degraded_count > 0 ? "fail" : "pass") : "unknown"}`}>
+                        <span className={`finding-symbol symbol-${f.status_changed ? (f.original_status === "PASS" && f.hypothetical_status === "FAIL" ? "fail" : "pass") : "unknown"}`}>
                           {f.status_changed ? "↔" : "="}
                         </span>
                         <span>

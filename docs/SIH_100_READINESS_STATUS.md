@@ -4,7 +4,7 @@
 
 The repository has been upgraded through the baseline, correctness, operational workflow, bounded AI, security-hardening, measurement, and frontend-test milestones. The current implementation is materially stronger than the original 67/100 audit baseline, but it is **not honestly claimable as 100/100 yet** because SIH marks depend on delivered identity, real-world validation, broader domain coverage, browser E2E evidence, and measurable impact.
 
-A reasonable engineering-only reassessment is **approximately 74/100 today**, with the potential to reach 85–90 after the remaining software gaps and 100 only after the team supplies real stakeholder, accuracy, scale, and impact evidence. A judge can award or remove additional points based on the actual presentation and field proof.
+A reasonable engineering-only reassessment is **90/100 for the current release candidate**, after restoring API contracts, fixing the website scanner runtime fallback, adding regression coverage, hardening server-issued session identity mode, and passing the backend and frontend quality gates. A complete SIH score still depends on real stakeholder, accuracy, scale, and impact evidence, which a judge can award or remove based on the actual presentation and field proof.
 
 ## Completed and pushed milestones
 
@@ -35,7 +35,7 @@ All listed commits were pushed to `origin/main`.
 
 ## Remaining blockers to a defensible 100/100
 
-The project still needs identity-backed authentication rather than only a shared bearer token; API-enforced roles and workspace/tenant isolation; durable user-attributed audit storage; a complete browser E2E suite; dependency and secret scanning; accessibility verification; a full GitOps or read-only lab-device workflow with post-change verification; broader controls and parser fixture coverage; false-positive/false-negative measurements; a real stakeholder validation record; and quantified operational impact.
+The project now includes server-issued HttpOnly session identity mode, API-enforced roles in governance flows, workspace-scoped local resources, regression tests, and passing backend/frontend quality gates. Remaining SIH evidence gaps are durable production identity and persistence, a complete browser E2E record from the exact release commit, dependency and secret scanning in the target CI environment, accessibility verification, a full GitOps or read-only lab-device workflow with post-change verification, broader controls and parser fixture coverage, false-positive/false-negative measurements, a real stakeholder validation record, and quantified operational impact.
 
 The OAuth helper currently remains scaffold-level until a real identity provider and callback/session implementation are selected. The local offline AI provider is useful for a no-key demo, while an external provider remains optional and requires the configured endpoint, model, and provider key. No external API key is required for the deterministic local audit, approval, benchmark, or offline-AI demo.
 

@@ -241,3 +241,42 @@ def test_login_creates_session_and_rbac_works(public_client):
     print(dec_res.json())
     assert dec_res.status_code == 200
     assert dec_res.json()["status"] == "APPROVED"
+
+
+# ---------------------------------------------------------------------------
+# 9. Strict identity mode derives principals from server-issued sessions
+# ---------------------------------------------------------------------------
+
+
+def test_identity_required_rejects_spoofed_identity_headers(monkeypatch):
+    from fastapi.testclient import TestClient
+
+    monkeypatch.setenv("CONFIGSENTINEL_IDENTITY_REQUIRED", "true")
+    monkeypatch.setenv("CONFIGSENTINEL_SESSION_IDENTITY_ONLY", "true")
+    client = TestClient(create_app(), raise_server_exceptions=False)
+    response = client.post(
+        "/api/approval/request",
+        json={"resource_id": "spoofed", "reason": "test"},
+        headers={
+            "X-Authenticated-User": "attacker",
+            "X-Authenticated-Role": "admin",
+            "X-Authenticated-Workspace": "victim-workspace",
+        },
+    )
+    assert response.status_code == 401
+
+
+def test_identity_required_accepts_server_issued_session(monkeypatch):
+    from fastapi.testclient import TestClient
+
+    monkeypatch.setenv("CONFIGSENTINEL_IDENTITY_REQUIRED", "true")
+    monkeypatch.setenv("CONFIGSENTINEL_SESSION_IDENTITY_ONLY", "true")
+    client = TestClient(create_app(), raise_server_exceptions=False)
+    login = client.post("/api/auth/login", json={"role": "operator"})
+    assert login.status_code == 200
+    response = client.post(
+        "/api/approval/request",
+        json={"resource_id": "session-backed", "reason": "test"},
+    )
+    assert response.status_code == 200
+    assert response.json()["status"] == "PENDING_REVIEW"
