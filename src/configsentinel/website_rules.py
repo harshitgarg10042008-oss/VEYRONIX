@@ -66,8 +66,8 @@ def _check_hsts(observation: dict[str, Any]) -> tuple[WebsiteFindingStatus, str,
     
     if not hsts_value:
         return (
-            WebsiteFindingStatus.FAIL,
-            "HSTS header is missing",
+            WebsiteFindingStatus.WARN,
+            "HSTS header is missing; transport security is not fully hardened",
             WebsiteEvidence(
                 check_type="hsts",
                 observed_value="missing",
@@ -110,8 +110,8 @@ def _check_csp(observation: dict[str, Any]) -> tuple[WebsiteFindingStatus, str, 
     
     if not csp_value:
         return (
-            WebsiteFindingStatus.FAIL,
-            "Content-Security-Policy header is missing",
+            WebsiteFindingStatus.WARN,
+            "Content-Security-Policy header is missing; browser policy hardening is recommended",
             WebsiteEvidence(
                 check_type="csp",
                 observed_value="missing",
@@ -173,8 +173,8 @@ def _check_clickjacking(observation: dict[str, Any]) -> tuple[WebsiteFindingStat
         )
     
     return (
-        WebsiteFindingStatus.FAIL,
-        "No clickjacking protection detected",
+            WebsiteFindingStatus.WARN,
+            "No clickjacking protection detected; defense-in-depth hardening is recommended",
         WebsiteEvidence(
             check_type="clickjacking",
             observed_value="missing",
@@ -420,16 +420,18 @@ def _check_cookie_flags(observation: dict[str, Any]) -> tuple[WebsiteFindingStat
         
     issues = []
     for cookie in set_cookies:
-        cookie_lower = cookie.lower()
-        if "secure" not in cookie_lower:
+        # Parse attributes as semicolon-delimited tokens. Substring matching
+        # incorrectly treats values such as `insecure` as the Secure flag.
+        attributes = {part.strip().split("=", 1)[0].lower() for part in cookie.split(";")}
+        if "secure" not in attributes:
             issues.append("missing Secure flag")
-        if "httponly" not in cookie_lower:
+        if "httponly" not in attributes:
             issues.append("missing HttpOnly flag")
             
     if issues:
         return (
-            WebsiteFindingStatus.FAIL,
-            "Cookies missing security attributes",
+            WebsiteFindingStatus.WARN,
+            "Cookies are missing recommended security attributes",
             WebsiteEvidence(
                 check_type="cookies",
                 observed_value=", ".join(list(set(issues))),

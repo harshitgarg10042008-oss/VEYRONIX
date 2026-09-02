@@ -27,8 +27,8 @@ class ScoringWeights:
     medium_weight: int = 8
     low_weight: int = 3
     info_weight: int = 1
-    warning_weight: int = 5
-    unknown_penalty: int = 2
+    warning_weight: int = 2
+    unknown_penalty: int = 0
     
     def __post_init__(self) -> None:
         if self.critical_weight <= 0 or self.high_weight <= 0:
@@ -50,8 +50,8 @@ def calculate_score(
     - Medium findings: 8 points each
     - Low findings: 3 points each
     - Info findings: 1 point each
-    - Warnings: 5 points each
-    - Unknown: 2 points each (penalty for lack of evidence)
+    - Warnings: 2 points each (defense-in-depth recommendation)
+    - Unknown: 0 points; uncertainty is shown separately and never treated as a vulnerability
     
     The score is clamped between 0 and 100.
     
@@ -85,6 +85,7 @@ def calculate_score(
         elif finding.status == WebsiteFindingStatus.WARN:
             deduction += weights.warning_weight
         elif finding.status == WebsiteFindingStatus.UNKNOWN:
+            # Missing observability is not proof of an insecure condition.
             deduction += weights.unknown_penalty
     
     score = base_score - deduction

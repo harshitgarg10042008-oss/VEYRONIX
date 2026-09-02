@@ -132,12 +132,12 @@ Score starts at 100 and deducts points based on severity:
 - High findings: 15 points each
 - Medium findings: 8 points each
 - Low findings: 3 points each
-- Warnings: 5 points each
-- Unknown: 2 points each
+- Warnings: 2 points each; these represent defense-in-depth recommendations rather than confirmed vulnerabilities
+- Unknown: 0 points; unavailable evidence is displayed separately and is never treated as a vulnerability
 
 Classification:
 - **HIGH_RISK**: Any critical finding, 3+ high findings, or score < 50
-- **NEEDS_REVIEW**: Any high finding, 5+ medium findings, or score < 75
+- **NEEDS_REVIEW**: Any confirmed high finding, 5+ confirmed medium findings, or score < 75
 - **GOOD**: Otherwise
 
 ### Safety Boundaries

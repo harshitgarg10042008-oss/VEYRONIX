@@ -92,12 +92,12 @@ class TestCalculateScore:
     def test_warning_deduction(self):
         findings = (make_finding(WebsiteFindingStatus.WARN, WebsiteSeverity.INFO),)
         score = calculate_score(findings)
-        assert score == 95  # 100 - 5
+        assert score == 98  # 100 - 2 low-weight recommendation
     
     def test_unknown_penalty(self):
         findings = (make_finding(WebsiteFindingStatus.UNKNOWN, WebsiteSeverity.INFO),)
         score = calculate_score(findings)
-        assert score == 98  # 100 - 2
+        assert score == 100  # unknown is reported separately, not treated as a vulnerability
     
     def test_multiple_findings(self):
         findings = (
