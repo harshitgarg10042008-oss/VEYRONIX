@@ -2011,3 +2011,95 @@ a:focus-visible {
     bottom: 16px;
   }
 }
+
+
+.upload-status-card {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  margin: 24px 0 0;
+  padding: 16px 18px;
+  color: var(--ink);
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-left: 3px solid var(--teal);
+}
+
+.upload-status-icon {
+  display: grid;
+  place-items: center;
+  width: 38px;
+  height: 38px;
+  color: var(--teal);
+  background: var(--surface-2);
+  border: 1px solid var(--line);
+}
+
+.upload-status-copy {
+  display: grid;
+  min-width: 0;
+  flex: 1;
+  gap: 5px;
+}
+
+.upload-status-copy strong {
+  overflow: hidden;
+  color: var(--ink);
+  font-size: 14px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.upload-status-copy span:not(.section-label) {
+  color: var(--muted);
+  font: 10px "IBM Plex Mono", ui-monospace, monospace;
+}
+
+.upload-status-card small {
+  color: var(--muted);
+  font: 10px "IBM Plex Mono", ui-monospace, monospace;
+  white-space: nowrap;
+}
+
+.upload-status-badge {
+  padding: 6px 8px;
+  font: 9px "IBM Plex Mono", ui-monospace, monospace;
+  letter-spacing: .08em;
+  white-space: nowrap;
+}
+
+.upload-status-fixture,
+.upload-status-ready {
+  color: var(--muted);
+  background: var(--surface-2);
+}
+
+.upload-status-analyzing {
+  color: var(--amber);
+  background: color-mix(in srgb, var(--amber) 12%, transparent);
+}
+
+.upload-status-analyzed {
+  color: var(--teal);
+  background: color-mix(in srgb, var(--teal) 12%, transparent);
+}
+
+.upload-status-rejected {
+  color: var(--danger);
+  background: color-mix(in srgb, var(--danger) 12%, transparent);
+}
+
+@media (max-width: 720px) {
+  .upload-status-card {
+    align-items: flex-start;
+    flex-wrap: wrap;
+  }
+
+  .upload-status-copy {
+    flex-basis: calc(100% - 52px);
+  }
+
+  .upload-status-badge {
+    margin-left: 52px;
+  }
+}
