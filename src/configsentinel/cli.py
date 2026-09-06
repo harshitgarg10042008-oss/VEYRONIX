@@ -108,6 +108,31 @@ from .controls import CONTROL_PACK_VERSION
 from .reporting import report_dict
 
 
+def _add_pull_audit_parser(sub: argparse._SubParsersAction) -> None:  # type: ignore[type-arg]
+    """Register the pull-audit subcommand."""
+    pull = sub.add_parser(
+        "pull-audit",
+        help="Read-only SSH pull from a live device then audit (requires [enterprise] extra)",
+    )
+    pull.add_argument("--host", required=True, help="Device IP or hostname")
+    pull.add_argument(
+        "--vendor",
+        required=True,
+        choices=("cisco_ios", "junos", "arista_eos"),
+        help="Device vendor type",
+    )
+    pull.add_argument("--username", required=True, help="SSH username")
+    pull.add_argument(
+        "--framework",
+        action="append",
+        dest="frameworks",
+        default=None,
+        help="framework id; repeat for multiple (cis-network, nist-800-53)",
+    )
+    pull.add_argument("--json-out", type=Path, help="write JSON audit report")
+    pull.add_argument("--report-out", type=Path, help="write Markdown audit report")
+
+
 def build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(
         prog="configsentinel",
@@ -616,6 +641,7 @@ def build_parser() -> argparse.ArgumentParser:
     release.add_argument("--sbom-out", type=Path, required=True)
     release.add_argument("--metadata-out", type=Path, required=True)
     release.add_argument("--manifest", type=Path)
+    _add_pull_audit_parser(sub)
     return parser
 
 
@@ -1884,7 +1910,58 @@ def main(argv: list[str] | None = None) -> int:
         return run_approval_request(args)
     if args.command == "approval-decide":
         return run_approval_decide(args)
+    if args.command == "pull-audit":
+        return run_pull_audit(args)
     return 2
+
+
+def run_pull_audit(args: argparse.Namespace) -> int:
+    """Pull a running config from a live device (read-only) and audit it."""
+    try:
+        from .device_connector import LiveDeviceConnector, ConnectorError
+    except ImportError:
+        print("ERROR: device_connector module not available.", file=sys.stderr)
+        return 1
+
+    import getpass
+
+    password = os.getenv("CONFIGSENTINEL_DEVICE_PASSWORD") or getpass.getpass(
+        f"SSH password for {args.username}@{args.host}: "
+    )
+    try:
+        connector = LiveDeviceConnector(
+            host=args.host,
+            vendor=args.vendor,
+            username=args.username,
+            password=password,
+        )
+        print(f"[pull-audit] Connecting to {args.host} ({args.vendor}) ...", file=sys.stderr)
+        config_text = connector.pull_config()
+    except Exception as exc:
+        print(f"ERROR pulling config: {exc}", file=sys.stderr)
+        return 1
+
+    client = ConfigSentinelClient(engine=DeterministicComplianceEngine())
+    frameworks = normalize_frameworks(tuple(args.frameworks or ["cis-network", "nist-800-53"]))
+    result = client.audit_text(config_text, vendor=args.vendor, frameworks=frameworks)
+    d = report_dict(result, frameworks)
+
+    if args.json_out:
+        args.json_out.parent.mkdir(parents=True, exist_ok=True)
+        args.json_out.write_text(
+            json.dumps(d, indent=2, default=str), encoding="utf-8"
+        )
+        print(f"JSON report written to {args.json_out}", file=sys.stderr)
+    if args.report_out:
+        write_report(result, args.report_out)
+        print(f"Markdown report written to {args.report_out}", file=sys.stderr)
+
+    failed = d.get("summary", {}).get("failed_count", 0)
+    print(
+        f"[pull-audit] {args.host}: score={d.get('summary',{}).get('posture_score','?')} "
+        f"failed={failed} SAFETY=read-only-no-changes-applied"
+    )
+    return 1 if failed else 0
 
 
 if __name__ == "__main__":

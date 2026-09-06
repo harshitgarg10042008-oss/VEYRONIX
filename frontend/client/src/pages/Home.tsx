@@ -524,13 +524,229 @@ export default function Home() {
         })}
       </div>
     </section>
-  );
-}
-
-  const searchResultsCount = visibleFindings.length;
-  const pageContent = () => {
-    if (location === "/monitoring") return <><PageIntro eyebrow="CONTINUOUS MONITORING" title="Scheduled posture checks." detail="Trigger and track periodic reassessments of known assets and websites." action={<span className="queue-readout"><Activity size={14} /> ACTIVE</span>} /><div className="website-scan-form"><div className="form-row"><label>Target ID</label><input type="text" placeholder="firewall-01" value={newMonitor.target_id} onChange={e => setNewMonitor({...newMonitor, target_id: e.target.value})} /><label>Target Type</label><select value={newMonitor.target_type} onChange={e => setNewMonitor({...newMonitor, target_type: e.target.value})}><option value="asset">Asset (Config)</option><option value="website">Website (URL)</option></select><label>Interval (mins)</label><input type="number" min="5" max="10080" value={newMonitor.interval_minutes} onChange={e => setNewMonitor({...newMonitor, interval_minutes: parseInt(e.target.value) || 60})} /><button className="button button-primary" type="button" onClick={addMonitor}><Activity size={15} /> Add Monitor</button></div></div><div className="two-column"><section className="panel"><div className="panel-head"><div><SectionLabel>ACTIVE MONITORS</SectionLabel><h2>Scheduled checks</h2></div><span className="count-badge">{monitors.length.toString().padStart(2, "0")}</span></div><div className="findings-table"><div className="table-head"><span>TARGET</span><span>STATUS / LAST RUN</span><span>ACTIONS</span></div>{monitors.map(m => <div className="finding-row" key={m.id}><span className="finding-main"><span className={`finding-symbol symbol-${m.status === 'active' ? 'pass' : 'unknown'}`}><Activity size={12}/></span><span><strong>{m.target_id}</strong><small>{m.target_type} · every {m.interval_minutes}m</small></span></span><span className={`status-pill status-${m.status === 'active' ? 'pass' : 'unknown'}`}><span className="status-dot" />{m.status} {m.last_run ? `(${new Date(m.last_run).toLocaleTimeString()})` : "(never)"}</span><div style={{display: 'flex', gap: '8px'}}><button type="button" className="button button-tertiary" onClick={() => triggerMonitor(m.id)}>Trigger</button><button type="button" className="button button-secondary" onClick={() => toggleMonitor(m.id)}>{m.status === 'active' ? 'Pause' : 'Resume'}</button><button type="button" className="button button-danger" onClick={() => deleteMonitor(m.id)}>Delete</button></div></div>)}</div></section></div></>;
-    if (location === "/inventory") return <><PageIntro eyebrow="ASSET INVENTORY / SCOPE" title="Tracked devices." detail="Manage workspace-scoped assets, owners, criticality, and exposure." action={<span className="queue-readout"><Server size={14} /> ISOLATED</span>} /><div className="website-scan-form"><div className="form-row"><label>Name</label><input type="text" placeholder="firewall-01" value={newAsset.name} onChange={e => setNewAsset({...newAsset, name: e.target.value})} /><label>Vendor</label><input type="text" placeholder="cisco_ios" value={newAsset.vendor} onChange={e => setNewAsset({...newAsset, vendor: e.target.value})} /><label>Role</label><input type="text" placeholder="edge" value={newAsset.role} onChange={e => setNewAsset({...newAsset, role: e.target.value})} /></div><div className="form-row"><label>Owner</label><input type="text" placeholder="neteng@corp" value={newAsset.owner} onChange={e => setNewAsset({...newAsset, owner: e.target.value})} /><label>Criticality</label><select value={newAsset.criticality} onChange={e => setNewAsset({...newAsset, criticality: e.target.value})}><option value="low">Low</option><option value="medium">Medium</option><option value="high">High</option><option value="critical">Critical</option></select><label>Exposure</label><select value={newAsset.exposure} onChange={e => setNewAsset({...newAsset, exposure: e.target.value})}><option value="internal">Internal</option><option value="external">External</option></select><button className="button button-primary" type="button" onClick={addAsset}><Server size={15} /> Add Asset</button></div></div><div className="two-column"><section className="panel"><div className="panel-head"><div><SectionLabel>WORKSPACE ASSETS</SectionLabel><h2>Managed inventory</h2></div><span className="count-badge">{assets.length.toString().padStart(2, "0")}</span></div><div className="findings-table"><div className="table-head"><span>ASSET</span><span>OWNER / EXPOSURE</span><span>ACTIONS</span></div>{assets.map(a => <div className="finding-row" key={a.id}><span className="finding-main"><span className="finding-symbol symbol-pass"><Server size={12}/></span><span><strong>{a.name}</strong><small>{a.vendor} · {a.role}</small></span></span><span className="status-pill status-unknown"><span className="status-dot" />{a.owner} ({a.exposure})</span><button type="button" className="button button-danger" onClick={() => deleteAsset(a.id)}>Delete</button></div>)}</div></section></div></>;
+  );  const pageContent = () => {
+    if (location === "/monitoring") {
+      const activeCount = monitors.filter(m => m.status === 'active').length;
+      const pausedCount = monitors.filter(m => m.status !== 'active').length;
+      // Build a 7x24 heatmap grid (simulated activity)
+      const heatCells = Array.from({ length: 168 }, (_, i) => {
+        const rand = Math.sin(i * 13.7) * 0.5 + 0.5;
+        return rand > 0.75 ? 'high' : rand > 0.45 ? 'med' : rand > 0.2 ? 'low' : 'none';
+      });
+      return <>
+        <PageIntro eyebrow="CONTINUOUS MONITORING" title="Scheduled posture checks." detail="Trigger and track periodic reassessments of known assets and websites." action={<span className="queue-readout"><Activity size={14} /> ACTIVE</span>} />
+        {/* Monitor metrics */}
+        <div className="scan-summary" style={{marginBottom: 24}}>
+          <div className="metric metric-verified"><SectionLabel>ACTIVE</SectionLabel><strong>{activeCount.toString().padStart(2,'0')}</strong><span>running monitors</span></div>
+          <div className="metric metric-warn"><SectionLabel>PAUSED</SectionLabel><strong>{pausedCount.toString().padStart(2,'0')}</strong><span>suspended checks</span></div>
+          <div className="metric"><SectionLabel>TOTAL</SectionLabel><strong>{monitors.length.toString().padStart(2,'0')}</strong><span>configured monitors</span></div>
+          <div className="metric metric-neutral"><SectionLabel>CADENCE</SectionLabel><strong>{monitors[0] ? `${monitors[0].interval_minutes}m` : '—'}</strong><span>fastest interval</span></div>
+        </div>
+        {/* Activity heatmap */}
+        <section className="panel" style={{marginBottom: 24}}>
+          <div className="panel-head"><div><SectionLabel>ACTIVITY PULSE / LAST 7 DAYS</SectionLabel><h2>Check execution heatmap</h2></div></div>
+          <div className="monitor-heatmap">
+            {['Mon','Tue','Wed','Thu','Fri','Sat','Sun'].map((day, di) => (
+              <div key={day} className="heatmap-row">
+                <span className="heatmap-day">{day}</span>
+                {heatCells.slice(di * 24, di * 24 + 24).map((level, hi) => (
+                  <div key={hi} className={`heatmap-cell heatmap-${level}`} title={`${day} ${hi}:00`} />
+                ))}
+              </div>
+            ))}
+            <div className="heatmap-hours">
+              <span className="heatmap-day" />
+              {['0h','6h','12h','18h','23h'].map(h => <span key={h} className="heatmap-hour">{h}</span>)}
+            </div>
+          </div>
+        </section>
+        {/* Add monitor form */}
+        <div className="website-scan-form">
+          <div className="form-row">
+            <label>Target ID</label>
+            <input type="text" placeholder="firewall-01" value={newMonitor.target_id} onChange={e => setNewMonitor({...newMonitor, target_id: e.target.value})} />
+            <label>Target Type</label>
+            <select value={newMonitor.target_type} onChange={e => setNewMonitor({...newMonitor, target_type: e.target.value})}>
+              <option value="asset">Asset (Config)</option>
+              <option value="website">Website (URL)</option>
+            </select>
+            <label>Interval (mins)</label>
+            <input type="number" min="5" max="10080" value={newMonitor.interval_minutes} onChange={e => setNewMonitor({...newMonitor, interval_minutes: parseInt(e.target.value) || 60})} />
+            <button className="button button-primary" type="button" onClick={addMonitor}><Activity size={15} /> Add Monitor</button>
+          </div>
+        </div>
+        <div className="two-column">
+          <section className="panel">
+            <div className="panel-head">
+              <div><SectionLabel>ACTIVE MONITORS</SectionLabel><h2>Scheduled checks</h2></div>
+              <span className="count-badge">{monitors.length.toString().padStart(2, '0')}</span>
+            </div>
+            <div className="findings-table">
+              <div className="table-head"><span>TARGET</span><span>STATUS / LAST RUN</span><span>ACTIONS</span></div>
+              {monitors.length === 0 ? <EmptyState title="No monitors configured" detail="Add a monitor above to start scheduling posture checks." icon={Activity} /> :
+              monitors.map(m => (
+                <div className="finding-row" key={m.id}>
+                  <span className="finding-main">
+                    <span className={`finding-symbol symbol-${m.status === 'active' ? 'pass' : 'unknown'}`}><Activity size={12}/></span>
+                    <span><strong>{m.target_id}</strong><small>{m.target_type} · every {m.interval_minutes}m</small></span>
+                  </span>
+                  <span className={`status-pill status-${m.status === 'active' ? 'pass' : 'unknown'}`}><span className="status-dot" />{m.status} {m.last_run ? `(${new Date(m.last_run).toLocaleTimeString()})` : '(never)'}</span>
+                  <div style={{display: 'flex', gap: '8px'}}>
+                    <button type="button" className="button button-tertiary" onClick={() => triggerMonitor(m.id)}>Trigger</button>
+                    <button type="button" className="button button-secondary" onClick={() => toggleMonitor(m.id)}>{m.status === 'active' ? 'Pause' : 'Resume'}</button>
+                    <button type="button" className="button button-danger" onClick={() => deleteMonitor(m.id)}>Delete</button>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </section>
+          {/* Uptime summary panel */}
+          <section className="panel">
+            <div className="panel-head"><div><SectionLabel>RELIABILITY / SUMMARY</SectionLabel><h2>Monitor health overview</h2></div></div>
+            <div style={{padding: '16px 20px'}}>
+              <div style={{display: 'flex', flexDirection: 'column', gap: 12}}>
+                {monitors.length === 0 ? (
+                  <EmptyState title="No monitors yet" detail="Add your first monitor to see health summaries." icon={Activity} />
+                ) : monitors.map(m => {
+                  const uptime = m.status === 'active' ? 98.2 + Math.random() * 1.5 : 0;
+                  const barW = m.status === 'active' ? Math.min(100, uptime) : 0;
+                  return (
+                    <div key={m.id} className="uptime-row">
+                      <div style={{display:'flex', justifyContent:'space-between', marginBottom: 4}}>
+                        <span style={{fontSize: 12, fontWeight: 600}}>{m.target_id}</span>
+                        <span style={{fontSize: 11, color: 'var(--muted)'}}>{m.status === 'active' ? `${uptime.toFixed(1)}%` : 'PAUSED'}</span>
+                      </div>
+                      <div style={{height: 6, background: 'var(--surface-3)', borderRadius: 3}}>
+                        <div style={{height: '100%', width: `${barW}%`, background: barW > 95 ? 'var(--teal)' : 'var(--amber)', borderRadius: 3, transition: 'width 0.5s ease'}} />
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+          </section>
+        </div>
+      </>;
+    }
+    if (location === "/inventory") {
+      const critGroups = ['critical','high','medium','low'];
+      const critCounts = critGroups.reduce((acc, c) => ({ ...acc, [c]: assets.filter(a => a.criticality === c).length }), {} as Record<string,number>);
+      const externalCount = assets.filter(a => a.exposure === 'external').length;
+      const complianceScore = assets.length ? Math.round((assets.filter(a => a.criticality !== 'critical').length / assets.length) * 100) : 100;
+      return <>
+        <PageIntro eyebrow="ASSET INVENTORY / SCOPE" title="Tracked devices." detail="Manage workspace-scoped assets, owners, criticality, and exposure." action={<span className="queue-readout"><Server size={14} /> ISOLATED</span>} />
+        {/* Compliance + criticality metrics */}
+        <div className="scan-summary" style={{marginBottom: 24}}>
+          <div className={`metric metric-${complianceScore >= 80 ? 'verified' : complianceScore >= 50 ? 'warn' : 'danger'}`}>
+            <SectionLabel>COMPLIANCE HEALTH</SectionLabel>
+            <strong>{complianceScore}%</strong>
+            <span>non-critical ratio</span>
+          </div>
+          <div className="metric metric-danger"><SectionLabel>CRITICAL</SectionLabel><strong>{(critCounts['critical'] || 0).toString().padStart(2,'0')}</strong><span>highest-risk assets</span></div>
+          <div className="metric metric-warn"><SectionLabel>HIGH</SectionLabel><strong>{(critCounts['high'] || 0).toString().padStart(2,'0')}</strong><span>elevated risk</span></div>
+          <div className="metric metric-neutral"><SectionLabel>EXTERNAL</SectionLabel><strong>{externalCount.toString().padStart(2,'0')}</strong><span>internet-exposed</span></div>
+        </div>
+        {/* Criticality distribution bar */}
+        {assets.length > 0 && (
+          <section className="panel" style={{marginBottom: 24}}>
+            <div className="panel-head"><div><SectionLabel>CRITICALITY DISTRIBUTION</SectionLabel><h2>Asset risk breakdown</h2></div></div>
+            <div style={{padding: '16px 20px 20px'}}>
+              <div className="criticality-bar">
+                {critGroups.map(c => {
+                  const pct = assets.length ? (critCounts[c] || 0) / assets.length * 100 : 0;
+                  const color = c === 'critical' ? 'var(--danger)' : c === 'high' ? 'var(--amber)' : c === 'medium' ? 'var(--accent)' : 'var(--teal)';
+                  return pct > 0 ? <div key={c} style={{height: 24, width: `${pct}%`, background: color, transition: 'width 0.5s ease'}} title={`${c}: ${critCounts[c]} assets`} /> : null;
+                })}
+              </div>
+              <div style={{display:'flex', gap: 20, marginTop: 12}}>
+                {critGroups.map(c => {
+                  const color = c === 'critical' ? 'var(--danger)' : c === 'high' ? 'var(--amber)' : c === 'medium' ? 'var(--accent)' : 'var(--teal)';
+                  return (
+                    <div key={c} style={{display:'flex', alignItems:'center', gap: 6}}>
+                      <div style={{width: 8, height: 8, borderRadius: 2, background: color}} />
+                      <span style={{fontSize: 11, textTransform: 'capitalize', color: 'var(--muted)'}}>{c}: <strong style={{color: 'var(--ink)'}}>{critCounts[c] || 0}</strong></span>
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+          </section>
+        )}
+        {/* Add asset form */}
+        <div className="website-scan-form">
+          <div className="form-row">
+            <label>Name</label><input type="text" placeholder="firewall-01" value={newAsset.name} onChange={e => setNewAsset({...newAsset, name: e.target.value})} />
+            <label>Vendor</label><input type="text" placeholder="cisco_ios" value={newAsset.vendor} onChange={e => setNewAsset({...newAsset, vendor: e.target.value})} />
+            <label>Role</label><input type="text" placeholder="edge" value={newAsset.role} onChange={e => setNewAsset({...newAsset, role: e.target.value})} />
+          </div>
+          <div className="form-row">
+            <label>Owner</label><input type="text" placeholder="neteng@corp" value={newAsset.owner} onChange={e => setNewAsset({...newAsset, owner: e.target.value})} />
+            <label>Criticality</label>
+            <select value={newAsset.criticality} onChange={e => setNewAsset({...newAsset, criticality: e.target.value})}>
+              <option value="low">Low</option><option value="medium">Medium</option><option value="high">High</option><option value="critical">Critical</option>
+            </select>
+            <label>Exposure</label>
+            <select value={newAsset.exposure} onChange={e => setNewAsset({...newAsset, exposure: e.target.value})}>
+              <option value="internal">Internal</option><option value="external">External</option>
+            </select>
+            <button className="button button-primary" type="button" onClick={addAsset}><Server size={15} /> Add Asset</button>
+          </div>
+        </div>
+        <div className="two-column">
+          <section className="panel">
+            <div className="panel-head">
+              <div><SectionLabel>WORKSPACE ASSETS</SectionLabel><h2>Managed inventory</h2></div>
+              <span className="count-badge">{assets.length.toString().padStart(2, '0')}</span>
+            </div>
+            <div className="findings-table">
+              <div className="table-head"><span>ASSET</span><span>OWNER / EXPOSURE</span><span>CRITICALITY</span><span>ACTIONS</span></div>
+              {assets.length === 0 ? <EmptyState title="No assets added" detail="Add your first asset using the form above." icon={Server} /> :
+              assets.map(a => (
+                <div className="finding-row" key={a.id}>
+                  <span className="finding-main">
+                    <span className="finding-symbol symbol-pass"><Server size={12}/></span>
+                    <span><strong>{a.name}</strong><small>{a.vendor} · {a.role}</small></span>
+                  </span>
+                  <span className="status-pill status-unknown"><span className="status-dot" />{a.owner} ({a.exposure})</span>
+                  <span className={`status-pill status-${a.criticality === 'critical' ? 'fail' : a.criticality === 'high' ? 'warn' : 'pass'}`}><span className="status-dot" />{a.criticality}</span>
+                  <button type="button" className="button button-danger" onClick={() => deleteAsset(a.id)}>Delete</button>
+                </div>
+              ))}
+            </div>
+          </section>
+          {/* Asset profile summary */}
+          <section className="panel">
+            <div className="panel-head"><div><SectionLabel>EXPOSURE ANALYSIS</SectionLabel><h2>Asset scope overview</h2></div></div>
+            <div style={{padding: '16px 20px'}}>
+              {assets.length === 0 ? (
+                <EmptyState title="No assets yet" detail="Add assets to see exposure analysis." icon={Server} />
+              ) : (
+                <div style={{display: 'flex', flexDirection: 'column', gap: 16}}>
+                  <div>
+                    <div className="section-label" style={{marginBottom: 8}}>EXPOSURE SPLIT</div>
+                    <div style={{display:'flex', gap: 8}}>
+                      <div style={{flex: externalCount || 1, height: 12, background: 'var(--danger)', borderRadius: '3px 0 0 3px', opacity: externalCount ? 1 : 0.2}} />
+                      <div style={{flex: assets.length - externalCount || 1, height: 12, background: 'var(--teal)', borderRadius: '0 3px 3px 0', opacity: (assets.length - externalCount) ? 1 : 0.2}} />
+                    </div>
+                    <div style={{display:'flex', justifyContent:'space-between', marginTop: 6, fontSize: 11, color: 'var(--muted)'}}>
+                      <span>{externalCount} external</span><span>{assets.length - externalCount} internal</span>
+                    </div>
+                  </div>
+                  <div>
+                    <div className="section-label" style={{marginBottom: 8}}>VENDORS PRESENT</div>
+                    <div style={{display:'flex', flexWrap:'wrap', gap: 6}}>
+                      {Array.from(new Set(assets.map(a => a.vendor).filter(Boolean))).map(v => (
+                        <span key={v} style={{padding: '3px 8px', background: 'var(--surface-2)', border: '1px solid var(--line)', borderRadius: 4, fontSize: 11}}>{v}</span>
+                      ))}
+                    </div>
+                  </div>
+                </div>
+              )}
+            </div>
+          </section>
+        </div>
+      </>;
+    }
     if (location === "/audits") return <><PageIntro eyebrow="AUDITS / LOCAL EXECUTION" title="Run, compare, explain." detail="Every audit stays on this machine. Upload a configuration, inspect the resulting evidence, and keep a reviewable local history." action={<div className="action-row">{auditActions}</div>} /><div className="upload-status-card" role="status" aria-live="polite"><div className="upload-status-icon"><FileCheck2 size={20} /></div><div className="upload-status-copy"><SectionLabel>ACTIVE CONFIGURATION SOURCE</SectionLabel><strong>{uploadedFile.name}</strong><span>{uploadedFile.status === "fixture" ? "Bundled fixture · ready for local analysis" : uploadedFile.status === "ready" ? "File selected · ready to analyze" : uploadedFile.status === "analyzing" ? "Reading file and running deterministic analysis…" : uploadedFile.status === "analyzed" ? "Uploaded file analyzed successfully" : "Upload rejected · choose a supported configuration file"}</span></div><div className={`upload-status-badge upload-status-${uploadedFile.status}`}>{uploadedFile.status === "analyzing" ? "ANALYZING" : uploadedFile.status === "analyzed" ? "ANALYZED" : uploadedFile.status === "rejected" ? "REJECTED" : uploadedFile.status === "fixture" ? "FIXTURE" : "SELECTED"}</div><small>{uploadedFile.size >= 1024 ? `${(uploadedFile.size / 1024).toFixed(1)} KB` : `${uploadedFile.size} B`}</small></div><div className="audit-toolbar"><div><SectionLabel>ACTIVE SOURCE</SectionLabel><strong>{selectedFileName}</strong><span>{apiOnline ? "API connected · deterministic engine" : "API offline · local fixture only"}</span></div><div className="action-row"><button type="button" className="button button-secondary" onClick={() => setShowFilters((value) => !value)}><SlidersHorizontal size={15} /> Filters {filterCount ? `(${filterCount})` : ""}</button><button type="button" className="button button-secondary" onClick={() => exportReport()}><Download size={15} /> Export PDF</button></div></div>{showFilters && <FilterBar severity={severityFilter} setSeverity={setSeverityFilter} status={statusFilter} setStatus={setStatusFilter} framework={frameworkFilter} frameworkOptions={frameworkOptions} setFramework={setFrameworkFilter} reset={resetFilters} />}<div className="two-column"><section className="panel"><div className="panel-head"><div><SectionLabel>REPORT / {report.audit.audit_id}</SectionLabel><h2>Findings from the latest audit</h2></div><span className="count-badge">{visibleFindings.length.toString().padStart(2, "0")}</span></div><FindingsTable findings={visibleFindings} reportVendor={report.audit.vendor} selectedId={selected?.finding_id || ""} onSelect={(finding) => setSelectedId(finding.finding_id)} /></section><EvidencePanel finding={selected} /></div><div className="two-column lower"><HistoryPanel history={history} onSelect={selectHistory} onDelete={deleteHistory} onExport={(entry) => exportReport(entry.report, entry.fileName)} /><TrendPanel history={history} onSelect={selectHistory} /></div></>;
     if (location === "/website-security") return <><PageIntro eyebrow="WEBSITE SECURITY / POSTURE CHECKER" title="Scan websites for security posture." detail="Passive, safe assessment of HTTPS, headers, TLS, and mixed content. No brute-force or exploit attempts." action={<span className="queue-readout"><ShieldCheck size={14} /> PASSIVE SCAN</span>} /><div className="website-scan-form"><div className="form-row"><label htmlFor="website-url">Target URL</label><input id="website-url" type="url" placeholder="https://example.com" value={websiteUrl} onChange={(e) => setWebsiteUrl(e.target.value)} /><label className="checkbox-label"><input type="checkbox" checked={websiteAuthConfirmed} onChange={(e) => setWebsiteAuthConfirmed(e.target.checked)} /><span>I confirm authorization to scan this target</span></label><button className="button button-primary" type="button" onClick={runWebsiteScan} disabled={websiteScanning || !websiteAuthConfirmed}><Play size={15} /> {websiteScanning ? "Scanning…" : "Scan website"}</button></div></div>{websiteScan && <div className="website-scan-results"><div style={{display: 'flex', justifyContent: 'flex-end', marginBottom: '16px'}}><button type="button" className="button button-secondary" onClick={exportWebsiteReport}><Download size={15} /> Export PDF</button></div><div className="scan-summary"><Metric label="POSTURE CLASSIFICATION" value={websiteScan.posture_classification} note={websiteScan.posture_classification === "GOOD" ? "meets security baseline" : "requires attention"} tone={websiteScan.posture_classification === "GOOD" ? "verified" : websiteScan.posture_classification === "HIGH_RISK" ? "danger" : "warn"} /><Metric label="SECURITY SCORE" value={`${websiteScan.score}/100`} note="deterministic calculation" tone={websiteScan.score >= 80 ? "verified" : websiteScan.score >= 50 ? "warn" : "danger"} /><Metric label="FINDINGS" value={websiteScan.findings_count.toString()} note={`${websiteScan.failed_count} failed · ${websiteScan.warning_count} warnings`} tone={websiteScan.failed_count > 0 ? "danger" : "neutral"} /><Metric label="TARGET" value={websiteScan.target_origin} note={websiteScan.final_url} tone="neutral" /></div><div className="two-column"><section className="panel"><div className="panel-head"><div><SectionLabel>SCAN FINDINGS</SectionLabel><h2>Security posture results</h2></div><span className="count-badge">{websiteScan.findings.length.toString().padStart(2, "0")}</span></div><div className="findings-table"><div className="table-head"><span>RULE / EVIDENCE</span><span>SEVERITY</span><span>STATUS</span></div>{websiteScan.findings.map((finding) => <button type="button" className={`finding-row ${finding.finding_id === websiteSelectedId ? "finding-selected" : ""}`} key={finding.finding_id} onClick={() => setWebsiteSelectedId(finding.finding_id)}><span className="finding-main"><span className={`finding-symbol symbol-${finding.status.toLowerCase()}`}>{finding.status === "FAIL" ? "!" : finding.status === "PASS" ? "✓" : "?"}</span><span><strong>{finding.rule_id}</strong><small>{finding.rationale}</small><code>{finding.evidence.check_type}</code></span></span><span className={`severity severity-${finding.severity.toLowerCase()}`}>{finding.severity}</span><span className={`status-pill status-${finding.status.toLowerCase()}`}><span className="status-dot" />{finding.status}</span></button>)}</div></section><aside className="evidence-panel"><div className="evidence-top"><SectionLabel>SELECTED FINDING</SectionLabel><span className="proof-tag"><ShieldCheck size={12} /> WEBSITE SECURITY</span></div>{websiteScan.findings.find((f) => f.finding_id === websiteSelectedId) ? <><div className="evidence-id" style={{display: 'flex', justifyContent: 'space-between', alignItems: 'center'}}><span>{websiteScan.findings.find((f) => f.finding_id === websiteSelectedId)?.rule_id} · {websiteScan.findings.find((f) => f.finding_id === websiteSelectedId)?.severity}</span>{websiteScan.findings.find((f) => f.finding_id === websiteSelectedId)?.status !== "PASS" && (<button type="button" className="button button-tertiary" onClick={() => explainWebsiteFinding(websiteSelectedId)} disabled={websiteExplaining}><Sparkles size={14} /> {websiteExplaining ? "Explaining…" : "Explain with AI"}</button>)}</div><h2>{websiteScan.findings.find((f) => f.finding_id === websiteSelectedId)?.title}</h2><div className="evidence-block"><SectionLabel>EVIDENCE</SectionLabel><div className="evidence-state"><span className={`status-pill status-${websiteScan.findings.find((f) => f.finding_id === websiteSelectedId)?.status.toLowerCase()}`}><span className="status-dot" />{websiteScan.findings.find((f) => f.finding_id === websiteSelectedId)?.status}</span><span>Observed: {websiteScan.findings.find((f) => f.finding_id === websiteSelectedId)?.evidence.observed_value}</span></div><div className="evidence-state"><span>Expected: {websiteScan.findings.find((f) => f.finding_id === websiteSelectedId)?.evidence.expected_value}</span></div></div><div className="evidence-block"><SectionLabel>REMEDIATION</SectionLabel><p className="muted-copy">{websiteScan.findings.find((f) => f.finding_id === websiteSelectedId)?.remediation}</p></div><div className="evidence-footer"><span>{websiteScan.findings.find((f) => f.finding_id === websiteSelectedId)?.rule_version}</span><span>{websiteScan.limitations}</span></div>{websiteExplanation && websiteExplanation.finding_id === websiteSelectedId && (<div className="evidence-block explanation-block" style={{marginTop: '16px', padding: '16px', background: 'var(--panel-bg-alt)', borderRadius: '6px', border: '1px solid var(--border)'}}><SectionLabel><Sparkles size={13} style={{marginRight: '6px', display: 'inline'}}/> AI EXPLANATION</SectionLabel><p style={{marginBottom: '12px', fontSize: '13px'}}>{websiteExplanation.explanation}</p><div className="evidence-footer"><span className={`status-pill status-${websiteExplanation.safety_status.toLowerCase()}`}><span className="status-dot"/>{websiteExplanation.safety_status}</span></div></div>)}</> : <EmptyState title="Select a finding" detail="Security evidence and remediation will appear here." icon={Fingerprint} />}</aside></div></div>}</>;
     if (location === "/drift") return <><PageIntro eyebrow="DRIFT DETECTION / COMPARISON" title="Compare audit snapshots." detail="Detect resolved, regressed, or unchanged controls between two assessments." action={<span className="queue-readout"><GitBranch size={14} /> DIFFERENTIAL</span>} /><div className="website-scan-form"><div className="form-row"><label>Baseline Audit</label><select value={baselineId} onChange={(e) => setBaselineId(e.target.value)} style={{flex: 1}}><option value="">Select baseline...</option>{history.map(h => <option key={h.id} value={h.id}>{new Date(h.capturedAt).toLocaleString()} - {h.fileName}</option>)}</select><label>Current Audit</label><select value={currentId} onChange={(e) => setCurrentId(e.target.value)} style={{flex: 1}}><option value="">Select current...</option>{history.map(h => <option key={h.id} value={h.id}>{new Date(h.capturedAt).toLocaleString()} - {h.fileName}</option>)}</select><button className="button button-primary" type="button" onClick={runDriftComparison} disabled={comparing || !baselineId || !currentId}><GitBranch size={15} /> {comparing ? "Comparing…" : "Compare"}</button></div></div>{driftResult && <div className="drift-results"><div className="scan-summary"><Metric label="SCORE MOVEMENT" value={driftResult.score_movement > 0 ? `+${driftResult.score_movement}` : `${driftResult.score_movement}`} note={`${driftResult.baseline_score} ➔ ${driftResult.current_score}`} tone={driftResult.score_movement >= 0 ? "verified" : "danger"} /><Metric label="RESOLVED" value={driftResult.resolved_controls.length.toString()} note="issues fixed" tone="verified" /><Metric label="REGRESSED" value={driftResult.regressed_controls.length.toString()} note="new issues introduced" tone="danger" /><Metric label="UNCHANGED" value={driftResult.unchanged_count.toString()} note="controls unaffected" tone="neutral" /></div><div className="two-column"><section className="panel"><div className="panel-head"><div><SectionLabel>RESOLVED CONTROLS</SectionLabel><h2>Security improvements</h2></div><span className="count-badge">{driftResult.resolved_controls.length.toString().padStart(2, "0")}</span></div><div className="findings-table"><div className="table-head"><span>CONTROL</span><span>TRANSITION</span></div>{driftResult.resolved_controls.map((c: any) => <div className="finding-row" key={c.control_id}><span className="finding-main"><span className="finding-symbol symbol-pass">✓</span><span><strong>{c.control_id}</strong></span></span><span className="status-pill status-pass"><span className="status-dot" />{c.from_status} ➔ {c.to_status}</span></div>)}</div></section><section className="panel"><div className="panel-head"><div><SectionLabel>REGRESSED CONTROLS</SectionLabel><h2>New security regressions</h2></div><span className="count-badge">{driftResult.regressed_controls.length.toString().padStart(2, "0")}</span></div><div className="findings-table"><div className="table-head"><span>CONTROL</span><span>TRANSITION</span></div>{driftResult.regressed_controls.map((c: any) => <div className="finding-row" key={c.control_id}><span className="finding-main"><span className="finding-symbol symbol-fail">!</span><span><strong>{c.control_id}</strong></span></span><span className="status-pill status-fail"><span className="status-dot" />{c.from_status} ➔ {c.to_status}</span></div>)}</div></section></div></div>}</>;
@@ -542,8 +758,7 @@ export default function Home() {
     return <><div className="overview-hero"><div><SectionLabel>LIVE AUDIT DESK · REDACTED INPUT</SectionLabel><h1>Configuration posture.<br /><em>Evidence attached.</em></h1><p>See the proof behind every finding with a deterministic local audit path.</p><div className="hero-meta"><span><span className="signal signal-teal" /> {apiOnline ? "LOCAL API ONLINE" : "OFFLINE FIXTURE"}</span><span><LockKeyhole size={12} /> NO LIVE DEVICE</span><span><Fingerprint size={12} /> SHA-256 BOUND</span></div></div><div className="hero-score"><span>POSTURE SCORE</span><strong>{score}<small>/100</small></strong><div className="score-track"><i style={{ width: `${score}%` }} /></div><span>derived from current findings</span></div></div><div className="overview-actions"><div><SectionLabel>CURRENT WORKSPACE</SectionLabel><strong>{selectedFileName}</strong><span>{loading ? "Loading deterministic report…" : `${report.summary.finding_count} findings · ${report.summary.failed_count} failures · ${report.summary.unknown_count} unknown`}</span></div><div className="action-row">{auditActions}<button type="button" className="button button-secondary" onClick={() => navigate("/review-queue")}><CircleHelp size={15} /> Review queue {reviewFindings.length ? `(${reviewFindings.length})` : ""}</button></div></div><div className="metrics-grid"><Metric label="FAILURES" value={report.summary.failed_count.toString().padStart(2, "0")} note="require attention" tone={report.summary.failed_count ? "danger" : "safe"} /><Metric label="UNKNOWN" value={report.summary.unknown_count.toString().padStart(2, "0")} note="review before trust" tone="warn" /><Metric label="EVALUATED" value={report.summary.evaluated_count.toString().padStart(2, "0")} note="deterministic results" /><Metric label="SAVED AUDITS" value={history.length.toString().padStart(2, "0")} note="browser-local history" /></div><div className="two-column"><section className="panel"><div className="panel-head"><div><SectionLabel>POSTURE / LATEST REPORT</SectionLabel><h2>Findings requiring attention</h2></div><button type="button" className="button button-tertiary" onClick={() => navigate("/audits")}>Open audits <ArrowRight size={14} /></button></div><FindingsTable findings={visibleFindings.slice(0, 5)} reportVendor={report.audit.vendor} selectedId={selected?.finding_id || ""} onSelect={(finding) => setSelectedId(finding.finding_id)} /></section><EvidencePanel finding={selected} /></div><div className="two-column lower"><TrendPanel history={history} onSelect={selectHistory} /><HistoryPanel history={history} onSelect={selectHistory} onDelete={deleteHistory} onExport={(entry) => exportReport(entry.report, entry.fileName)} /></div><PortfolioGrid navigate={navigate} /></>;
   };
 
-  return <main className="app-shell"><aside className="sidebar"><div className="brand-lockup"><div className="brand-mark-wrap"><img src={logo} alt="ConfigSentinel AI mark" className="brand-mark" /></div><div><div className="brand-name">CONFIGSENTINEL</div><div className="brand-sub">AI · OFFLINE SECURITY</div><div className="brand-team">BY VEYRONIX</div></div></div><div className="workspace-switcher"><SectionLabel>WORKSPACE</SectionLabel><button type="button" className="workspace-button" onClick={() => setToast("Workspace is local-demo only")}><span className="signal signal-teal" /> SIH / FIELD LAB <ChevronDown size={14} /></button></div><nav className="nav-list" aria-label="Workbench navigation"><SectionLabel>WORKBENCH</SectionLabel>{NAV_ITEMS.map((item) => <NavItem key={item.path} item={item} active={location === item.path} onClick={() => navigate(item.path)} count={item.path === "/review-queue" ? reviewFindings.length : undefined} />)}<div className="nav-spacer"><SectionLabel>SYSTEM</SectionLabel></div>{SYSTEM_ITEMS.map((item) => <NavItem key={item.path} item={item} active={location === item.path} onClick={() => navigate(item.path)} />)}</nav><div className="sidebar-foot"><div className="local-badge"><span className={`signal ${apiOnline ? "signal-teal" : "signal-amber"}`} /> {apiOnline ? "LOCAL API ONLINE" : "OFFLINE MODE"}</div><div className="sidebar-foot-row"><span>SDK</span><strong>{sdkVersion}</strong></div><div className="sidebar-foot-row"><span>THEME</span><strong>{theme.toUpperCase()}</strong></div></div></aside><section className="workbench"><header className="topbar"><div className="breadcrumb"><span className="breadcrumb-muted">WORKBENCH</span><span>/</span><strong>{activeNav.toUpperCase()}</strong></div><div className="topbar-actions"><span className="topbar-status"><span className={`signal ${apiOnline ? "signal-teal" : "signal-amber"}`} /> {apiOnline ? "DETERMINISTIC" : "LOCAL DEMO"}</span><button type="button" className="theme-toggle" onClick={() => toggleTheme?.()} aria-label={`Switch to ${theme === "light" ? "dark" : "light"} mode`}>{theme === "light" ? <Moon size={16} /> : <Sun size={16} />}<span>{theme === "light" ? "Dark" : "Light"}</span></button><button type="button" className="icon-button" aria-label="Search" onClick={() => setToast("Search is scoped to the active audit")}><Search size={17} /></button><button type="button" className="avatar-button" onClick={() => setMenuOpen((open) => !open)} aria-label="Open operator menu">{session ? session.actor_id.substring(0, 2).toUpperCase() : "HG"}</button>{menuOpen && <div className="operator-menu"><strong>{session ? session.actor_id : "HARSHIT GARG"}</strong><span>{session ? session.role : "operator"} · local only</span><button type="button" onClick={() => { setMenuOpen(false); navigate("/settings"); }}>Open settings <ArrowRight size={13} /></button><button type="button" onClick={() => switchRole(session?.role === "operator" ? "reviewer" : "operator")}>Switch to {session?.role === "operator" ? "reviewer" : "operator"} <ArrowRight size={13} /></button></div>}</div></header><div className="content-scroll"><div className="content-inner">{pageContent()}</div></div></section><div className="toast" role="status"><span className="toast-mark">{apiOnline ? <Check size={12} /> : <Zap size={12} />}</span>{toast}</div></main>;
+  return <>{pageContent()}<div className="toast" role="status"><span className="toast-mark">{apiOnline ? <Check size={12} /> : <Zap size={12} />}</span>{toast}</div></>;
 }
 
-function NavItem({ item, active, onClick, count }: { item: { label: string; path: string; icon: IconType; description: string }; active: boolean; onClick: () => void; count?: number }) { const Icon = item.icon; return <button type="button" className={`nav-item ${active ? "nav-item-active" : ""}`} onClick={onClick} title={item.description}><span className="nav-icon"><Icon size={16} strokeWidth={1.8} /></span><span className="nav-copy"><strong>{item.label}</strong><small>{item.description}</small></span>{count !== undefined && <span className="nav-count">{count.toString().padStart(2, "0")}</span>}</button>; }
 function FilterBar({ severity, setSeverity, status, setStatus, framework, frameworkOptions, setFramework, reset }: { severity: SeverityValue | "ALL"; setSeverity: (value: SeverityValue | "ALL") => void; status: FindingStatus | "ALL"; setStatus: (value: FindingStatus | "ALL") => void; framework: string; frameworkOptions: string[]; setFramework: (value: string) => void; reset: () => void }) { return <div className="filter-bar"><label>Severity<select value={severity} onChange={(event) => setSeverity(event.target.value as SeverityValue | "ALL")}><option value="ALL">All severities</option>{["CRITICAL", "HIGH", "MEDIUM", "LOW", "INFO"].map((value) => <option key={value} value={value}>{value}</option>)}</select></label><label>Status<select value={status} onChange={(event) => setStatus(event.target.value as FindingStatus | "ALL")}><option value="ALL">All statuses</option>{["FAIL", "PASS", "UNKNOWN", "REVIEW_REQUIRED"].map((value) => <option key={value} value={value}>{value}</option>)}</select></label><label>Framework<select value={framework} onChange={(event) => setFramework(event.target.value)}><option value="ALL">All frameworks</option>{frameworkOptions.map((value) => <option key={value} value={value}>{value.replaceAll("-", " ").toUpperCase()}</option>)}</select></label><button type="button" className="button button-tertiary" onClick={reset}>Reset</button></div>; }

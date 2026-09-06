@@ -597,6 +597,110 @@ def create_app(*, allowed_origins: list[str] | None = None) -> FastAPI:
     def me(session: dict[str, Any] = Depends(get_current_session)) -> dict[str, Any]:
         return session
 
+    # ── OIDC / SSO routes ────────────────────────────────────────────────────────
+    # These endpoints become active only when CONFIGSENTINEL_OIDC_ISSUER is set.
+    # In local/demo mode they return 503 with a clear message so nothing breaks.
+
+    _OIDC_ISSUER = os.getenv("CONFIGSENTINEL_OIDC_ISSUER", "").strip()
+    _OIDC_CLIENT_ID = os.getenv("CONFIGSENTINEL_OIDC_CLIENT_ID", "").strip()
+    _OIDC_CLIENT_SECRET = os.getenv("CONFIGSENTINEL_OIDC_CLIENT_SECRET", "").strip()
+    _OIDC_REDIRECT_URI = os.getenv("CONFIGSENTINEL_OIDC_REDIRECT_URI", "http://localhost:8000/api/auth/oidc/callback").strip()
+
+    @app.get("/api/auth/oidc/login", tags=["auth"])
+    def oidc_login() -> dict[str, Any]:
+        """Initiate an OIDC authorization code flow.
+
+        Returns the authorization URL when CONFIGSENTINEL_OIDC_ISSUER is set.
+        Returns 503 in local/demo mode.
+        """
+        if not _OIDC_ISSUER or not _OIDC_CLIENT_ID:
+            raise HTTPException(
+                status_code=503,
+                detail="OIDC is not configured. Set CONFIGSENTINEL_OIDC_ISSUER and "
+                       "CONFIGSENTINEL_OIDC_CLIENT_ID to enable enterprise SSO.",
+            )
+        try:
+            from authlib.integrations.httpx_client import AsyncOAuth2Client  # type: ignore
+        except ImportError:
+            raise HTTPException(status_code=503, detail="authlib not installed")
+
+        state = secrets.token_urlsafe(32)
+        authorization_url = (
+            f"{_OIDC_ISSUER.rstrip('/')}/authorize"
+            f"?response_type=code"
+            f"&client_id={_OIDC_CLIENT_ID}"
+            f"&redirect_uri={_OIDC_REDIRECT_URI}"
+            f"&scope=openid+email+profile"
+            f"&state={state}"
+        )
+        return {
+            "authorization_url": authorization_url,
+            "state": state,
+            "mode": "oidc",
+            "note": "Redirect the user to authorization_url to begin the SSO flow.",
+        }
+
+    @app.get("/api/auth/oidc/callback", tags=["auth"])
+    def oidc_callback(code: str | None = None, state: str | None = None, error: str | None = None, response: Response = None) -> dict[str, Any]:  # type: ignore[assignment]
+        """Handle the OIDC authorization code callback.
+
+        Exchanges the code for tokens and creates a server-issued HttpOnly session.
+        """
+        if not _OIDC_ISSUER or not _OIDC_CLIENT_ID:
+            raise HTTPException(status_code=503, detail="OIDC is not configured.")
+        if error:
+            raise HTTPException(status_code=400, detail=f"OIDC error: {error}")
+        if not code:
+            raise HTTPException(status_code=400, detail="Missing authorization code.")
+
+        try:
+            import httpx  # already a dependency via fastapi extras
+            token_url = f"{_OIDC_ISSUER.rstrip('/')}/token"
+            resp = httpx.post(
+                token_url,
+                data={
+                    "grant_type": "authorization_code",
+                    "code": code,
+                    "redirect_uri": _OIDC_REDIRECT_URI,
+                    "client_id": _OIDC_CLIENT_ID,
+                    "client_secret": _OIDC_CLIENT_SECRET,
+                },
+                timeout=10,
+            )
+            resp.raise_for_status()
+            tokens = resp.json()
+            # Decode the ID token claims (without signature verification for local demo;
+            # production deployments must add full JWKS verification).
+            import base64 as _b64
+            import json as _json
+            id_token = tokens.get("id_token", "")
+            _parts = id_token.split(".")
+            if len(_parts) >= 2:
+                padding = 4 - len(_parts[1]) % 4
+                claims_bytes = _b64.urlsafe_b64decode(_parts[1] + "=" * padding)
+                claims = _json.loads(claims_bytes)
+            else:
+                claims = {}
+
+            sub = claims.get("sub", "oidc-user")
+            email = claims.get("email", sub)
+            role_value = "operator"  # Default role; map via group claims in production
+            session_token = secrets.token_hex(32)
+            MOCK_SESSIONS[session_token] = {
+                "actor_id": email,
+                "role": role_value,
+                "workspace_id": "oidc-workspace",
+                "oidc": "true",
+            }
+            if response:
+                response.set_cookie(key="session_token", value=session_token, httponly=True, samesite="lax", path="/")
+            return {"status": "ok", "actor_id": email, "role": role_value, "oidc": True}
+        except Exception as exc:
+            raise HTTPException(status_code=502, detail=f"OIDC token exchange failed: {exc}") from exc
+
+    # ── End OIDC routes ───────────────────────────────────────────────────────────
+
+
     @app.post("/api/approval/request", tags=["audit"])
     def approval_request(
         payload: ApprovalRequestPayload,
