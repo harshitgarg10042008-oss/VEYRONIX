@@ -5,7 +5,7 @@ import {
   Activity, AlertTriangle, ArrowRight, Check, ChevronDown, ChevronRight,
   CircleHelp, Clock3, ClipboardCheck, Download, FileCheck2, FileText,
   Fingerprint, GitBranch, Layers3, LifeBuoy, LockKeyhole, Moon, Network,
-  PanelRight, Play, Search, Server, Settings2, ShieldCheck, Sun, TerminalSquare,
+  PanelRight, Play, Search, Scale, Server, Settings2, ShieldCheck, Sun, TerminalSquare,
   Upload, Zap,
 } from "lucide-react";
 import { useTheme } from "../contexts/ThemeContext";
@@ -16,46 +16,49 @@ const API_BASE = (import.meta.env.VITE_API_BASE_URL || "").replace(/\/$/, "");
 type NavItemDef = { label: string; path: string; icon: any; description: string };
 
 const CORE_ITEMS: NavItemDef[] = [
-  { label: "Overview",            path: "/",               icon: Layers3,       description: "Posture at a glance" },
-  { label: "Asset Inventory",     path: "/inventory",      icon: Server,        description: "Manage tracked devices" },
-  { label: "Continuous Monitoring", path: "/monitoring",   icon: Activity,      description: "Scheduled checks" },
-  { label: "Website Security",    path: "/website-security", icon: ShieldCheck, description: "Scan website posture" },
+  { label: "Overview", path: "/", icon: Layers3, description: "Posture at a glance" },
+  { label: "Asset Inventory", path: "/inventory", icon: Server, description: "Manage tracked devices" },
+  { label: "Continuous Monitoring", path: "/monitoring", icon: Activity, description: "Scheduled checks" },
+  { label: "Website Security", path: "/website-security", icon: ShieldCheck, description: "Scan website posture" },
 ];
 
 const ASSURANCE_ITEMS: NavItemDef[] = [
-  { label: "Audits",           path: "/audits",          icon: ClipboardCheck,  description: "Run and compare audits" },
-  { label: "Assurance Chain",  path: "/assurance-chain", icon: LockKeyhole,    description: "Verify evidence timeline" },
-  { label: "Review Queue",     path: "/review-queue",    icon: CircleHelp,     description: "Resolve unknown evidence" },
-  { label: "Remediation",      path: "/remediation",     icon: TerminalSquare, description: "Review proof-carrying fixes" },
-  { label: "Drift Detection",  path: "/drift",           icon: GitBranch,      description: "Compare configuration changes" },
-  { label: "Notary Console",   path: "/notary",          icon: LockKeyhole,    description: "Sign & verify evidence" },
-  { label: "Evidence Exchange", path: "/exchange",       icon: Download,       description: "Share signed findings" },
-  { label: "Evidence Freshness", path: "/freshness",     icon: Clock3,         description: "Verify data age" },
+  { label: "Audits", path: "/audits", icon: ClipboardCheck, description: "Run and compare audits" },
+  { label: "Assurance Chain", path: "/assurance-chain", icon: LockKeyhole, description: "Verify evidence timeline" },
+  { label: "Review Queue", path: "/review-queue", icon: CircleHelp, description: "Resolve unknown evidence" },
+  { label: "Remediation", path: "/remediation", icon: TerminalSquare, description: "Review proof-carrying fixes" },
+  { label: "Drift Detection", path: "/drift", icon: GitBranch, description: "Compare configuration changes" },
+  { label: "Notary Console", path: "/notary", icon: LockKeyhole, description: "Sign & verify evidence" },
+  { label: "Evidence Exchange", path: "/exchange", icon: Download, description: "Share signed findings" },
+  { label: "Evidence Freshness", path: "/freshness", icon: Clock3, description: "Verify data age" },
 ];
 
 const LAB_ITEMS: NavItemDef[] = [
-  { label: "Blast Radius",       path: "/blast-radius",      icon: AlertTriangle, description: "Assess change impact" },
-  { label: "Mutation Lab",       path: "/mutation-lab",      icon: Zap,           description: "Evaluate rule robustness" },
-  { label: "Attack Graph",       path: "/graph",             icon: Network,       description: "Simulate exploit paths" },
-  { label: "Threat Models",      path: "/threat-model",      icon: AlertTriangle, description: "Compile code to STRIDE" },
-  { label: "Counterfactuals",    path: "/counterfactual",    icon: Play,          description: "Test hypothetical rules" },
-  { label: "Parser Differential", path: "/parser-diff",     icon: GitBranch,     description: "Find ambiguity gaps" },
-  { label: "Control Packs",      path: "/control-packs",    icon: FileCheck2,    description: "Inspect deterministic rules" },
-  { label: "Knowledge Graph",    path: "/knowledge-graph",  icon: Network,       description: "Query institutional memory" },
-  { label: "Incident Timeline",  path: "/timeline",         icon: Clock3,        description: "Trace post-incident state" },
-  { label: "Decision Quality",   path: "/decision-quality", icon: Check,         description: "Analyze approval stats" },
-  { label: "Secrets Gate",       path: "/secrets-gate",     icon: ShieldCheck,   description: "Verify redaction" },
-  { label: "Supply Chain",       path: "/supply-chain",     icon: FileText,      description: "Inspect SBOM evidence" },
-  { label: "Provenance Tracker", path: "/provenance",       icon: Fingerprint,   description: "Verify artifact origin" },
-  { label: "API Contracts",      path: "/api-contract",     icon: Network,       description: "Verify schema vs runtime" },
-  { label: "Resilience Drills",  path: "/resilience",       icon: Activity,      description: "Schedule failover checks" },
-  { label: "Technical Debt",     path: "/debt",             icon: AlertTriangle, description: "Track posture debt" },
-  { label: "Regulatory Export",  path: "/regulatory",       icon: FileText,      description: "Export to OSCAL" },
+  { label: "Blast Radius", path: "/blast-radius", icon: AlertTriangle, description: "Assess change impact" },
+  { label: "Mutation Lab", path: "/mutation-lab", icon: Zap, description: "Evaluate rule robustness" },
+  { label: "Attack Graph", path: "/graph", icon: Network, description: "Simulate exploit paths" },
+  { label: "Threat Models", path: "/threat-model", icon: AlertTriangle, description: "Compile code to STRIDE" },
+  { label: "Counterfactuals", path: "/counterfactual", icon: Play, description: "Test hypothetical rules" },
+  { label: "Parser Differential", path: "/parser-diff", icon: GitBranch, description: "Find ambiguity gaps" },
+  { label: "Control Packs", path: "/control-packs", icon: FileCheck2, description: "Inspect deterministic rules" },
+  { label: "Knowledge Graph", path: "/knowledge-graph", icon: Network, description: "Query institutional memory" },
+  { label: "Incident Timeline", path: "/timeline", icon: Clock3, description: "Trace post-incident state" },
+  { label: "Decision Quality", path: "/decision-quality", icon: Check, description: "Analyze approval stats" },
+  { label: "Secrets Gate", path: "/secrets-gate", icon: ShieldCheck, description: "Verify redaction" },
+  { label: "Supply Chain", path: "/supply-chain", icon: FileText, description: "Inspect SBOM evidence" },
+  { label: "Provenance Tracker", path: "/provenance", icon: Fingerprint, description: "Verify artifact origin" },
+  { label: "API Contracts", path: "/api-contract", icon: Network, description: "Verify schema vs runtime" },
+  { label: "Resilience Drills", path: "/resilience", icon: Activity, description: "Schedule failover checks" },
+  { label: "Technical Debt", path: "/debt", icon: AlertTriangle, description: "Track posture debt" },
+  { label: "Regulatory Export", path: "/regulatory", icon: FileText, description: "Export to OSCAL" },
 ];
 
 const SYSTEM_ITEMS: NavItemDef[] = [
-  { label: "Settings",       path: "/settings",       icon: Settings2, description: "Local preferences" },
-  { label: "Operator Guide", path: "/operator-guide", icon: LifeBuoy,  description: "Safe demo sequence" },
+  { label: "Settings", path: "/settings", icon: Settings2, description: "Local preferences" },
+  { label: "Operator Guide", path: "/operator-guide", icon: LifeBuoy, description: "Safe demo sequence" },
+  { label: "Privacy Policy", path: "/privacy", icon: ShieldCheck, description: "Data handling practices" },
+  { label: "Terms & Conditions", path: "/terms", icon: Scale, description: "Terms of service" },
+  { label: "Security Policy", path: "/policy", icon: ShieldCheck, description: "Security principles" },
 ];
 
 const ALL_PATHS = [...CORE_ITEMS, ...ASSURANCE_ITEMS, ...LAB_ITEMS, ...SYSTEM_ITEMS];
@@ -87,31 +90,36 @@ function NavItem({ item, active, onClick, count }: {
   );
 }
 
-function NavGroup({ label, items, activePath, onNavigate, defaultOpen = false, reviewCount }: {
+function NavGroup({ label, items, activePath, onNavigate, defaultOpen = false, reviewCount, searchTerm }: {
   label: string;
   items: NavItemDef[];
   activePath: string;
   onNavigate: (path: string) => void;
   defaultOpen?: boolean;
   reviewCount?: number;
+  searchTerm?: string;
 }) {
+  const filteredItems = searchTerm ? items.filter(i => i.label.toLowerCase().includes(searchTerm.toLowerCase()) || i.description.toLowerCase().includes(searchTerm.toLowerCase())) : items;
   const hasActive = items.some((i) => i.path === activePath);
   const [open, setOpen] = useState(defaultOpen || hasActive);
+
+  const isOpen = searchTerm ? filteredItems.length > 0 : open;
+  if (searchTerm && filteredItems.length === 0) return null;
 
   return (
     <div className="nav-group">
       <button
         type="button"
-        className={`nav-group-toggle ${open ? "nav-group-open" : ""}`}
+        className={`nav-group-toggle ${isOpen ? "nav-group-open" : ""}`}
         onClick={() => setOpen((o) => !o)}
-        aria-expanded={open}
+        aria-expanded={isOpen}
       >
         <span className="nav-group-label">{label}</span>
-        {open ? <ChevronDown size={12} /> : <ChevronRight size={12} />}
+        {isOpen ? <ChevronDown size={12} /> : <ChevronRight size={12} />}
       </button>
-      {open && (
+      {isOpen && (
         <div className="nav-group-items">
-          {items.map((item) => (
+          {filteredItems.map((item) => (
             <NavItem
               key={item.path}
               item={item}
@@ -147,9 +155,11 @@ export default function Layout({
   const { theme, toggleTheme } = useTheme();
   const [menuOpen, setMenuOpen] = useState(false);
   const [searchOpen, setSearchOpen] = useState(false);
+  const [sidebarSearch, setSidebarSearch] = useState("");
 
   const navigate = (path: string) => { setLocation(path); setMenuOpen(false); };
   const activeNav = navLabel(location);
+  const filteredSystemItems = sidebarSearch ? SYSTEM_ITEMS.filter(i => i.label.toLowerCase().includes(sidebarSearch.toLowerCase()) || i.description.toLowerCase().includes(sidebarSearch.toLowerCase())) : SYSTEM_ITEMS;
 
   return (
     <main className="app-shell">
@@ -173,6 +183,19 @@ export default function Layout({
           </button>
         </div>
 
+        <div style={{ padding: "16px 8px 0" }}>
+          <div style={{ display: "flex", alignItems: "center", gap: "8px", background: "var(--rail-2)", padding: "8px 10px", borderRadius: "var(--radius)", border: "1px solid var(--rail-line)" }}>
+            <Search size={14} color="var(--rail-muted)" />
+            <input
+              type="search"
+              placeholder="Filter menu..."
+              value={sidebarSearch}
+              onChange={(e) => setSidebarSearch(e.target.value)}
+              style={{ background: "transparent", border: "none", color: "var(--rail-text)", fontSize: "12px", outline: "none", width: "100%" }}
+            />
+          </div>
+        </div>
+
         <nav className="nav-list" aria-label="Workbench navigation">
           <NavGroup
             label="CORE SECURITY"
@@ -180,6 +203,7 @@ export default function Layout({
             activePath={location}
             onNavigate={navigate}
             defaultOpen
+            searchTerm={sidebarSearch}
           />
           <NavGroup
             label="ASSURANCE & EVIDENCE"
@@ -187,18 +211,22 @@ export default function Layout({
             activePath={location}
             onNavigate={navigate}
             reviewCount={reviewCount}
+            searchTerm={sidebarSearch}
           />
           <NavGroup
             label="ADVANCED LAB"
             items={LAB_ITEMS}
             activePath={location}
             onNavigate={navigate}
+            searchTerm={sidebarSearch}
           />
 
-          <div className="nav-spacer">
-            <div className="section-label">SYSTEM</div>
-          </div>
-          {SYSTEM_ITEMS.map((item) => (
+          {(!sidebarSearch || filteredSystemItems.length > 0) && (
+            <div className="nav-spacer">
+              <div className="section-label">SYSTEM</div>
+            </div>
+          )}
+          {filteredSystemItems.map((item) => (
             <NavItem
               key={item.path}
               item={item}

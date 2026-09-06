@@ -28,6 +28,9 @@ import DebtPage from "./pages/DebtPage";
 import ExchangePage from "./pages/ExchangePage";
 import RegulatoryPage from "./pages/RegulatoryPage";
 import KnowledgeGraphPage from "./pages/KnowledgeGraphPage";
+import PrivacyPolicy from "./pages/PrivacyPolicy";
+import TermsAndConditions from "./pages/TermsAndConditions";
+import PolicyPage from "./pages/PolicyPage";
 
 function Router() {
   return (
@@ -66,6 +69,11 @@ function Router() {
         <Route path="/exchange" component={ExchangePage} />
         <Route path="/regulatory" component={RegulatoryPage} />
         <Route path="/knowledge-graph" component={KnowledgeGraphPage} />
+
+        {/* Legal Pages */}
+        <Route path="/privacy" component={PrivacyPolicy} />
+        <Route path="/terms" component={TermsAndConditions} />
+        <Route path="/policy" component={PolicyPage} />
 
         <Route path="/404" component={NotFound} />
         <Route component={NotFound} />
