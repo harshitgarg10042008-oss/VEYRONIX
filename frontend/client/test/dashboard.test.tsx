@@ -44,7 +44,7 @@ describe('ConfigSentinel Home Page', () => {
     render(<Home />);
     
     await waitFor(() => {
-      expect(screen.getByText('OFFLINE MODE', { exact: false })).toBeInTheDocument();
+      expect(screen.getByText('OFFLINE FIXTURE', { exact: false })).toBeInTheDocument();
     });
   });
 
