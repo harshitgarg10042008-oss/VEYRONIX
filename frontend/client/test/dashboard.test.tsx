@@ -48,6 +48,27 @@ describe('ConfigSentinel Home Page', () => {
     });
   });
 
+  it('renders the command center and assurance journey overview', async () => {
+    (global.fetch as any).mockImplementation((url: string) => {
+      if (url.includes('/api/health')) return Promise.resolve({ ok: true, json: () => Promise.resolve(mockHealth) });
+      if (url.includes('/api/control-pack')) return Promise.resolve({ ok: true, json: () => Promise.resolve(mockControlPack) });
+      if (url.includes('/api/auth/me')) return Promise.resolve({ ok: true, json: () => Promise.resolve({ actor_id: 'local-operator', role: 'operator', workspace_id: 'w1' }) });
+      if (url.includes('/api/audit')) return Promise.resolve({ ok: true, json: () => Promise.resolve(mockReport) });
+      if (url.includes('/api/detect')) return Promise.resolve({ ok: true, json: () => Promise.resolve({ selected_vendor: 'cisco_ios', confidence: 1.0, ambiguous: false, reason: 'ok', candidates: [] }) });
+      return Promise.resolve({ ok: true, json: () => Promise.resolve({}) });
+    });
+
+    render(<Home />);
+
+    await waitFor(() => {
+      expect(screen.getByText(/Security Assurance Command Center/i)).toBeInTheDocument();
+    });
+
+    expect(screen.getByText(/Assurance Journey/i)).toBeInTheDocument();
+    expect(screen.getByText(/Next Best Action/i)).toBeInTheDocument();
+    expect(screen.getByText(/Deterministic/i)).toBeInTheDocument();
+  });
+
   it('loads dashboard, handles UNKNOWN and FAIL findings correctly, and computes score', async () => {
     (global.fetch as any).mockImplementation((url: string) => {
       if (url.includes('/api/health')) return Promise.resolve({ ok: true, json: () => Promise.resolve(mockHealth) });
