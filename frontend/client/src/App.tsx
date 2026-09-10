@@ -6,6 +6,7 @@ import { Route, Switch } from "wouter";
 import ErrorBoundary from "./components/ErrorBoundary";
 import Layout from "./components/Layout";
 import { ThemeProvider } from "./contexts/ThemeContext";
+import { CapabilityProvider } from "./contexts/CapabilityContext";
 import Home from "./pages/Home";
 import AssuranceDashboard from "./pages/AssuranceDashboard";
 
@@ -85,12 +86,14 @@ function Router() {
 export default function App() {
   return (
     <ErrorBoundary>
-      <ThemeProvider defaultTheme="light" switchable>
-        <TooltipProvider>
-          <Toaster />
-          <Router />
-        </TooltipProvider>
-      </ThemeProvider>
+      <CapabilityProvider>
+        <ThemeProvider defaultTheme="light" switchable>
+          <TooltipProvider>
+            <Toaster />
+            <Router />
+          </TooltipProvider>
+        </ThemeProvider>
+      </CapabilityProvider>
     </ErrorBoundary>
   );
 }

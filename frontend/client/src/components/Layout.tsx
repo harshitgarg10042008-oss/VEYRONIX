@@ -6,9 +6,10 @@ import {
   CircleHelp, Clock3, ClipboardCheck, Download, FileCheck2, FileText,
   Fingerprint, GitBranch, Layers3, LifeBuoy, LockKeyhole, Moon, Network,
   PanelRight, Play, Search, Scale, Server, Settings2, ShieldCheck, Sun, TerminalSquare,
-  Upload, Zap,
+  Upload, Zap, Database, Cpu,
 } from "lucide-react";
 import { useTheme } from "../contexts/ThemeContext";
+import { useCapabilities } from "../contexts/CapabilityContext";
 
 const logo = "/brand/configsentinel-mark-final.png";
 const API_BASE = (import.meta.env.VITE_API_BASE_URL || "").replace(/\/$/, "");
@@ -153,6 +154,7 @@ export default function Layout({
 }: LayoutProps) {
   const [location, setLocation] = useLocation();
   const { theme, toggleTheme } = useTheme();
+  const capabilities = useCapabilities();
   const [menuOpen, setMenuOpen] = useState(false);
   const [searchOpen, setSearchOpen] = useState(false);
   const [sidebarSearch, setSidebarSearch] = useState("");
@@ -237,13 +239,22 @@ export default function Layout({
         </nav>
 
         <div className="sidebar-foot">
-          <div className="local-badge">
-            <span className={`signal ${apiOnline ? "signal-teal" : "signal-amber"}`} />
-            {apiOnline ? "LOCAL API ONLINE" : "OFFLINE MODE"}
+          {/* Evidence mode indicator */}
+          <div className="local-badge" title={capabilities.apiOnline ? `Backend v${capabilities.manifest?.app_version ?? '—'} — live data` : 'No backend — using fixture/demo data'}>
+            <span className={`signal ${capabilities.apiOnline ? "signal-teal" : "signal-amber"}`} />
+            {capabilities.apiOnline ? "LIVE API" : "FIXTURE / DEMO"}
           </div>
           <div className="sidebar-foot-row">
-            <span>SDK</span>
-            <strong>{sdkVersion}</strong>
+            <span>API</span>
+            <strong>{capabilities.manifest?.app_version ?? sdkVersion}</strong>
+          </div>
+          <div className="sidebar-foot-row">
+            <span><Cpu size={10} style={{display:'inline',verticalAlign:'middle',marginRight:2}} />CONTROLS</span>
+            <strong>{capabilities.manifest?.total_control_count ?? '—'}</strong>
+          </div>
+          <div className="sidebar-foot-row">
+            <span><Database size={10} style={{display:'inline',verticalAlign:'middle',marginRight:2}} />VENDORS</span>
+            <strong>{capabilities.manifest?.vendor_count ?? '—'}</strong>
           </div>
           <div className="sidebar-foot-row">
             <span>THEME</span>
@@ -262,8 +273,8 @@ export default function Layout({
           </div>
           <div className="topbar-actions">
             <span className="topbar-status">
-              <span className={`signal ${apiOnline ? "signal-teal" : "signal-amber"}`} />
-              {apiOnline ? "DETERMINISTIC" : "LOCAL DEMO"}
+              <span className={`signal ${capabilities.apiOnline ? "signal-teal" : "signal-amber"}`} />
+              {capabilities.apiOnline ? "DETERMINISTIC" : "LOCAL DEMO"}
             </span>
             <button
               type="button"

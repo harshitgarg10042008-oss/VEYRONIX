@@ -85,6 +85,7 @@ from .api_contract import (
     SecuritySchemeType,
 )
 from .governance import ApprovalLedger as _Ledger  # re-use ledger for decision quality
+from .capabilities import build_capabilities, APP_VERSION
 
 try:
     from fastapi import Cookie, Depends, FastAPI, HTTPException, Request, Response
@@ -418,13 +419,27 @@ def create_app(*, allowed_origins: list[str] | None = None) -> FastAPI:
 
     @app.get("/api/health")
     def health() -> dict[str, str | bool]:
+        llm_enabled = os.getenv("CONFIGSENTINEL_LLM_ENABLED", "false").lower() == "true"
         return {
             "status": "ok",
-            "version": "0.3.0",
+            "version": APP_VERSION,
             "deterministic": True,
             "device_connections": False,
-            "llm_enabled": False,
+            "llm_enabled": llm_enabled,
         }
+
+    @app.get("/api/capabilities", tags=["audit"])
+    def capabilities() -> dict[str, Any]:
+        """Return the versioned capability manifest.
+
+        The frontend must consume this endpoint rather than hardcoding vendor counts,
+        control counts, framework IDs, or feature flags.
+        """
+        try:
+            manifest = build_capabilities()
+            return manifest.as_dict()
+        except Exception as exc:
+            raise HTTPException(status_code=500, detail=f"capability manifest error: {exc}") from exc
 
     @app.post("/api/audit", tags=["audit"])
     def audit(payload: AuditPayload) -> dict[str, Any]:

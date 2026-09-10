@@ -53,12 +53,16 @@ def test_api_exposes_authoritative_control_pack_metadata():
     assert payload["version"]
     assert payload["control_count"] == len(payload["controls"])
     assert payload["vendor_count"] >= 1
-    assert len(payload["controls"]) == 7
+    # Phase 2: control pack expanded from 7 to 24 controls
+    assert len(payload["controls"]) >= 20, (
+        f"Expected >= 20 controls after Phase 2 expansion, got {len(payload['controls'])}"
+    )
     assert {item["control_id"] for item in payload["controls"]} >= {
         "NET-MGMT-TELNET-001",
         "NET-MGMT-HTTP-001",
     }
     assert all(item["applicable_vendors"] for item in payload["controls"])
+
 
 
 def test_detect_payload_is_typed_and_bounded():
