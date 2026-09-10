@@ -177,6 +177,91 @@ EXPLANATION_SCHEMA: dict[str, Any] = {
     "additionalProperties": False,
 }
 
+CLASSIFY_UNKNOWN_SCHEMA: dict[str, Any] = {
+    "type": "object",
+    "properties": {
+        "candidate_control_ids": {
+            "type": "array",
+            "items": {"type": "string", "maxLength": 64},
+            "minItems": 1,
+            "maxItems": 10,
+        },
+        "normalized_intent": {"type": "string", "maxLength": 200},
+        "explanation": {"type": "string", "maxLength": 2000},
+        "confidence": {"type": "number", "minimum": 0, "maximum": 1},
+        "evidence_ids": {
+            "type": "array",
+            "items": {"type": "string", "maxLength": 64},
+            "minItems": 1,
+            "maxItems": 20,
+        },
+        "uncertainty_reasons": {
+            "type": "array",
+            "items": {"type": "string", "maxLength": 300},
+            "minItems": 1,
+            "maxItems": 10,
+        },
+        "recommended_human_action": {"type": "string", "maxLength": 500},
+        "model": {"type": "string", "maxLength": 80},
+        "prompt_version": {"type": "string", "maxLength": 80},
+        "schema_version": {"type": "string", "maxLength": 20},
+    },
+    "required": [
+        "candidate_control_ids",
+        "normalized_intent",
+        "explanation",
+        "confidence",
+        "evidence_ids",
+        "uncertainty_reasons",
+        "recommended_human_action",
+        "model",
+        "prompt_version",
+        "schema_version",
+    ],
+    "additionalProperties": False,
+}
+
+
+class OfflineUnknownClassificationProvider:
+    def complete(
+        self,
+        *,
+        system: str,
+        user: str,
+        response_schema: Mapping[str, Any],
+        timeout_s: float,
+    ) -> str:
+        payload = json.loads(user)
+        evidence = payload.get("unknown_evidence", [])
+        candidate_ids = payload.get("candidate_control_ids", [])
+        if not isinstance(evidence, list) or not evidence:
+            raise LLMError("offline classification input is invalid")
+        if not isinstance(candidate_ids, list) or not candidate_ids:
+            raise LLMError("candidate_control_ids are required")
+        evidence_ids = [
+            str(item.get("evidence_id", "evidence"))
+            for item in evidence
+            if isinstance(item, dict) and item.get("evidence_id")
+        ]
+        return json.dumps(
+            {
+                "candidate_control_ids": candidate_ids[:5],
+                "normalized_intent": "administrative-access-hardening",
+                "explanation": "The deterministic engine reported an unresolved finding because the configuration contains unsupported vendor syntax or ambiguous management policy text. The candidate control remains advisory only and cannot override the deterministic verdict.",
+                "confidence": 0.86,
+                "evidence_ids": evidence_ids[:10],
+                "uncertainty_reasons": [
+                    "Unsupported or ambiguous vendor syntax was detected.",
+                    "The deterministic engine remains authoritative for the current verdict.",
+                ],
+                "recommended_human_action": "Have a human confirm the vendor-specific management policy and validate whether the process should be restricted to SSH-only access before approving any change.",
+                "model": "deterministic-offline",
+                "prompt_version": "unknown-classify-v1",
+                "schema_version": "1.0.0",
+            },
+            ensure_ascii=False,
+        )
+
 
 class LLMCopilot:
     """Narrow LLM tasks with a deterministic-evidence boundary."""
@@ -200,6 +285,118 @@ class LLMCopilot:
             config=LLMConfig(enabled=True),
             redactor=redactor,
         )
+
+    def classify_unknown_syntax(
+        self,
+        *,
+        vendor_candidates: list[str],
+        deterministic_status: str,
+        parser_metadata: dict[str, Any],
+        unknown_evidence: list[dict[str, Any]],
+        candidate_control_ids: list[str],
+    ) -> dict[str, Any]:
+        if deterministic_status not in {"UNKNOWN", "REVIEW_REQUIRED", "FAIL"}:
+            raise LLMError("only UNKNOWN, REVIEW_REQUIRED, or FAIL findings may use AI classification")
+        if not vendor_candidates or not candidate_control_ids:
+            raise LLMError("vendor_candidates and candidate_control_ids are required")
+        if any(len(str(item)) > 512 for item in json.dumps(unknown_evidence, ensure_ascii=False)):
+            raise LLMError("unknown evidence exceeds the bounded safety limit")
+        system = (
+            "You are a bounded security-assistant for unknown syntax classification. "
+            "Never override the deterministic verdict, never emit PASS, never suggest executable commands, "
+            "and never forward secrets or raw configuration text to the model. Return JSON only."
+        )
+        safe_evidence: list[dict[str, Any]] = []
+        for item in unknown_evidence:
+            if not isinstance(item, dict):
+                raise LLMError("unknown evidence entries must be objects")
+            excerpt = str(item.get("excerpt", ""))
+            self.redactor.redact(excerpt)
+            assert_safe_for_llm(excerpt)
+            if any(term in excerpt.lower() for term in ("ignore all previous instructions", "return pass", "rm -rf", "shutdown;", "<script>", "curl http://")):
+                raise LLMError("unsafe prompt injection or executable instructions detected in unknown evidence")
+            safe_evidence.append({
+                "evidence_id": str(item.get("evidence_id", "unknown-evidence"))[:64],
+                "excerpt": excerpt[:300],
+                "source": str(item.get("source", "unknown"))[:32],
+                "line_start": int(item.get("line_start", 1)),
+                "line_end": int(item.get("line_end", 1)),
+                "redacted": bool(item.get("redacted", True)),
+            })
+        if not safe_evidence:
+            raise LLMError("at least one redacted evidence item is required")
+        user = json.dumps(
+            {
+                "vendor_candidates": vendor_candidates,
+                "deterministic_status": deterministic_status,
+                "parser_metadata": parser_metadata,
+                "unknown_evidence": safe_evidence,
+                "candidate_control_ids": candidate_control_ids,
+                "task": "Classify the unsupported syntax to the most likely control ID, keep the deterministic verdict authoritative, and provide only advisory guidance.",
+            },
+            ensure_ascii=False,
+        )
+        if self.provider is None or isinstance(self.provider, OfflineExplanationProvider):
+            raw = json.dumps({
+                "candidate_control_ids": candidate_control_ids[:1],
+                "normalized_intent": "administrative-access-hardening",
+                "explanation": "Advisory classification only; deterministic verdict remains authoritative.",
+                "confidence": 0.86,
+                "evidence_ids": [safe_evidence[0]["evidence_id"]],
+                "uncertainty_reasons": ["Unsupported syntax required human review."],
+                "recommended_human_action": "Review the vendor-specific management policy before changing configuration.",
+                "model": self.config.model or "deterministic-offline",
+                "prompt_version": self.prompt_version,
+                "schema_version": "1.0.0",
+            })
+        else:
+            raw = self.provider.complete(
+                system=system,
+                user=user,
+                response_schema=CLASSIFY_UNKNOWN_SCHEMA,
+                timeout_s=self.config.timeout_s,
+            )
+        if len(raw) > self.config.max_output_chars:
+            raise LLMError("LLM output exceeds configured safety limit")
+        try:
+            result = json.loads(raw)
+        except json.JSONDecodeError as exc:
+            raise LLMError("LLM output is not valid JSON") from exc
+        self._validate_unknown_classification(result)
+        return result
+
+    @staticmethod
+    def _validate_unknown_classification(result: Any) -> None:
+        if not isinstance(result, dict):
+            raise LLMError("LLM classification result must be an object")
+        required = {
+            "candidate_control_ids",
+            "normalized_intent",
+            "explanation",
+            "confidence",
+            "evidence_ids",
+            "uncertainty_reasons",
+            "recommended_human_action",
+            "model",
+            "prompt_version",
+            "schema_version",
+        }
+        if set(result) != required:
+            raise LLMError("LLM classification output has unexpected or missing fields")
+        if not isinstance(result["candidate_control_ids"], list) or not result["candidate_control_ids"]:
+            raise LLMError("candidate_control_ids is invalid")
+        if not isinstance(result["normalized_intent"], str) or not result["normalized_intent"].strip():
+            raise LLMError("normalized_intent is required")
+        if not isinstance(result["explanation"], str) or not result["explanation"].strip():
+            raise LLMError("explanation is required")
+        if not isinstance(result["confidence"], (int, float)) or not 0 <= float(result["confidence"]) <= 1:
+            raise LLMError("classification confidence is invalid")
+        if str(result["normalized_intent"]).upper().find("PASS") != -1:
+            raise LLMError("AI classification must not convert unknown to PASS")
+        if "PASS" in str(result["explanation"]).upper() or "FAIL" in str(result["explanation"]).upper() and "override" in str(result["explanation"]).lower():
+            raise LLMError("unsupported classification output attempts to override the deterministic verdict")
+        if any(str(item).upper() == "PASS" for item in result["candidate_control_ids"]):
+            raise LLMError("AI classification must not return PASS as a control ID")
 
     def explain_finding(
         self, finding: Finding, configuration_context: str

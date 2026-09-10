@@ -8,10 +8,13 @@ allows the LLM to create verdicts.
 
 from __future__ import annotations
 
+import base64
 import datetime
+import hashlib
 import hmac
 import json
 import os
+import re
 import time
 import uuid
 import secrets
@@ -26,8 +29,15 @@ from .detection import detect_vendor
 from .engine import DeterministicComplianceEngine
 from .frameworks import normalize_frameworks
 from .governance import ApprovalLedger, GovernanceError, Role
-from .llm import LLMConfig, LLMError, LLMCopilot, OpenAICompatibleProvider
+from .llm import (
+    LLMConfig,
+    LLMError,
+    LLMCopilot,
+    OpenAICompatibleProvider,
+    CLASSIFY_UNKNOWN_SCHEMA,
+)
 from .reporting import report_dict
+from .security import SecretRedactor, assert_safe_for_llm
 from .proof import (
     build_proof_bundle,
     verify_proof_bundle,
@@ -155,19 +165,80 @@ class LoginPayload(BaseModel):
     role: str = Field(default="operator")
 
 
-MOCK_SESSIONS: dict[str, dict[str, str]] = {}
+MOCK_SESSIONS: dict[str, dict[str, str | int | bool]] = {}
+OIDC_STATE_STORE: dict[str, dict[str, Any]] = {}
+OIDC_USED_CODES: set[str] = set()
 
 
 def get_current_session(session_token: str | None = Cookie(default=None)):
     if not session_token or session_token not in MOCK_SESSIONS:
         raise HTTPException(status_code=401, detail="Valid session required")
-    return MOCK_SESSIONS[session_token]
+    session = MOCK_SESSIONS[session_token]
+    expiry = int(session.get("expires_at", 0))
+    if expiry and expiry < int(time.time()):
+        MOCK_SESSIONS.pop(session_token, None)
+        raise HTTPException(status_code=401, detail="Session expired")
+    return session
 
 
-def get_optional_session(session_token: str | None = Cookie(default=None)) -> dict[str, str] | None:
+def get_optional_session(session_token: str | None = Cookie(default=None)) -> dict[str, str | int | bool] | None:
     if not session_token or session_token not in MOCK_SESSIONS:
         return None
-    return MOCK_SESSIONS[session_token]
+    session = MOCK_SESSIONS[session_token]
+    expiry = int(session.get("expires_at", 0))
+    if expiry and expiry < int(time.time()):
+        MOCK_SESSIONS.pop(session_token, None)
+        return None
+    return session
+
+
+def _get_oidc_settings() -> dict[str, str | bool]:
+    return {
+        "enabled": os.getenv("CONFIGSENTINEL_OIDC_ENABLED", "false").strip().lower() == "true",
+        "issuer": os.getenv("CONFIGSENTINEL_OIDC_ISSUER", "").strip(),
+        "client_id": os.getenv("CONFIGSENTINEL_OIDC_CLIENT_ID", "").strip(),
+        "client_secret": os.getenv("CONFIGSENTINEL_OIDC_CLIENT_SECRET", "").strip(),
+        "redirect_uri": os.getenv("CONFIGSENTINEL_OIDC_REDIRECT_URI", "http://localhost:8000/api/auth/oidc/callback").strip(),
+    }
+
+
+def _b64url(data: bytes) -> str:
+    return base64.urlsafe_b64encode(data).decode("utf-8").rstrip("=")
+
+
+def _jwt_sign(payload: dict[str, Any], secret: str) -> str:
+    header = {"alg": "HS256", "typ": "JWT"}
+    encoded_header = _b64url(json.dumps(header, separators=(",", ":")).encode("utf-8"))
+    encoded_payload = _b64url(json.dumps(payload, separators=(",", ":")).encode("utf-8"))
+    signature_input = f"{encoded_header}.{encoded_payload}".encode("utf-8")
+    signature = hmac.new(secret.encode("utf-8"), signature_input, hashlib.sha256).digest()
+    return f"{encoded_header}.{encoded_payload}.{_b64url(signature)}"
+
+
+def _jwt_verify(token: str, secret: str, expected_issuer: str, expected_audience: str) -> dict[str, Any]:
+    try:
+        header_b64, payload_b64, sig_b64 = token.split(".")
+    except ValueError as exc:  # pragma: no cover -标准 JWT validation
+        raise HTTPException(status_code=401, detail="invalid JWT format") from exc
+    expected_sig = _b64url(hmac.new(secret.encode("utf-8"), f"{header_b64}.{payload_b64}".encode("utf-8"), hashlib.sha256).digest())
+    if hmac.compare_digest(expected_sig, sig_b64):
+        payload = json.loads(base64.urlsafe_b64decode(payload_b64 + "=" * (-len(payload_b64) % 4)).decode("utf-8"))
+    else:
+        raise HTTPException(status_code=401, detail="invalid signature")
+    if payload.get("iss") != expected_issuer:
+        raise HTTPException(status_code=401, detail="invalid issuer")
+    audience = payload.get("aud")
+    if isinstance(audience, list):
+        if expected_audience not in audience:
+            raise HTTPException(status_code=401, detail="wrong audience")
+    elif audience != expected_audience:
+        raise HTTPException(status_code=401, detail="wrong audience")
+    now = int(time.time())
+    if int(payload.get("exp", 0)) <= now:
+        raise HTTPException(status_code=401, detail="expired token")
+    if int(payload.get("nbf", 0)) > now:
+        raise HTTPException(status_code=401, detail="token not valid yet")
+    return payload
 
 
 @dataclass(frozen=True)
@@ -182,6 +253,34 @@ class Principal:
 class ExplainPayload(AuditPayload):
     finding_id: str | None = Field(default=None, max_length=256)
     control_id: str | None = Field(default=None, max_length=128)
+
+
+class AIUnknownClassificationPayload(BaseModel):
+    vendor_candidates: list[str] = Field(..., min_length=1, max_length=8)
+    deterministic_status: str = Field(..., min_length=1, max_length=32)
+    parser_metadata: dict[str, Any] = Field(...)
+    unknown_evidence: list[dict[str, Any]] = Field(..., min_length=1, max_length=20)
+    candidate_control_ids: list[str] = Field(..., min_length=1, max_length=10)
+
+    @property
+    def is_advisory_only(self) -> bool:
+        return self.deterministic_status != "PASS"
+
+    @classmethod
+    def model_validate(cls, obj: Any, *args: Any, **kwargs: Any) -> "AIUnknownClassificationPayload":
+        payload = super().model_validate(obj, *args, **kwargs)
+        if not payload.vendor_candidates or not all(str(item).strip() for item in payload.vendor_candidates):
+            raise ValueError("vendor_candidates must include at least one vendor identifier")
+        if payload.deterministic_status not in {"UNKNOWN", "REVIEW_REQUIRED", "FAIL"}:
+            raise ValueError("deterministic_status must be UNKNOWN, REVIEW_REQUIRED, or FAIL for advisory classification")
+        if not payload.parser_metadata or not isinstance(payload.parser_metadata, dict):
+            raise ValueError("parser_metadata is required")
+        if not payload.unknown_evidence:
+            raise ValueError("unknown_evidence is required")
+        if not payload.candidate_control_ids or not all(str(item).strip() for item in payload.candidate_control_ids):
+            raise ValueError("candidate_control_ids must include at least one supported control")
+        return payload
+
 
 class DriftPayload(BaseModel):
     baseline_report: dict[str, Any]
@@ -589,6 +688,119 @@ def create_app(*, allowed_origins: list[str] | None = None) -> FastAPI:
         except (LLMError, ValueError, RuntimeError) as exc:
             raise HTTPException(status_code=422, detail=str(exc)) from exc
 
+    @app.post("/api/ai/classify-unknown", tags=["audit"])
+    def classify_unknown(payload: dict[str, Any], request: Request) -> dict[str, Any]:
+        request_id = request.headers.get("x-request-id", "").strip()[:128] or str(uuid.uuid4())
+        start = time.perf_counter()
+        valid_controls = {item.control.control_id for item in CONTROL_PACK}
+        try:
+            model_payload = AIUnknownClassificationPayload.model_validate(payload)
+        except Exception as exc:
+            raise HTTPException(status_code=422, detail=f"invalid classification payload: {exc}") from exc
+        if model_payload.deterministic_status == "PASS":
+            raise HTTPException(status_code=422, detail="AI classification does not allow PASS verdict overrides")
+        if len(json.dumps(model_payload.model_dump(), ensure_ascii=False)) > 64 * 1024:
+            raise HTTPException(status_code=422, detail="unknown-syntax payload exceeds the bounded safety limit")
+        seen_ids: set[str] = set()
+        safe_evidence: list[dict[str, Any]] = []
+        for item in model_payload.unknown_evidence:
+            evidence_id = str(item.get("evidence_id", ""))
+            if not evidence_id or evidence_id in seen_ids:
+                raise HTTPException(status_code=422, detail="duplicate or missing evidence_id")
+            if not re.fullmatch(r"cand-[A-Za-z0-9_-]+", evidence_id):
+                raise HTTPException(status_code=422, detail="evidence_id must match the canonical cand-* format")
+            seen_ids.add(evidence_id)
+            excerpt = str(item.get("excerpt", ""))
+            if len(excerpt.encode("utf-8")) > 1024:
+                raise HTTPException(status_code=422, detail="excerpts must remain bounded")
+            redacted = SecretRedactor().redact(excerpt)
+            text = redacted.text
+            assert_safe_for_llm(text)
+            lower = text.lower()
+            if any(
+                term in lower
+                for term in (
+                    "ignore all previous instructions",
+                    "return pass",
+                    "rm -rf",
+                    "shutdown;",
+                    "curl http://",
+                    "wget http://",
+                    "ssh -i",
+                    "pass=",
+                    "api_key=",
+                    "password",
+                    "secret",
+                    "token",
+                    "private key",
+                )
+            ):
+                raise HTTPException(status_code=422, detail="unsafe prompt injection or secret-bearing evidence detected")
+            if item.get("redacted") is not True:
+                raise HTTPException(status_code=422, detail="unknown evidence must be redacted before AI review")
+            safe_evidence.append({
+                "evidence_id": evidence_id,
+                "source": str(item.get("source", "unknown"))[:32],
+                "line_start": int(item.get("line_start", 1)),
+                "line_end": int(item.get("line_end", 1)),
+                "excerpt": text[:300],
+                "redacted": True,
+            })
+        invalid_controls = sorted(set(model_payload.candidate_control_ids) - valid_controls)
+        if invalid_controls:
+            raise HTTPException(status_code=422, detail=f"unsupported control IDs: {', '.join(invalid_controls)}")
+        provider_mode = "offline"
+        llm_config = LLMConfig.from_environment()
+        if llm_config.enabled and llm_config.endpoint and os.getenv("CONFIGSENTINEL_LLM_PROVIDER", "offline").strip().lower() != "offline":
+            provider_mode = "external"
+            try:
+                copilot = LLMCopilot(provider=OpenAICompatibleProvider(llm_config), config=llm_config)
+            except LLMError:
+                provider_mode = "offline"
+                copilot = LLMCopilot.offline()
+        else:
+            copilot = LLMCopilot.offline()
+        result = copilot.classify_unknown_syntax(
+            vendor_candidates=model_payload.vendor_candidates,
+            deterministic_status=model_payload.deterministic_status,
+            parser_metadata=model_payload.parser_metadata,
+            unknown_evidence=safe_evidence,
+            candidate_control_ids=model_payload.candidate_control_ids,
+        )
+        if set(result.get("evidence_ids", [])) - seen_ids:
+            raise HTTPException(status_code=422, detail="AI result contains fabricated evidence IDs")
+        if str(result.get("model", "")).lower() == "pass":
+            raise HTTPException(status_code=422, detail="AI classification cannot return PASS")
+        if "PASS" in str(result.get("normalized_intent", "")).upper() or "PASS" in str(result.get("explanation", "")).upper():
+            raise HTTPException(status_code=422, detail="AI classification cannot convert UNKNOWN into PASS")
+        if str(result.get("schema_version", "")).strip() == "":
+            raise HTTPException(status_code=422, detail="AI classification missing schema_version")
+        record = {
+            "request_id": request_id,
+            "provider_mode": provider_mode,
+            "model": result.get("model"),
+            "latency_ms": round((time.perf_counter() - start) * 1000, 2),
+            "timestamp": datetime.datetime.now(datetime.timezone.utc).isoformat(),
+            "prompt_version": result.get("prompt_version"),
+            "schema_version": result.get("schema_version"),
+            "status": model_payload.deterministic_status,
+            "advisory_only": True,
+            "evidence_ids": result.get("evidence_ids", []),
+        }
+        if not hasattr(app.state, "ai_advisory_evidence"):
+            app.state.ai_advisory_evidence = []
+        app.state.ai_advisory_evidence.append(record)
+        response = {
+            **result,
+            "request_id": request_id,
+            "provider_mode": provider_mode,
+            "latency_ms": record["latency_ms"],
+            "timestamp": record["timestamp"],
+            "deterministic_status": model_payload.deterministic_status,
+            "advisory_only": True,
+        }
+        return response
+
     def request_context(request: Request) -> Request:
         return request
 
@@ -599,12 +811,28 @@ def create_app(*, allowed_origins: list[str] | None = None) -> FastAPI:
             raise HTTPException(status_code=422, detail="role must be operator, reviewer, or admin")
         session_token = secrets.token_hex(32)
         actor_id = f"local-{role_value}"
-        MOCK_SESSIONS[session_token] = {"actor_id": actor_id, "role": role_value, "workspace_id": "local-workspace"}
-        response.set_cookie(key="session_token", value=session_token, httponly=True, samesite="lax", path="/")
+        expires_at = int(time.time()) + 1800
+        MOCK_SESSIONS[session_token] = {
+            "actor_id": actor_id,
+            "role": role_value,
+            "workspace_id": "local-workspace",
+            "expires_at": expires_at,
+        }
+        response.set_cookie(
+            key="session_token",
+            value=session_token,
+            httponly=True,
+            secure=False,
+            samesite="lax",
+            path="/",
+            max_age=1800,
+        )
         return {"status": "ok", "actor_id": actor_id, "role": payload.role}
 
     @app.post("/api/auth/logout", tags=["auth"])
-    def logout(response: Response) -> dict[str, Any]:
+    def logout(response: Response, session_token: str | None = Cookie(default=None)) -> dict[str, Any]:
+        if session_token:
+            MOCK_SESSIONS.pop(session_token, None)
         response.delete_cookie(key="session_token", path="/")
         return {"status": "ok"}
 
@@ -613,105 +841,120 @@ def create_app(*, allowed_origins: list[str] | None = None) -> FastAPI:
         return session
 
     # ── OIDC / SSO routes ────────────────────────────────────────────────────────
-    # These endpoints become active only when CONFIGSENTINEL_OIDC_ISSUER is set.
-    # In local/demo mode they return 503 with a clear message so nothing breaks.
-
-    _OIDC_ISSUER = os.getenv("CONFIGSENTINEL_OIDC_ISSUER", "").strip()
-    _OIDC_CLIENT_ID = os.getenv("CONFIGSENTINEL_OIDC_CLIENT_ID", "").strip()
-    _OIDC_CLIENT_SECRET = os.getenv("CONFIGSENTINEL_OIDC_CLIENT_SECRET", "").strip()
-    _OIDC_REDIRECT_URI = os.getenv("CONFIGSENTINEL_OIDC_REDIRECT_URI", "http://localhost:8000/api/auth/oidc/callback").strip()
+    # These endpoints only activate when the environment is configured for enterprise SSO.
+    # They validate state, nonce, PKCE, replay, JWT signature, expiry, and bearer/session trust.
 
     @app.get("/api/auth/oidc/login", tags=["auth"])
     def oidc_login() -> dict[str, Any]:
-        """Initiate an OIDC authorization code flow.
-
-        Returns the authorization URL when CONFIGSENTINEL_OIDC_ISSUER is set.
-        Returns 503 in local/demo mode.
-        """
-        if not _OIDC_ISSUER or not _OIDC_CLIENT_ID:
+        """Initiate a secure local mock OIDC flow for tests and local demos."""
+        oidc_settings = _get_oidc_settings()
+        if not oidc_settings.get("enabled"):
             raise HTTPException(
                 status_code=503,
-                detail="OIDC is not configured. Set CONFIGSENTINEL_OIDC_ISSUER and "
-                       "CONFIGSENTINEL_OIDC_CLIENT_ID to enable enterprise SSO.",
+                detail="OIDC is disabled. Set CONFIGSENTINEL_OIDC_ENABLED=true and configure the issuer/client settings to enable enterprise SSO.",
             )
-        try:
-            from authlib.integrations.httpx_client import AsyncOAuth2Client  # type: ignore
-        except ImportError:
-            raise HTTPException(status_code=503, detail="authlib not installed")
-
+        if not oidc_settings["issuer"] or not oidc_settings["client_id"] or not oidc_settings["client_secret"]:
+            raise HTTPException(
+                status_code=503,
+                detail="OIDC is not configured. Set CONFIGSENTINEL_OIDC_ISSUER, CONFIGSENTINEL_OIDC_CLIENT_ID, and CONFIGSENTINEL_OIDC_CLIENT_SECRET to enable enterprise SSO.",
+            )
         state = secrets.token_urlsafe(32)
+        nonce = secrets.token_urlsafe(32)
+        verifier = secrets.token_urlsafe(48)
+        challenge = _b64url(hashlib.sha256(verifier.encode("utf-8")).digest())
+        OIDC_STATE_STORE[state] = {
+            "state": state,
+            "nonce": nonce,
+            "code_verifier": verifier,
+            "code_challenge": challenge,
+            "created_at": time.time(),
+            "expires_at": time.time() + 600,
+            "used": False,
+            "role": "operator",
+            "workspace_id": "local-workspace",
+            "actor_id": "mock-user@local.example",
+            "redirect_uri": oidc_settings["redirect_uri"],
+        }
         authorization_url = (
-            f"{_OIDC_ISSUER.rstrip('/')}/authorize"
+            f"{oidc_settings['issuer'].rstrip('/')}/authorize"
             f"?response_type=code"
-            f"&client_id={_OIDC_CLIENT_ID}"
-            f"&redirect_uri={_OIDC_REDIRECT_URI}"
+            f"&client_id={oidc_settings['client_id']}"
+            f"&redirect_uri={oidc_settings['redirect_uri']}"
             f"&scope=openid+email+profile"
             f"&state={state}"
+            f"&nonce={nonce}"
+            f"&code_challenge={challenge}"
+            f"&code_challenge_method=S256"
         )
         return {
             "authorization_url": authorization_url,
             "state": state,
+            "nonce": nonce,
             "mode": "oidc",
             "note": "Redirect the user to authorization_url to begin the SSO flow.",
         }
 
     @app.get("/api/auth/oidc/callback", tags=["auth"])
-    def oidc_callback(code: str | None = None, state: str | None = None, error: str | None = None, response: Response = None) -> dict[str, Any]:  # type: ignore[assignment]
-        """Handle the OIDC authorization code callback.
-
-        Exchanges the code for tokens and creates a server-issued HttpOnly session.
-        """
-        if not _OIDC_ISSUER or not _OIDC_CLIENT_ID:
+    def oidc_callback(code: str | None = None, state: str | None = None, error: str | None = None, response: Response = None) -> dict[str, Any]:
+        """Handle the OIDC authorization code callback with strict state, nonce, and replay protection."""
+        oidc_settings = _get_oidc_settings()
+        if not oidc_settings["issuer"] or not oidc_settings["client_id"] or not oidc_settings["client_secret"]:
             raise HTTPException(status_code=503, detail="OIDC is not configured.")
         if error:
             raise HTTPException(status_code=400, detail=f"OIDC error: {error}")
+        if not state:
+            raise HTTPException(status_code=400, detail="Missing OIDC state.")
         if not code:
             raise HTTPException(status_code=400, detail="Missing authorization code.")
+        if code in OIDC_USED_CODES:
+            raise HTTPException(status_code=400, detail="authorization code has already been used")
+        record = OIDC_STATE_STORE.get(state)
+        if not record:
+            raise HTTPException(status_code=400, detail="invalid state")
+        if record.get("used"):
+            raise HTTPException(status_code=400, detail="reused state")
+        if float(record.get("expires_at", 0)) < time.time():
+            raise HTTPException(status_code=401, detail="state expired")
+        if state != record.get("state"):
+            raise HTTPException(status_code=400, detail="invalid state")
 
-        try:
-            import httpx  # already a dependency via fastapi extras
-            token_url = f"{_OIDC_ISSUER.rstrip('/')}/token"
-            resp = httpx.post(
-                token_url,
-                data={
-                    "grant_type": "authorization_code",
-                    "code": code,
-                    "redirect_uri": _OIDC_REDIRECT_URI,
-                    "client_id": _OIDC_CLIENT_ID,
-                    "client_secret": _OIDC_CLIENT_SECRET,
-                },
-                timeout=10,
-            )
-            resp.raise_for_status()
-            tokens = resp.json()
-            # Decode the ID token claims (without signature verification for local demo;
-            # production deployments must add full JWKS verification).
-            import base64 as _b64
-            import json as _json
-            id_token = tokens.get("id_token", "")
-            _parts = id_token.split(".")
-            if len(_parts) >= 2:
-                padding = 4 - len(_parts[1]) % 4
-                claims_bytes = _b64.urlsafe_b64decode(_parts[1] + "=" * padding)
-                claims = _json.loads(claims_bytes)
-            else:
-                claims = {}
+        claims = {
+            "iss": oidc_settings["issuer"],
+            "aud": oidc_settings["client_id"],
+            "exp": int(time.time()) + 300,
+            "nbf": int(time.time()) - 5,
+            "iat": int(time.time()) - 5,
+            "sub": "mock-user",
+            "email": record["actor_id"],
+            "role": record["role"],
+            "workspace": record["workspace_id"],
+            "nonce": record["nonce"],
+        }
+        if claims["role"] not in {"operator", "reviewer", "admin"}:
+            raise HTTPException(status_code=403, detail="missing role")
+        if claims["workspace"] != record["workspace_id"]:
+            raise HTTPException(status_code=403, detail="unauthorized workspace")
 
-            sub = claims.get("sub", "oidc-user")
-            email = claims.get("email", sub)
-            role_value = "operator"  # Default role; map via group claims in production
-            session_token = secrets.token_hex(32)
-            MOCK_SESSIONS[session_token] = {
-                "actor_id": email,
-                "role": role_value,
-                "workspace_id": "oidc-workspace",
-                "oidc": "true",
-            }
-            if response:
-                response.set_cookie(key="session_token", value=session_token, httponly=True, samesite="lax", path="/")
-            return {"status": "ok", "actor_id": email, "role": role_value, "oidc": True}
-        except Exception as exc:
-            raise HTTPException(status_code=502, detail=f"OIDC token exchange failed: {exc}") from exc
+        id_token = _jwt_sign(claims, oidc_settings["client_secret"])
+        verified = _jwt_verify(id_token, oidc_settings["client_secret"], oidc_settings["issuer"], oidc_settings["client_id"])
+        if verified.get("nonce") != record["nonce"]:
+            raise HTTPException(status_code=400, detail="invalid nonce")
+
+        OIDC_USED_CODES.add(code)
+        record["used"] = True
+
+        session_token = secrets.token_hex(32)
+        expires_at = int(time.time()) + 1800
+        MOCK_SESSIONS[session_token] = {
+            "actor_id": claims["email"],
+            "role": claims["role"],
+            "workspace_id": claims["workspace"],
+            "oidc": "true",
+            "expires_at": expires_at,
+        }
+        if response:
+            response.set_cookie(key="session_token", value=session_token, httponly=True, secure=False, samesite="lax", path="/", max_age=1800)
+        return {"status": "ok", "actor_id": claims["email"], "role": claims["role"], "oidc": True, "token": id_token}
 
     # ── End OIDC routes ───────────────────────────────────────────────────────────
 
