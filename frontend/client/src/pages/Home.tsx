@@ -1031,6 +1031,7 @@ export default function Home() {
     configText = DEMO_CONFIGURATION,
     fileName = DEMO_FILE_NAME,
     vendor = "cisco_ios",
+    historyBase = history,
   ): Promise<boolean> => {
     const requestId = ++auditRequestRef.current;
     setLoading(true);
@@ -1078,7 +1079,7 @@ export default function Home() {
       };
       const nextHistory = [
         entry,
-        ...history.filter(
+        ...historyBase.filter(
           (item) => item.report.audit.audit_id !== nextReport.audit.audit_id,
         ),
       ];
@@ -1511,7 +1512,7 @@ export default function Home() {
     }
     setToast(`Deleted local snapshot · ${entry.fileName}`);
   };
-  const clearHistory = () => {
+  const clearHistory = async () => {
     setHistory([]);
     persistHistory([]);
     setReport(fallbackReport);
@@ -1524,7 +1525,8 @@ export default function Home() {
       size: DEMO_CONFIGURATION.length,
       status: "fixture",
     });
-    setToast("Local audit history cleared · demo source ready");
+    setToast("History cleared · loading compliant demo…");
+    await loadReport(DEMO_CONFIGURATION, DEMO_FILE_NAME, "cisco_ios", []);
   };
   const exportReport = (source = report, name = selectedFileName) => {
     const pdf = new jsPDF({ unit: "pt", format: "a4" });
