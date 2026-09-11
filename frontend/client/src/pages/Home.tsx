@@ -47,46 +47,6 @@ import { useTheme } from "../contexts/ThemeContext";
 
 const logo = "/brand/configsentinel-mark-final.png";
 const API_BASE = (import.meta.env.VITE_API_BASE_URL || "").replace(/\/$/, "");
-const DEMO_CONFIGURATION = `version 17.9
-hostname SIH-ROUTER-DEMO
-service password-encryption
-aaa new-model
-aaa authentication login default group tacacs+ local
-aaa authorization exec default group tacacs+ local
-username breakglass privilege 15 secret 9 $9$demo-hash
-security password min-length 14
-ntp server 10.0.0.1 key 1
-ntp authentication-key 1 md5 DEMOKEY
-ntp authenticate
-logging host 10.0.0.20
-logging trap informational
-snmp-server group SECURE-GROUP v3 priv
-snmp-server user MONITOR SECURE-GROUP v3 auth sha AUTHKEY priv aes 128 PRIVKEY
-ip ssh version 2
-ip ssh dh-min-size 2048
-ip ssh time-out 60
-no ip http server
-ip http secure-server
-no cdp run
-no service pad
-ip verify unicast source reachable-via rx
-archive
- log config
-  logging enable
-  notify syslog contenttype plaintext
-  hidekeys
-line vty 0 4
- transport input ssh
- access-class MGMT-ACL in
- exec-timeout 10 0
-access-list 10 permit 192.168.1.0 0.0.0.255
-access-list 10 deny any
-ip access-list standard MGMT-ACL
- permit 192.168.1.0 0.0.0.255
- deny any log
-end
-`;
-const DEMO_FILE_NAME = "demo-cisco-compliant.conf";
 const HISTORY_KEY = "veyronix.audit-history.v3";
 const MAX_CONFIG_BYTES = 5 * 1024 * 1024;
 
@@ -948,20 +908,17 @@ export default function Home() {
   const [history, setHistory] = useState<AuditHistoryEntry[]>(() =>
     readHistory(),
   );
-  const [selectedFileName, setSelectedFileName] = useState(
-    DEMO_FILE_NAME,
-  );
-  const [activeConfigText, setActiveConfigText] =
-    useState(DEMO_CONFIGURATION);
-  const [activeVendor, setActiveVendor] = useState("cisco_ios");
+  const [selectedFileName, setSelectedFileName] = useState("No configuration selected");
+  const [activeConfigText, setActiveConfigText] = useState("");
+  const [activeVendor, setActiveVendor] = useState("auto");
   const [uploadedFile, setUploadedFile] = useState<{
     name: string;
     size: number;
-    status: "fixture" | "ready" | "analyzing" | "analyzed" | "rejected";
+    status: "idle" | "ready" | "analyzing" | "analyzed" | "rejected";
   }>({
-    name: DEMO_FILE_NAME,
-    size: DEMO_CONFIGURATION.length,
-    status: "fixture",
+    name: "No configuration selected",
+    size: 0,
+    status: "idle",
   });
   const auditRequestRef = useRef(0);
   const [controlPack, setControlPack] = useState<ControlDefinition[]>([]);
@@ -1043,9 +1000,9 @@ export default function Home() {
 
   const activeNav = navLabel(location);
   const loadReport = async (
-    configText = DEMO_CONFIGURATION,
-    fileName = DEMO_FILE_NAME,
-    vendor = "cisco_ios",
+    configText: string,
+    fileName: string,
+    vendor: string,
     historyBase = history,
   ): Promise<boolean> => {
     const requestId = ++auditRequestRef.current;
@@ -1339,7 +1296,10 @@ export default function Home() {
           status: latest.originalConfigurationText ? "analyzed" : "rejected",
         });
         setLoading(false);
-      } else void loadReport(DEMO_CONFIGURATION, DEMO_FILE_NAME, "cisco_ios", []);
+      } else {
+        setLoading(false);
+        setToast("No audit yet · add a configuration file to begin");
+      }
       void fetch(`${API_BASE}/api/control-pack`)
         .then((response) =>
           response.ok
@@ -1484,24 +1444,19 @@ export default function Home() {
     }
     setUploadedFile({ name: file.name, size: file.size, status: "ready" });
     setSelectedFileName(file.name);
-    setRunning(true);
-    setUploadedFile((current) => ({ ...current, status: "analyzing" }));
-    setToast(`Loading ${file.name}…`);
     try {
       const text = await file.text();
       if (!text.trim() || text.includes("\u0000"))
         throw new Error("empty or contains NUL bytes");
       setActiveConfigText(text);
       setActiveVendor("auto");
-      if (await loadReport(text, file.name, "auto"))
-        setUploadedFile((current) => ({ ...current, status: "analyzed" }));
+      setUploadedFile((current) => ({ ...current, status: "ready" }));
+      setToast(`${file.name} loaded · click Run Local Audit to analyze it`);
     } catch (error) {
       setUploadedFile((current) => ({ ...current, status: "rejected" }));
       setToast(
         `Upload rejected · ${error instanceof Error ? error.message : "file is unreadable"}`,
       );
-    } finally {
-      setRunning(false);
     }
   };
   const selectHistory = (entry: AuditHistoryEntry) => {
@@ -1529,21 +1484,21 @@ export default function Home() {
     }
     setToast(`Deleted local snapshot · ${entry.filename}`);
   };
-  const clearHistory = async () => {
+  const clearHistory = () => {
     setHistory([]);
     persistHistory([]);
     setReport(fallbackReport);
     setSelectedId("");
-    setSelectedFileName(DEMO_FILE_NAME);
-    setActiveConfigText(DEMO_CONFIGURATION);
-    setActiveVendor("cisco_ios");
+    setSelectedFileName("No configuration selected");
+    setActiveConfigText("");
+    setActiveVendor("auto");
     setUploadedFile({
-      name: DEMO_FILE_NAME,
-      size: DEMO_CONFIGURATION.length,
-      status: "fixture",
+      name: "No configuration selected",
+      size: 0,
+      status: "idle",
     });
-    setToast("History cleared · loading compliant demo…");
-    await loadReport(DEMO_CONFIGURATION, DEMO_FILE_NAME, "cisco_ios", []);
+    setApiOnline(false);
+    setToast("History cleared · add a configuration file to begin");
   };
   const exportReport = (source = report, name = selectedFileName) => {
     const pdf = new jsPDF({ unit: "pt", format: "a4" });
@@ -2581,8 +2536,8 @@ export default function Home() {
               <SectionLabel>ACTIVE CONFIGURATION SOURCE</SectionLabel>
               <strong>{uploadedFile.name}</strong>
               <span>
-                {uploadedFile.status === "fixture"
-                  ? "Bundled fixture · ready for local analysis"
+                {uploadedFile.status === "idle"
+                  ? "Add a configuration file to begin"
                   : uploadedFile.status === "ready"
                     ? "File selected · ready to analyze"
                     : uploadedFile.status === "analyzing"
@@ -2601,8 +2556,8 @@ export default function Home() {
                   ? "ANALYZED"
                   : uploadedFile.status === "rejected"
                     ? "REJECTED"
-                    : uploadedFile.status === "fixture"
-                      ? "FIXTURE"
+                    : uploadedFile.status === "idle"
+                      ? "NO FILE"
                       : "SELECTED"}
             </div>
             <small>

@@ -79,6 +79,17 @@ describe('ConfigSentinel Home Page', () => {
       return Promise.resolve({ ok: true, json: () => Promise.resolve({}) });
     });
 
+    window.localStorage.setItem('veyronix.audit-history.v3', JSON.stringify([{
+      id: 'test-123-snapshot',
+      timestamp: new Date().toISOString(),
+      auditId: 'test-123',
+      filename: 'uploaded.conf',
+      originalConfigurationText: 'version 17.9\n',
+      vendor: 'cisco_ios',
+      score: 50,
+      report: mockReport,
+    }]));
+
     render(<Home />);
     
     // Check severity-weighted score
