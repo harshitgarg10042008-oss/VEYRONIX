@@ -136,17 +136,22 @@ a:focus-visible {
 }
 
 .app-shell {
-  min-height: 100vh;
+  height: 100vh;
+  min-height: 0;
   display: flex;
+  overflow: hidden;
   background: var(--background);
 }
 
 .sidebar {
   width: 264px;
   flex: 0 0 264px;
-  min-height: 100vh;
+  height: 100vh;
+  min-height: 0;
   display: flex;
   flex-direction: column;
+  overflow-y: auto;
+  overscroll-behavior: contain;
   padding: 25px 18px 19px;
   color: var(--rail-text);
   background: var(--rail);
@@ -390,6 +395,8 @@ a:focus-visible {
 
 .workbench {
   min-width: 0;
+  min-height: 0;
+  height: 100vh;
   flex: 1;
   display: flex;
   flex-direction: column;
@@ -622,6 +629,7 @@ a:focus-visible {
 
 .content-scroll {
   min-width: 0;
+  min-height: 0;
   flex: 1;
   overflow: auto;
 }
@@ -704,6 +712,21 @@ a:focus-visible {
   color: #fff;
   background: var(--accent-strong);
   border-color: var(--accent-strong);
+}
+
+.button-disabled {
+  pointer-events: none;
+  opacity: 0.65;
+}
+
+.spin {
+  animation: spin 900ms linear infinite;
+}
+
+@keyframes spin {
+  to {
+    transform: rotate(360deg);
+  }
 }
 
 .button-secondary {
@@ -1231,6 +1254,75 @@ a:focus-visible {
   letter-spacing: -0.045em;
 }
 
+.finding-response-panel {
+  min-width: 0;
+  align-self: start;
+  overflow: hidden;
+  border-top: 3px solid var(--accent);
+}
+
+.finding-response-panel.response-fail {
+  border-top-color: var(--danger);
+}
+
+.finding-response-panel.response-unknown {
+  border-top-color: var(--amber);
+}
+
+.response-content {
+  display: grid;
+  gap: 14px;
+  padding: 20px;
+}
+
+.response-control {
+  color: var(--accent);
+  font:
+    11px "IBM Plex Mono",
+    ui-monospace,
+    monospace;
+  letter-spacing: 0.08em;
+}
+
+.response-rationale,
+.response-block p {
+  margin: 0;
+  color: var(--muted);
+  font-size: 12px;
+  line-height: 1.55;
+}
+
+.response-block {
+  display: grid;
+  gap: 8px;
+  padding-top: 14px;
+  border-top: 1px solid var(--line);
+}
+
+.response-action {
+  justify-self: start;
+  margin-top: 4px;
+}
+
+.response-safety {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+  padding: 11px;
+  color: var(--muted);
+  background: var(--surface-2);
+  border: 1px solid var(--line);
+  font:
+    10px/1.45 "IBM Plex Mono",
+    ui-monospace,
+    monospace;
+}
+
+.response-safety svg {
+  flex: 0 0 auto;
+  color: var(--accent);
+}
+
 .evidence-block {
   padding: 15px 0;
   border-top: 1px solid var(--line);
@@ -1291,9 +1383,188 @@ a:focus-visible {
   gap: 5px;
 }
 
+.help-topic-list {
+  display: grid;
+}
+
+.help-topic {
+  display: flex;
+  align-items: flex-start;
+  gap: 14px;
+  padding: 18px 20px;
+  border-top: 1px solid var(--line);
+}
+
+.help-topic strong,
+.contact-card h2 {
+  display: block;
+  margin-bottom: 7px;
+  color: var(--ink);
+  font-size: 14px;
+}
+
+.help-topic .muted-copy {
+  max-width: 580px;
+}
+
+.help-next-panel {
+  align-self: start;
+}
+
+.help-next-content {
+  display: grid;
+  gap: 14px;
+  padding: 20px;
+}
+
+.help-next-content .button {
+  justify-self: start;
+}
+
+.contact-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 1px;
+  overflow: hidden;
+}
+
+.contact-card {
+  display: grid;
+  align-content: start;
+  gap: 10px;
+  min-height: 270px;
+  padding: 24px;
+  background: var(--surface);
+  border-right: 1px solid var(--line);
+}
+
+.contact-card .queue-icon {
+  margin-bottom: 5px;
+}
+
+.contact-card .button {
+  justify-self: start;
+  margin-top: auto;
+}
+
 .trend-wrap {
   position: relative;
   padding: 17px 20px 16px;
+}
+
+.trend-key {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  color: var(--muted);
+  font:
+    9px "IBM Plex Mono",
+    ui-monospace,
+    monospace;
+}
+
+.trend-key span {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+}
+
+.trend-key i {
+  width: 7px;
+  height: 7px;
+  display: inline-block;
+  border-radius: 50%;
+}
+
+.legend-score {
+  background: var(--accent);
+}
+
+.trend-list {
+  display: grid;
+  gap: 1px;
+  padding: 8px 12px 14px;
+}
+
+.trend-entry {
+  min-width: 0;
+  display: grid;
+  grid-template-columns: 54px minmax(150px, 1fr) 54px 58px 72px 18px;
+  align-items: center;
+  gap: 12px;
+  padding: 12px 8px;
+  color: var(--ink);
+  background: transparent;
+  border-bottom: 1px solid var(--line);
+  text-align: left;
+}
+
+.trend-entry:hover,
+.trend-entry:focus-visible {
+  background: var(--surface-2);
+  outline: none;
+}
+
+.trend-entry-date,
+.trend-entry-main small,
+.trend-count,
+.trend-score {
+  font:
+    10px "IBM Plex Mono",
+    ui-monospace,
+    monospace;
+}
+
+.trend-entry-date,
+.trend-entry-main small {
+  color: var(--muted);
+}
+
+.trend-entry-main {
+  min-width: 0;
+  display: grid;
+  gap: 4px;
+}
+
+.trend-entry-main strong {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: 12px;
+}
+
+.trend-bar {
+  height: 4px;
+  overflow: hidden;
+  background: var(--line);
+}
+
+.trend-bar i {
+  display: block;
+  height: 100%;
+  background: var(--accent);
+}
+
+.trend-score {
+  color: var(--accent);
+  font-size: 16px;
+  font-weight: 600;
+}
+
+.trend-score small,
+.trend-count small {
+  color: var(--muted);
+  font-size: 9px;
+}
+
+.trend-count-fail {
+  color: var(--danger);
+}
+.trend-count-unknown {
+  color: var(--amber);
+}
+.trend-arrow {
+  color: var(--faint);
 }
 
 .trend-svg {
@@ -1944,13 +2215,28 @@ a:focus-visible {
 }
 
 @media (max-width: 840px) {
+  .contact-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .contact-card {
+    min-height: 0;
+    border-right: 0;
+    border-bottom: 1px solid var(--line);
+  }
+
   .app-shell {
+    height: auto;
+    min-height: 100vh;
     display: block;
+    overflow: visible;
   }
 
   .sidebar {
+    height: auto;
     width: 100%;
     min-height: auto;
+    overflow: visible;
     padding: 13px 16px 10px;
   }
 
@@ -2132,6 +2418,22 @@ a:focus-visible {
 }
 
 @media (max-width: 560px) {
+  .trend-panel {
+    overflow: hidden;
+  }
+
+  .trend-key {
+    display: none;
+  }
+
+  .trend-list {
+    overflow-x: auto;
+  }
+
+  .trend-entry {
+    min-width: 490px;
+  }
+
   .topbar {
     align-items: flex-start;
     flex-direction: column;

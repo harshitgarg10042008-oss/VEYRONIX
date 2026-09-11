@@ -34,7 +34,12 @@ export default function AssuranceDashboard() {
     setError(null);
     try {
       const res = await fetch(`${API_BASE}/api/v1/verification-loops/${loopId.trim()}/evidence-chain`);
-      if (!res.ok) throw new Error(`API returned ${res.status} — check the loop ID`);
+      if (!res.ok) {
+        if (res.status === 404) {
+          throw new Error("Verification loop not found. Create a loop from a baseline audit and paste its generated ID here.");
+        }
+        throw new Error(`API returned ${res.status} — try again or check the local API`);
+      }
       const data = await res.json();
       setChain(data);
       setSelected(0);

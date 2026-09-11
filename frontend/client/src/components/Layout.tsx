@@ -6,7 +6,7 @@ import {
   CircleHelp, Clock3, ClipboardCheck, Download, FileCheck2, FileText,
   Fingerprint, GitBranch, Layers3, LifeBuoy, LockKeyhole, Moon, Network,
   PanelRight, Play, Search, Scale, Server, Settings2, ShieldCheck, Sun, TerminalSquare,
-  Upload, Zap, Database, Cpu,
+  Upload, Zap, Database, Cpu, MessageSquare,
 } from "lucide-react";
 import { useTheme } from "../contexts/ThemeContext";
 import { useCapabilities } from "../contexts/CapabilityContext";
@@ -57,6 +57,8 @@ const LAB_ITEMS: NavItemDef[] = [
 const SYSTEM_ITEMS: NavItemDef[] = [
   { label: "Settings", path: "/settings", icon: Settings2, description: "Local preferences" },
   { label: "Operator Guide", path: "/operator-guide", icon: LifeBuoy, description: "Safe demo sequence" },
+  { label: "Help Center", path: "/help", icon: CircleHelp, description: "Workflow guidance" },
+  { label: "Contact Support", path: "/contact", icon: MessageSquare, description: "Product and security support" },
   { label: "Privacy Policy", path: "/privacy", icon: ShieldCheck, description: "Data handling practices" },
   { label: "Terms & Conditions", path: "/terms", icon: Scale, description: "Terms of service" },
   { label: "Security Policy", path: "/policy", icon: ShieldCheck, description: "Security principles" },

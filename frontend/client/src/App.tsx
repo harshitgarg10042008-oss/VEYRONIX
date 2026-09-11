@@ -34,6 +34,8 @@ import PrivacyPolicy from "./pages/PrivacyPolicy";
 import TermsAndConditions from "./pages/TermsAndConditions";
 import PolicyPage from "./pages/PolicyPage";
 import PrimaryWorkflowPage from "./pages/PrimaryWorkflowPage";
+import HelpCenterPage from "./pages/HelpCenterPage";
+import ContactPage from "./pages/ContactPage";
 
 function Router() {
   return (
@@ -49,6 +51,8 @@ function Router() {
         <Route path="/remediation"><PrimaryWorkflowPage kind="remediation" /></Route>
         <Route path="/settings"><PrimaryWorkflowPage kind="settings" /></Route>
         <Route path="/operator-guide"><PrimaryWorkflowPage kind="guide" /></Route>
+        <Route path="/help" component={HelpCenterPage} />
+        <Route path="/contact" component={ContactPage} />
         <Route path="/website-security" component={WebsiteSecurityPage} />
         <Route path="/assurance-chain" component={AssuranceDashboard} />
 
