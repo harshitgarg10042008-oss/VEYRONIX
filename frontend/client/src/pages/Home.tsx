@@ -1516,7 +1516,15 @@ export default function Home() {
     persistHistory([]);
     setReport(fallbackReport);
     setSelectedId("");
-    setToast("Local audit history cleared");
+    setSelectedFileName(DEMO_FILE_NAME);
+    setActiveConfigText(DEMO_CONFIGURATION);
+    setActiveVendor("cisco_ios");
+    setUploadedFile({
+      name: DEMO_FILE_NAME,
+      size: DEMO_CONFIGURATION.length,
+      status: "fixture",
+    });
+    setToast("Local audit history cleared · demo source ready");
   };
   const exportReport = (source = report, name = selectedFileName) => {
     const pdf = new jsPDF({ unit: "pt", format: "a4" });
