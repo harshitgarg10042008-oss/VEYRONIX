@@ -3,7 +3,7 @@ import { test, expect } from '@playwright/test';
 test.describe('ConfigSentinel Home Page', () => {
   test('should load the dashboard and verify initial state', async ({ page }) => {
     await page.goto('/');
-    await expect(page.locator('text=Configuration posture')).toBeVisible();
+    await expect(page.getByText('SECURITY ASSURANCE COMMAND CENTER')).toBeVisible();
     await expect(page.getByRole('button', { name: /Run local audit/i })).toBeVisible();
   });
 

@@ -158,6 +158,7 @@ export default function Layout({
   const [menuOpen, setMenuOpen] = useState(false);
   const [searchOpen, setSearchOpen] = useState(false);
   const [sidebarSearch, setSidebarSearch] = useState("");
+  const [quickSearch, setQuickSearch] = useState("");
 
   const navigate = (path: string) => { setLocation(path); setMenuOpen(false); };
   const activeNav = navLabel(location);
@@ -334,16 +335,15 @@ export default function Layout({
                   type="search"
                   placeholder="Search pages…"
                   className="search-input"
-                  onChange={(e) => {
-                    const q = e.target.value.toLowerCase();
-                    if (!q) return;
-                    const match = ALL_PATHS.find((p) => p.label.toLowerCase().includes(q));
-                    if (match) { navigate(match.path); setSearchOpen(false); }
-                  }}
+                  value={quickSearch}
+                  onChange={(e) => setQuickSearch(e.target.value)}
                 />
               </div>
               <div className="search-hints">
-                {ALL_PATHS.slice(0, 8).map((item) => {
+                {ALL_PATHS.filter((item) => {
+                  const query = quickSearch.trim().toLowerCase();
+                  return !query || `${item.label} ${item.description}`.toLowerCase().includes(query);
+                }).slice(0, 8).map((item) => {
                   const Icon = item.icon;
                   return (
                     <button
@@ -358,6 +358,9 @@ export default function Layout({
                     </button>
                   );
                 })}
+                {ALL_PATHS.every((item) => !`${item.label} ${item.description}`.toLowerCase().includes(quickSearch.trim().toLowerCase())) && (
+                  <div className="search-empty">No pages match “{quickSearch}”</div>
+                )}
               </div>
             </div>
           </div>

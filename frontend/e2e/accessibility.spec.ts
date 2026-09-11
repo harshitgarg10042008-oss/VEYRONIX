@@ -4,7 +4,7 @@ import AxeBuilder from '@axe-core/playwright';
 test.describe('ConfigSentinel Accessibility', () => {
   test('dashboard should have no critical accessibility violations', async ({ page }) => {
     await page.goto('/');
-    await expect(page.locator('text=Configuration posture')).toBeVisible();
+    await expect(page.getByText('SECURITY ASSURANCE COMMAND CENTER')).toBeVisible();
 
     const results = await new AxeBuilder({ page }).analyze();
 
