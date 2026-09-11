@@ -28,7 +28,7 @@ test.describe('ConfigSentinel Home Page', () => {
 
     for (const route of routes) {
       await page.goto(route);
-      await expect(page.locator('h1').first()).toBeVisible();
+      await expect(page.locator('h1').first(), `Expected ${route} to render a page heading`).toBeVisible();
     }
   });
 });
