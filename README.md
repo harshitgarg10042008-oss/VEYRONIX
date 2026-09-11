@@ -6,15 +6,15 @@
 
 ## Current release
 
-| Item | Value |
-|---|---|
-| Package | `configsentinel-sdk` |
-| Version | `0.3.0` |
-| Python | 3.11 or newer |
-| Supported parsers | Cisco IOS/IOS XE, Juniper Junos, conservative generic-firewall subset |
-| Initial controls | Secure SSH, Telnet prohibition, AAA, logging, NTP, secure SNMP, plain HTTP management |
-| LLM mode | Disabled by default; provider configuration is opt-in |
-| License | Proprietary hackathon prototype |
+| Item              | Value                                                                                 |
+| ----------------- | ------------------------------------------------------------------------------------- |
+| Package           | `configsentinel-sdk`                                                                  |
+| Version           | `0.3.0`                                                                               |
+| Python            | 3.11 or newer                                                                         |
+| Supported parsers | Cisco IOS/IOS XE, Juniper Junos, conservative generic-firewall subset                 |
+| Initial controls  | Secure SSH, Telnet prohibition, AAA, logging, NTP, secure SNMP, plain HTTP management |
+| LLM mode          | Disabled by default; provider configuration is opt-in                                 |
+| License           | Proprietary hackathon prototype                                                       |
 
 ## Installation
 
@@ -115,7 +115,6 @@ Detailed phase documentation is available in [`docs/`](docs/). Start with the [P
 
 This is an alpha hackathon prototype. It is suitable for controlled demonstrations and local evaluation. Before production use, add organization-specific controls, independent parser validation, authenticated multi-user access, secrets-management integration, formal change approval, and a separately reviewed device-application service.
 
-
 ## Local operator workbench
 
 The React/Tailwind operator workbench is included under [`frontend/`](frontend/). It is a local review surface for audit posture, findings, evidence line references, framework mappings, unknown-syntax review, and preview-only remediation. It intentionally does not connect to live devices or execute generated commands.
@@ -138,7 +137,6 @@ PYTHONPATH=src python examples/local_demo.py
 
 See [`docs/phases/PHASE_13_20_COMPLETION.md`](docs/phases/PHASE_13_20_COMPLETION.md) for the re-baselined Phase 13–20 completion record and the explicit boundary between shipped local-first behavior and future enterprise integrations. The verified implementation audit and remaining SIH score gaps are recorded in [`docs/SIH_FINAL_GAP_ANALYSIS.md`](docs/SIH_FINAL_GAP_ANALYSIS.md).
 
-
 ## Live dashboard wiring
 
 The dashboard now consumes the deterministic report serializer through the optional local API adapter. Install the API extra and run the service in one terminal:
@@ -158,13 +156,11 @@ VITE_API_BASE_URL=http://127.0.0.1:8000 pnpm dev
 
 The dashboard loads the same evidence-backed report shape used by JSON and Markdown exports. Its filters narrow the visible set by severity, status, and framework mapping; the PDF action exports the current posture metrics plus the currently visible findings, evidence excerpts, input hash, mappings, and safety note. If the API is unavailable, the interface stays explicit about the offline state instead of displaying fabricated audit data. Vendor selection for uploads is performed by the backend `/api/detect` contract, and the Control Packs view reads the live deterministic registry from `/api/control-pack` rather than duplicating rule names in the browser.
 
-
 ## Configuration uploads and audit history
 
 The dashboard accepts `.cfg`, `.conf`, `.config`, and `.txt` configuration files up to 2 MB. Files are read in the browser and submitted only to the configured local API; no device connection is created by upload. The backend remains responsible for redaction and deterministic evaluation. The API also rejects NUL bytes, invalid UTF-8 at ingestion boundaries, oversized lines, and requests beyond its 5 MiB text limit.
 
 Completed reports are stored in browser `localStorage` under a versioned ConfigSentinel AI key, capped at the most recent 20 snapshots. History stays on the operator’s machine and is not uploaded or synchronized. The Finding trend panel derives its failure and unknown series exclusively from those saved report summaries. Selecting a point loads that historical snapshot back into the evidence workbench.
-
 
 ## History management and vendor detection
 
@@ -173,7 +169,6 @@ The dashboard’s History control opens a local-only management panel. Operators
 Configuration uploads now infer the parser from content before submission: Junos-style `set system`, `set interfaces`, or Juniper markers select `junos`; common firewall markers select `firewall_generic`; other supported text defaults to `cisco_ios`. The selected vendor is sent to the same deterministic API endpoint and remains visible in the audit metadata.
 
 The Finding trend chart exposes failures and unknown counts per saved snapshot. Hovering or focusing a point shows the filename, timestamp, counts, and an explicit load instruction; clicking or pressing Enter/Space loads that historical report into the workbench.
-
 
 ## Multi-source ingestion
 
@@ -186,7 +181,6 @@ configsentinel batch ./incoming/configs.zip --vendor junos
 
 The current batch command preserves the existing explicit-vendor contract. Automatic vendor confidence and operator confirmation are delivered by the dedicated vendor-detection upgrade later in this roadmap.
 
-
 ## Expanded vendor coverage
 
 The deterministic parser registry now includes **Arista EOS** and **Linux nftables** in addition to Cisco IOS, Junos, and the generic firewall adapter. Arista reuses the IOS-style normalized management controls with EOS-specific detection markers, while nftables maps explicit SSH, Telnet, HTTP, and logging rules into the canonical evidence model. Unsupported control families remain explicitly unknown or not applicable rather than being inferred.
@@ -195,7 +189,6 @@ The deterministic parser registry now includes **Arista EOS** and **Linux nftabl
 configsentinel audit ./configs/edge.conf --vendor arista_eos --framework cis-network
 configsentinel batch ./configs/firewall-rules --vendor linux_nftables --json-out reports/nftables.json
 ```
-
 
 ## Confidence-aware vendor detection
 
@@ -207,7 +200,6 @@ curl -s http://127.0.0.1:8000/api/detect \
   -d '{"config_text":"management api http-commands\ninterface Ethernet1\n"}'
 ```
 
-
 ## Custom policy authoring
 
 Organizations can extend the built-in control pack with a validated local JSON policy file. Each rule declares a control ID, intent, severity, bounded regular expression, `require` or `forbid` mode, vendor applicability, framework mappings, and a review-only remediation message. The loader limits pack size, control count, field lengths, and regex size; matching is performed only against redacted configuration text, and PASS/FAIL findings retain source-line evidence.
@@ -217,7 +209,6 @@ configsentinel audit ./configs/edge.conf --vendor cisco_ios --policy examples/cu
 ```
 
 Custom packs are additive and do not replace the built-in deterministic controls. The engine never executes policy content, and a missing required pattern remains `UNKNOWN` rather than being promoted to a passing verdict without evidence.
-
 
 ## GitOps security gate
 
@@ -233,7 +224,6 @@ The repository includes `.github/workflows/gitops-gate.yml` for pull-request exe
 
 For a controlled deployment of the local API, set `CONFIGSENTINEL_API_TOKEN` to enable bearer authentication for audit, detection, and control-pack endpoints; health endpoints remain available for liveness checks. The default server bind remains `127.0.0.1`, and production exposure still requires TLS termination, rate limiting, identity integration, and organization-specific retention controls.
 
-
 ## Approved baselines and drift detection
 
 Operators can save an approved baseline containing only metadata, the redacted input hash, parser identity, and control-status map. Raw configuration is never written into the baseline. A later drift check compares the current hash, vendor, and normalized control statuses, reports added/removed/changed controls, and returns a non-zero exit code when drift is detected.
@@ -243,7 +233,6 @@ configsentinel baseline-save ./configs/edge.conf --vendor cisco_ios --label prod
 configsentinel drift-check ./configs/edge.conf --vendor cisco_ios --baseline baselines/edge.json --json-out reports/edge-drift.json
 ```
 
-
 ## Remediation diffs and rollback previews
 
 The remediation workflow now exposes structured evidence-to-command diffs in addition to the existing script-style preview. Each change links redacted source evidence to a vendor-specific proposed command and includes rollback notes. Diff output is explicitly marked non-executable, carries the source audit hash, and is generated only for deterministic templates; unsupported vendors or controls remain manual-review cases.
@@ -251,7 +240,6 @@ The remediation workflow now exposes structured evidence-to-command diffs in add
 ```bash
 configsentinel audit ./configs/edge.conf --vendor cisco_ios --diff-out reports/remediation.diff
 ```
-
 
 ## Role-based governance and approvals
 
@@ -262,7 +250,6 @@ configsentinel approval-request rem_123 --actor alice --ledger .configsentinel/e
 configsentinel approval-decide rem_123 --actor bob --role reviewer --approve --ledger .configsentinel/events.jsonl
 ```
 
-
 ## Tamper-evident trail and signed evidence
 
 ConfigSentinel AI can append audit metadata to a local JSONL hash chain. Each event links to the previous event and can be verified for sequence, chain, and content integrity. Operators can also export a report as an HMAC-SHA256 signed envelope using a locally protected key file. The signed payload contains report metadata, findings, evidence, and hashes, but never the original unredacted configuration; HMAC provides integrity and shared-key authenticity, not public-key non-repudiation.
@@ -271,7 +258,6 @@ ConfigSentinel AI can append audit metadata to a local JSONL hash chain. Each ev
 configsentinel audit ./configs/edge.conf --vendor cisco_ios --trail .configsentinel/audit.jsonl
 configsentinel audit ./configs/edge.conf --vendor cisco_ios --signed-out reports/edge.signed.json --signing-key-file .configsentinel/signing.key
 ```
-
 
 ## Executive and enterprise reporting
 
@@ -282,7 +268,6 @@ configsentinel enterprise-report ./configs/edge.conf --vendor cisco_ios --format
 configsentinel enterprise-report ./configs/edge.conf --vendor cisco_ios --format json --out reports/executive.json
 ```
 
-
 ## Multidimensional historical analytics
 
 Saved serialized audit reports can be analyzed locally across vendor, severity, status, control, and ISO-date dimensions. The analytics output contains deterministic counters and a timeline suitable for dashboards or downstream reporting; it does not infer risk beyond the statuses and findings already present in each evidence-backed report.
@@ -290,7 +275,6 @@ Saved serialized audit reports can be analyzed locally across vendor, severity, 
 ```bash
 configsentinel history-analyze reports/history.json --out reports/history-analytics.json
 ```
-
 
 ## Evidence graph
 
@@ -300,7 +284,6 @@ The `evidence-graph` command projects a JSON audit report into a deterministic g
 configsentinel evidence-graph reports/edge.json --out reports/edge-evidence-graph.json
 ```
 
-
 ## Expanded sensitive-data scanning
 
 The `sensitive-scan` command detects additional secret classes before storage, export, or model use, including AWS access keys, private-key blocks, JWTs, bearer and basic credentials, SNMP communities, database connection strings, and cloud secret assignments. Results contain only line numbers and redacted excerpts, plus the original input hash; raw values are never printed by the scanner.
@@ -309,7 +292,6 @@ The `sensitive-scan` command detects additional secret classes before storage, e
 configsentinel sensitive-scan ./configs/edge.conf --format markdown --out reports/edge-sensitive.md
 configsentinel sensitive-scan ./configs/edge.conf --format json --out reports/edge-sensitive.json
 ```
-
 
 ## Offline explanation provider
 
@@ -442,7 +424,6 @@ configsentinel release-manifest . --out release-manifest.json
 configsentinel verify-manifest . release-manifest.json
 ```
 
-
 ## SentinelProof S1: Configuration Attestation Tokens
 
 ConfigSentinel AI can create a portable, HMAC-SHA256-signed configuration attestation from a serialized redacted audit report. The token binds the report version, audit identity, vendor, parser and rule-pack versions, selected frameworks, input SHA-256, finding identifiers, evidence digest, reconciliation digest, and reviewer status without embedding raw configuration evidence.
@@ -461,7 +442,6 @@ PYTHONPATH=src:. python -m configsentinel.cli attestation-verify report.json att
 
 The default status is `REVIEW_REQUIRED`. Verification fails when the key, report, serialized claim, or signature changes. This is an application-level assurance artifact inspired by provenance and attestation standards; it is not hardware attestation and does not authorize device changes. Keep signing keys outside source control and use a separate protected key for each environment.
 
-
 ## SentinelProof S2: Evidence Coverage and Uncertainty Budget
 
 The uncertainty budget converts a serialized audit report into review metadata without recalculating or changing compliance statuses. It reports evidence coverage, framework-mapping coverage, mean finding confidence, unknown blocks, per-finding categories, and explicit gaps such as missing evidence or unverified mappings.
@@ -471,7 +451,6 @@ PYTHONPATH=src:. python -m configsentinel.cli uncertainty-budget reports/edge.js
 ```
 
 The budget distinguishes `VERIFIED`, `INFERRED`, `UNKNOWN`, and `CONTRADICTED` review categories. It records only evidence presence, redaction state, line-range validity, and digests; it does not copy raw configuration excerpts into the artifact. `verdict_boundary.verdicts_changed` is always `false`: the original deterministic `PASS`, `FAIL`, `UNKNOWN`, and `REVIEW_REQUIRED` statuses remain authoritative.
-
 
 ## SentinelProof S3: Semantic Mutation Lab
 
@@ -483,7 +462,6 @@ PYTHONPATH=src:. python -m configsentinel.cli mutation-lab ./configs/edge.cfg --
 
 The artifact contains source hashes, changed control IDs, expected and observed statuses, and pass/fail mutation results, but never raw configuration text. The lab requires an explicit vendor, enforces a mutation count limit, uses no network access, and does not change the source audit verdict or apply a configuration.
 
-
 ## SentinelProof S4: Evidence-First Assurance Twin
 
 The Assurance Twin projects an imported inventory into a bounded local graph that separates imported facts from derived neighborhoods. Operators can link findings to assets and run a counterfactual add/remove-link analysis without discovering devices, inferring traffic flow, estimating exploitability, or applying remediation.
@@ -494,7 +472,6 @@ PYTHONPATH=src:. python -m configsentinel.cli assurance-twin topology.json --rep
 
 Graph nodes and links are labeled as `imported`; operator finding links and graph neighborhoods are labeled with their provenance. Missing links are not treated as proof of isolation, and unlinked findings remain visible. The HTML explorer is self-contained and loads no external resources.
 
-
 ## SentinelProof S5: Resource-Level Least-Privilege Intent Compiler
 
 The intent compiler translates an operator-declared resource policy into vendor-neutral checks over deterministic audit findings. It supports subjects, named resources, approved intermediary assets, protocols, and bounded requirements such as secure SSH management, no Telnet, and no plain HTTP.
@@ -504,7 +481,6 @@ PYTHONPATH=src:. python -m configsentinel.cli intent-compile intent.json --repor
 ```
 
 The compiler reports `SATISFIED`, `VIOLATED`, or `REVIEW_REQUIRED` based on supplied evidence. Missing report evidence remains unknown. It emits no vendor configuration, no executable commands, and no live-network requests; it does not prove reachability or change the underlying compliance verdicts.
-
 
 ## SentinelProof S6: Governed Unknown-Syntax Apprenticeship
 
@@ -517,7 +493,6 @@ PYTHONPATH=src:. python -m configsentinel.cli apprenticeship-test reports/telnet
 
 A passing contract reports `READY_FOR_HUMAN_REVIEW`; it never promotes a parser mapping, changes the parser registry, or alters compliance verdicts automatically. Examples are redacted before storage, secret-like values are not retained, and contract testing remains local and network-free.
 
-
 ## SentinelProof S7: Cross-Vendor Semantic Differential Testing
 
 The differential tester compares explicit vendor variants of the same intended configuration at the canonical semantic-field and deterministic-control levels. It surfaces semantic and control disagreements with per-variant parser versions and input hashes rather than choosing one vendor parser as correct.
@@ -527,7 +502,6 @@ PYTHONPATH=src:. python -m configsentinel.cli differential-test --variant cisco_
 ```
 
 Only selected normalized fields and their associated controls are compared. Results contain no raw configuration, perform no network access, never select an authoritative vendor, and do not alter compliance verdicts.
-
 
 ## SentinelProof S8: Compliance Time Machine
 
@@ -539,7 +513,6 @@ PYTHONPATH=src:. python -m configsentinel.cli time-machine reports/snapshots.jso
 
 Each snapshot retains its audit ID, vendor, parser version, input hash, status, severity, confidence, and evidence count. The artifact never includes raw evidence excerpts. It is a historical replay aid only: it performs no live lookup, does not assert that a snapshot reflects current device state, and cannot change verdicts.
 
-
 ## SentinelProof S9: Proof-Carrying Remediation
 
 Remediation previews can now be accompanied by proof metadata that binds each safe deterministic step to the source audit, redacted input hash, evidence-span hashes, command hash, rollback hash, preconditions, and a required post-change deterministic re-audit.
@@ -550,7 +523,6 @@ PYTHONPATH=src:. python -m configsentinel.cli remediation-proof-verify reports/e
 ```
 
 Proof artifacts intentionally contain no executable command text or raw evidence excerpts. They are review metadata only: independent operator approval is required, commands are marked non-executable, no device connection occurs, and verification does not claim that a post-change state exists until a new audit supplies evidence.
-
 
 ## SentinelProof S10: Privacy-Preserving Audit Exchange
 
@@ -574,7 +546,6 @@ The exchange artifact is a privacy boundary, not an authorization boundary. Veri
 
 All SentinelProof artifacts are offline, deterministic review aids. They may summarize or bind evidence, but they cannot execute device changes, establish reachability, or turn an unknown result into a pass. AI-assisted explanations remain non-authoritative and are never used as the source of a compliance verdict.
 
-
 ## SentinelProof S11: Reviewer Disagreement Analytics
 
 Reviewer disagreement analytics makes human review measurable without pretending that consensus is compliance truth. Operators provide a bounded JSON file of reviewer IDs and structured decisions (`ACCEPT`, `CHALLENGE`, or `UNABLE`) for finding IDs. The analyzer reports per-finding vote counts, explicit `CONTESTED` ties, consensus strength, pairwise agreement, evidence-quality signals, and hash-only reviewer-note references.
@@ -584,7 +555,6 @@ PYTHONPATH=src:. python -m configsentinel.cli reviewer-analytics reports/edge.js
 ```
 
 A tied vote never selects a winner: it is emitted as `CONTESTED` and counted as unresolved. The original deterministic audit status remains the authoritative verdict, including when reviewers agree. Reviewer notes and raw configuration evidence are not copied into the analytics artifact, no network request is made, and the command cannot approve, reject, or remediate a finding.
-
 
 ## SentinelProof S12: Assurance Drift and Freshness Decay
 
@@ -596,7 +566,6 @@ PYTHONPATH=src:. python -m configsentinel.cli assurance-freshness reports/edge.j
 
 Freshness and drift are assurance signals, not compliance verdicts. `AGING`, `EXPIRED`, and `DRIFTED` require a new review or deterministic re-audit, while `verdicts_changed` remains `false`. No live device query occurs, no raw configuration or evidence is copied, and the tool rejects ambiguous timestamps and future-dated evaluations.
 
-
 ## SentinelProof S13: Adversarial Parser Robustness Pack
 
 The robustness pack subjects an explicitly selected supported parser to a deterministic corpus of adversarial inputs: line-ending changes, missing final newlines, BOMs, long unknown lines, embedded NULs, Unicode confusables, and duplicated payloads. Each case records only an input hash, size, parser outcome, warning/unknown counts, and semantic-field deltas against the baseline.
@@ -606,7 +575,6 @@ PYTHONPATH=src:. python -m configsentinel.cli parser-robustness configs/edge.cfg
 ```
 
 A parser crash is a robustness failure. A semantic deviation is retained as a review-visible signal rather than normalized away, while oversized inputs are bounded. The pack does not mutate the parser registry, generate patches, execute configuration, make network requests, or change compliance verdicts; raw mutated configuration and exception messages are excluded from the artifact.
-
 
 ## SentinelProof S14: Policy Provenance Compiler
 
@@ -618,7 +586,6 @@ PYTHONPATH=src:. python -m configsentinel.cli policy-provenance-verify reports/e
 ```
 
 Verification recomputes the validated policy and report lineage and reports mismatches rather than silently accepting drift. Provenance compilation does not activate or install a policy, does not produce executable commands, does not alter findings, and does not make network requests. `policy_activation` and `verdicts_changed` remain `false` by construction.
-
 
 ## One-file Windows startup
 
