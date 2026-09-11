@@ -34,28 +34,28 @@ docker compose logs -f
 
 ### Backend (configsentinel-backend)
 
-| Variable | Default | Description |
-|----------|---------|-------------|
-| `CONFIGSENTINEL_AUTH_REQUIRED` | `false` | Require API token authentication |
-| `CONFIGSENTINEL_API_TOKEN` | (empty) | API token for authenticated mode |
-| `CONFIGSENTINEL_RATE_LIMIT_PER_MINUTE` | `120` | API rate limit per minute |
-| `CONFIGSENTINEL_LLM_PROVIDER` | `offline` | LLM provider (offline, openai, anthropic) |
-| `CONFIGSENTINEL_LLM_ENABLED` | `false` | Enable AI explanation features |
-| `CONFIGSENTINEL_GOVERNANCE_LEDGER` | `/app/data/events.jsonl` | Path to governance ledger |
-| `CONFIGSENTINEL_DATABASE_URL` | `sqlite:////app/data/configsentinel.db` | SQLite database path |
-| `CONFIGSENTINEL_WEB_SCAN_ENABLED` | `true` | Enable website security scanner |
-| `CONFIGSENTINEL_WEB_SCAN_TIMEOUT_SECONDS` | `15` | Website scan timeout |
-| `CONFIGSENTINEL_WEB_SCAN_MAX_RESPONSE_BYTES` | `2000000` | Max response size for scans |
-| `CONFIGSENTINEL_WEB_SCAN_ALLOW_PRIVATE_TARGETS` | `false` | Allow scanning private IP ranges |
+| Variable                                        | Default                                 | Description                               |
+| ----------------------------------------------- | --------------------------------------- | ----------------------------------------- |
+| `CONFIGSENTINEL_AUTH_REQUIRED`                  | `false`                                 | Require API token authentication          |
+| `CONFIGSENTINEL_API_TOKEN`                      | (empty)                                 | API token for authenticated mode          |
+| `CONFIGSENTINEL_RATE_LIMIT_PER_MINUTE`          | `120`                                   | API rate limit per minute                 |
+| `CONFIGSENTINEL_LLM_PROVIDER`                   | `offline`                               | LLM provider (offline, openai, anthropic) |
+| `CONFIGSENTINEL_LLM_ENABLED`                    | `false`                                 | Enable AI explanation features            |
+| `CONFIGSENTINEL_GOVERNANCE_LEDGER`              | `/app/data/events.jsonl`                | Path to governance ledger                 |
+| `CONFIGSENTINEL_DATABASE_URL`                   | `sqlite:////app/data/configsentinel.db` | SQLite database path                      |
+| `CONFIGSENTINEL_WEB_SCAN_ENABLED`               | `true`                                  | Enable website security scanner           |
+| `CONFIGSENTINEL_WEB_SCAN_TIMEOUT_SECONDS`       | `15`                                    | Website scan timeout                      |
+| `CONFIGSENTINEL_WEB_SCAN_MAX_RESPONSE_BYTES`    | `2000000`                               | Max response size for scans               |
+| `CONFIGSENTINEL_WEB_SCAN_ALLOW_PRIVATE_TARGETS` | `false`                                 | Allow scanning private IP ranges          |
 
 ### Frontend (configsentinel-frontend)
 
-| Variable | Default | Description |
-|----------|---------|-------------|
-| `HOST` | `0.0.0.0` | Bind address |
-| `PORT` | `3000` | HTTP port |
-| `NODE_ENV` | `production` | Node environment |
-| `VITE_API_URL` | `http://backend:5000` | Backend API URL (internal) |
+| Variable          | Default               | Description                                         |
+| ----------------- | --------------------- | --------------------------------------------------- |
+| `HOST`            | `0.0.0.0`             | Bind address                                        |
+| `PORT`            | `3000`                | HTTP port                                           |
+| `NODE_ENV`        | `production`          | Node environment                                    |
+| `BACKEND_API_URL` | `http://backend:5000` | Backend API URL used by the compiled frontend proxy |
 
 ## Persistence
 

@@ -41,9 +41,6 @@ RUN pnpm install --frozen-lockfile --prod
 # Copy compiled output from builder stage
 COPY --from=builder /app/dist ./dist
 
-# Copy vite config (needed for preview proxy configuration)
-COPY vite.config.ts ./
-
 # Set ownership
 RUN chown -R veyronix:veyronix /app
 
@@ -56,9 +53,8 @@ ENV HOST=0.0.0.0 \
     PORT=3000 \
     NODE_ENV=production
 
-# Health check — Vite preview server has no dedicated health endpoint; use HTTP 200 on /
+# Health check — the compiled Express server serves the SPA and same-origin API proxy.
 HEALTHCHECK --interval=30s --timeout=10s --start-period=15s --retries=3 \
   CMD wget -q -O /dev/null http://127.0.0.1:3000/ || exit 1
 
-# Use pnpm preview to serve compiled bundle; proxies /api -> backend
-CMD ["pnpm", "preview", "--host", "0.0.0.0", "--port", "3000"]
+CMD ["node", "dist/index.js"]

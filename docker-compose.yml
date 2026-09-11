@@ -79,8 +79,8 @@ services:
       HOST: "0.0.0.0"
       PORT: "3000"
       NODE_ENV: "production"
-      # Backend URL used by Vite preview proxy for /api/* routes
-      VITE_API_URL: "http://backend:5000"
+      # Backend URL used by the compiled Express proxy for /api/* routes
+      BACKEND_API_URL: "http://backend:5000"
     tmpfs:
       # Node may need /tmp for runtime scratch
       - /tmp:size=16m,mode=1777

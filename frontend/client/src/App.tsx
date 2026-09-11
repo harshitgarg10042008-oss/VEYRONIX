@@ -9,6 +9,7 @@ import { ThemeProvider } from "./contexts/ThemeContext";
 import { CapabilityProvider } from "./contexts/CapabilityContext";
 import Home from "./pages/Home";
 import AssuranceDashboard from "./pages/AssuranceDashboard";
+import WebsiteSecurityPage from "./pages/WebsiteSecurityPage";
 
 import BlastRadiusPage from "./pages/BlastRadiusPage";
 import FreshnessPage from "./pages/FreshnessPage";
@@ -47,7 +48,7 @@ function Router() {
         <Route path="/remediation" component={Home} />
         <Route path="/settings" component={Home} />
         <Route path="/operator-guide" component={Home} />
-        <Route path="/website-security" component={Home} />
+        <Route path="/website-security" component={WebsiteSecurityPage} />
         <Route path="/assurance-chain" component={AssuranceDashboard} />
 
         {/* 20-Feature Portfolio Routes */}

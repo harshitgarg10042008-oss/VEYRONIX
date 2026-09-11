@@ -217,7 +217,7 @@ export default function Layout({
             searchTerm={sidebarSearch}
           />
           <NavGroup
-            label="ADVANCED LAB"
+            label="RESEARCH LAB"
             items={LAB_ITEMS}
             activePath={location}
             onNavigate={navigate}

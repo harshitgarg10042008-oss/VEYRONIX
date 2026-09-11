@@ -107,7 +107,9 @@ The repository tests cover typed contracts, parser behavior, compliance evaluati
 
 ## Documentation
 
-Detailed phase documentation is available in [`docs/`](docs/). Start with the [Phase 1 foundation](docs/phase-1/PHASE_1_FOUNDATION.md), [SDK and LLM architecture](docs/phase-2/PHASE_2_SDK_LLM.md), [parser and compliance engine](docs/phase-3/PHASE_3_PARSERS_COMPLIANCE.md), [secure ingestion](docs/phase-4/PHASE_4_SECURE_INGESTION.md), and [remediation CLI](docs/phase-5/PHASE_5_REMEDIATION_CLI.md). The [end-user guide](docs/USER_GUIDE.md) contains operational examples and troubleshooting.
+For the SIH evaluation, start with the [final gap analysis](docs/SIH_FINAL_GAP_ANALYSIS.md), [demo script](docs/SIH_DEMO_SCRIPT.md), [requirement traceability](docs/SIH_REQUIREMENT_TRACEABILITY.md), [limitations](docs/SIH_LIMITATIONS.md), and [final scorecard](docs/SIH_FINAL_SCORECARD.md).
+
+Detailed phase documentation is available in [`docs/`](docs/). Start with the [Phase 1 baseline](docs/phases/PHASE_1_BASELINE.md), [Phase 2 progress](docs/phases/PHASE_2_PROGRESS.md), [Phase 3 accessibility evidence](docs/phases/PHASE_3_E2E_ACCESSIBILITY_EVIDENCE.md), [Phase 4 evidence](docs/phases/PHASE_4_EVIDENCE.md), and [Phase 13-20 completion record](docs/phases/PHASE_13_20_COMPLETION.md). The [end-user guide](docs/guides/USER_GUIDE.md) contains operational examples and troubleshooting.
 
 ## Project status
 
@@ -134,7 +136,7 @@ cd frontend && pnpm install --frozen-lockfile && pnpm run check && pnpm run buil
 PYTHONPATH=src python examples/local_demo.py
 ```
 
-See [`docs/PHASE_13_20_COMPLETION.md`](docs/PHASE_13_20_COMPLETION.md) for the re-baselined Phase 13–20 completion record and the explicit boundary between shipped local-first behavior and future enterprise integrations. The strict implementation audit and remaining SIH score gaps are recorded in [`SIH_STRICT_AUDIT.md`](SIH_STRICT_AUDIT.md).
+See [`docs/phases/PHASE_13_20_COMPLETION.md`](docs/phases/PHASE_13_20_COMPLETION.md) for the re-baselined Phase 13–20 completion record and the explicit boundary between shipped local-first behavior and future enterprise integrations. The verified implementation audit and remaining SIH score gaps are recorded in [`docs/SIH_FINAL_GAP_ANALYSIS.md`](docs/SIH_FINAL_GAP_ANALYSIS.md).
 
 
 ## Live dashboard wiring
