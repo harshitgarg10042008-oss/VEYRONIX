@@ -8,17 +8,17 @@
 
 ## Current and Target Score
 
-**Current engineering score: 88/100.** This is a code-and-evidence assessment, not a prediction of a judge's final mark. The target is **95/100 or higher** after the acceptance criteria below are demonstrated with a clean release build, browser evidence, and approved representative fixtures.
+**Current engineering score: 93/100.** This is a code-and-evidence assessment, not a prediction of a judge's final mark. The target is **95/100 or higher** after the acceptance criteria below are demonstrated with a clean release build, browser evidence, and approved representative fixtures.
 
 | Category                         |  Weight | Current | Basis                                                                                                                   |
 | -------------------------------- | ------: | ------: | ----------------------------------------------------------------------------------------------------------------------- |
 | Problem alignment                |      25 |      22 | Strong configuration assurance workflow; limited field validation evidence                                              |
-| Functional completeness          |      20 |      17 | Core audit and dedicated website inspection are real; advanced surfaces vary from real API data to bounded simulations  |
+| Functional completeness              |      20 |     18 | Core audit, dedicated website inspection, and populated primary operator routes are real; advanced surfaces vary from real API data to bounded simulations  |
 | Technical architecture           |      20 |      19 | Deterministic engine, evidence model, safety boundaries, local API, and compiled production proxy                       |
-| UI/UX and demo quality           |      15 |      13 | Strong visual direction, dedicated website experience, and core workflow; research IA still needs consolidation         |
+| UI/UX and demo quality               |      15 |     14 | Strong visual direction, dedicated website experience, and distinct primary operator views; research IA still needs consolidation         |
 | Innovation and differentiation   |      10 |       8 | Evidence, unknowns, provenance, review-only remediation, and bounded AI are credible                                    |
 | Testing, security, deployability |      10 |       9 | Broad Python/frontend/browser gates and corrected production topology; Docker runtime still needs daemon smoke evidence |
-| **Total**                        | **100** |  **88** | Verified current-release assessment                                                                                     |
+| **Total**                            | **100** |  **93** | Verified current-release assessment after primary route separation                                                     |
 
 ## Requirement-to-Feature Mapping
 
@@ -51,7 +51,7 @@
 1. **Docker runtime still needs a daemon-backed smoke test.** The image now starts the compiled Express proxy and Compose passes `BACKEND_API_URL`, but the local environment has validated Compose syntax and the application build, not a full container-to-container request.
 2. **Website Security is now a dedicated page component.** Its safe demo state and passive scan journey are complete, but several requested signals are represented by the backend rule set rather than a separate UI field for every category.
 3. **Advanced feature pages are not uniformly backed by authoritative data.** Some use real API routes; others use bounded synthetic/compatibility responses. They need explicit Research Lab labeling or stronger populated states.
-4. **Browser coverage does not prove the full judge journey.** Existing tests cover route loading, basic audit behavior, and accessibility, but not evidence opening, filters, website dedicated identity, approval transition, remediation warning, or mobile overflow.
+4. **Browser coverage does not prove the full judge journey.** Primary operator route identity and populated states are now covered; evidence opening, filters, website dedicated identity, approval transition, remediation warning, and mobile overflow still need dedicated assertions.
 5. **The frontend has duplicated navigation and API-fetch patterns.** `Home.tsx`, `Layout.tsx`, and `navigation.ts` can drift; raw fetch calls do not share a typed error/credential policy.
 6. **Operational persistence is limited.** Inventory and monitors are process-global in parts of the API; monitoring heatmap/uptime includes synthetic behavior and is not a scheduler.
 

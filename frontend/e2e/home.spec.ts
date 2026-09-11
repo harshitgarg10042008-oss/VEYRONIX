@@ -31,4 +31,24 @@ test.describe('ConfigSentinel Home Page', () => {
       await expect(page.locator('h1').first(), `Expected ${route} to render a page heading`).toBeVisible();
     }
   });
+
+  test('should render distinct populated primary workflow pages', async ({ page }) => {
+    const routes = [
+      ['/inventory', 'Know what is being assured.'],
+      ['/monitoring', 'Watch posture without hiding uncertainty.'],
+      ['/audits', 'Compare audits with evidence.'],
+      ['/review-queue', 'Resolve what the engine cannot prove.'],
+      ['/remediation', 'Fix safely, never silently.'],
+      ['/drift', 'See what changed before it becomes risk.'],
+      ['/settings', 'Control the local workbench.'],
+      ['/operator-guide', 'A judge-ready path through the product.'],
+      ['/control-packs', 'Inspect the rules behind every verdict.'],
+    ] as const;
+
+    for (const [route, heading] of routes) {
+      await page.goto(route);
+      await expect(page.getByRole('heading', { name: heading })).toBeVisible();
+      await expect(page.getByText('WORKBENCH RECORDS').or(page.getByText('Demo sequence')).or(page.getByText('Inspectable control packs')).first()).toBeVisible();
+    }
+  });
 });

@@ -33,21 +33,22 @@ import KnowledgeGraphPage from "./pages/KnowledgeGraphPage";
 import PrivacyPolicy from "./pages/PrivacyPolicy";
 import TermsAndConditions from "./pages/TermsAndConditions";
 import PolicyPage from "./pages/PolicyPage";
+import PrimaryWorkflowPage from "./pages/PrimaryWorkflowPage";
 
 function Router() {
   return (
     <Layout>
       <Switch>
         <Route path="/" component={Home} />
-        <Route path="/audits" component={Home} />
-        <Route path="/inventory" component={Home} />
-        <Route path="/monitoring" component={Home} />
-        <Route path="/drift" component={Home} />
-        <Route path="/review-queue" component={Home} />
-        <Route path="/control-packs" component={Home} />
-        <Route path="/remediation" component={Home} />
-        <Route path="/settings" component={Home} />
-        <Route path="/operator-guide" component={Home} />
+        <Route path="/audits"><PrimaryWorkflowPage kind="audits" /></Route>
+        <Route path="/inventory"><PrimaryWorkflowPage kind="inventory" /></Route>
+        <Route path="/monitoring"><PrimaryWorkflowPage kind="monitoring" /></Route>
+        <Route path="/drift"><PrimaryWorkflowPage kind="drift" /></Route>
+        <Route path="/review-queue"><PrimaryWorkflowPage kind="review" /></Route>
+        <Route path="/control-packs"><PrimaryWorkflowPage kind="controls" /></Route>
+        <Route path="/remediation"><PrimaryWorkflowPage kind="remediation" /></Route>
+        <Route path="/settings"><PrimaryWorkflowPage kind="settings" /></Route>
+        <Route path="/operator-guide"><PrimaryWorkflowPage kind="guide" /></Route>
         <Route path="/website-security" component={WebsiteSecurityPage} />
         <Route path="/assurance-chain" component={AssuranceDashboard} />
 
