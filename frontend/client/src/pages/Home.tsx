@@ -87,7 +87,7 @@ ip access-list standard MGMT-ACL
 end
 `;
 const DEMO_FILE_NAME = "demo-cisco-compliant.conf";
-const HISTORY_KEY = "veyronix.audit-history.v2";
+const HISTORY_KEY = "veyronix.audit-history.v3";
 const MAX_CONFIG_BYTES = 5 * 1024 * 1024;
 
 type FindingStatus =
@@ -155,9 +155,12 @@ type ControlDefinition = {
 };
 type AuditHistoryEntry = {
   id: string;
-  capturedAt: string;
-  fileName: string;
-  configText?: string;
+  timestamp: string;
+  auditId: string;
+  filename: string;
+  originalConfigurationText?: string;
+  vendor: string;
+  score?: number;
   report: AuditReport;
 };
 type VendorDetection = {
@@ -236,7 +239,7 @@ const fallbackReport: AuditReport = {
     evaluated_count: 0,
     mapped_finding_count: 0,
     status_counts: {},
-    posture_score: 100,
+    posture_score: undefined,
   },
   findings: [],
 };
@@ -441,7 +444,19 @@ function readHistory(): AuditHistoryEntry[] {
   try {
     const raw = window.localStorage.getItem(HISTORY_KEY);
     const parsed = raw ? (JSON.parse(raw) as AuditHistoryEntry[]) : [];
-    return Array.isArray(parsed) ? parsed.slice(0, 20) : [];
+    if (!Array.isArray(parsed)) return [];
+    return parsed.filter((entry) =>
+      Boolean(
+        entry &&
+          typeof entry.id === "string" &&
+          typeof entry.timestamp === "string" &&
+          typeof entry.auditId === "string" &&
+          typeof entry.filename === "string" &&
+          typeof entry.vendor === "string" &&
+          entry.report?.audit?.audit_id === entry.auditId &&
+          entry.report?.audit?.vendor === entry.vendor,
+      ),
+    ).slice(0, 20);
   } catch {
     return [];
   }
@@ -694,16 +709,16 @@ function TrendPanel({
                 onClick={() => onSelect(item)}
               >
                 <span className="trend-entry-date">
-                  {new Date(item.capturedAt).toLocaleDateString(undefined, {
+                  {new Date(item.timestamp).toLocaleDateString(undefined, {
                     month: "short",
                     day: "numeric",
                   })}
                 </span>
                 <span className="trend-entry-main">
-                  <strong>{item.fileName}</strong>
+                  <strong>{item.filename}</strong>
                   <small>
                     {vendorLabel(item.report.audit.vendor)} ·{" "}
-                    {new Date(item.capturedAt).toLocaleTimeString([], {
+                    {new Date(item.timestamp).toLocaleTimeString([], {
                       hour: "numeric",
                       minute: "2-digit",
                     })}
@@ -772,9 +787,9 @@ function HistoryPanel({
                 onClick={() => onSelect(entry)}
               >
                 <span className="history-time">
-                  {new Date(entry.capturedAt).toLocaleString()}
+                  {new Date(entry.timestamp).toLocaleString()}
                 </span>
-                <strong>{entry.fileName}</strong>
+                <strong>{entry.filename}</strong>
                 <small>
                   {entry.report.audit.vendor} ·{" "}
                   {entry.report.summary.failed_count} failures ·{" "}
@@ -784,7 +799,7 @@ function HistoryPanel({
               <button
                 type="button"
                 className="icon-action"
-                aria-label={`Export ${entry.fileName}`}
+                aria-label={`Export ${entry.filename}`}
                 onClick={() => onExport(entry)}
               >
                 <Download size={14} />
@@ -792,7 +807,7 @@ function HistoryPanel({
               <button
                 type="button"
                 className="icon-action danger"
-                aria-label={`Delete ${entry.fileName}`}
+                aria-label={`Delete ${entry.filename}`}
                 onClick={() => onDelete(entry)}
               >
                 <X size={14} />
@@ -1072,9 +1087,12 @@ export default function Home() {
       if (requestId !== auditRequestRef.current) return false;
       const entry = {
         id: `${nextReport.audit.audit_id}-${Date.now()}`,
-        capturedAt: new Date().toISOString(),
-        fileName,
-        configText,
+        timestamp: new Date().toISOString(),
+        auditId: nextReport.audit.audit_id,
+        filename: fileName,
+        originalConfigurationText: configText,
+        vendor: nextReport.audit.vendor,
+        score: nextReport.summary.posture_score,
         report: nextReport,
       };
       const nextHistory = [
@@ -1308,20 +1326,20 @@ export default function Home() {
 
   useEffect(() => {
     const init = async () => {
-      const latest = history[0];
+      const latest = history.find((entry) => Boolean(entry.originalConfigurationText));
       if (latest) {
         setReport(latest.report);
         setSelectedId(latest.report.findings[0]?.finding_id || "");
-        setSelectedFileName(latest.fileName);
-        setActiveConfigText(latest.configText || "");
-        setActiveVendor(latest.report.audit.vendor || "auto");
+        setSelectedFileName(latest.filename);
+        setActiveConfigText(latest.originalConfigurationText || "");
+        setActiveVendor(latest.vendor || latest.report.audit.vendor || "auto");
         setUploadedFile({
-          name: latest.fileName,
-          size: latest.configText?.length || 0,
-          status: latest.configText ? "analyzed" : "rejected",
+          name: latest.filename,
+          size: latest.originalConfigurationText?.length || 0,
+          status: latest.originalConfigurationText ? "analyzed" : "rejected",
         });
         setLoading(false);
-      } else void loadReport();
+      } else void loadReport(DEMO_CONFIGURATION, DEMO_FILE_NAME, "cisco_ios", []);
       void fetch(`${API_BASE}/api/control-pack`)
         .then((response) =>
           response.ok
@@ -1420,7 +1438,7 @@ export default function Home() {
       ).sort(),
     [report.findings],
   );
-  const score = report.summary.posture_score ?? 100;
+  const score = report.summary.posture_score;
   const navigate = (path: string) => {
     setLocation(path);
     setMenuOpen(false);
@@ -1489,15 +1507,17 @@ export default function Home() {
   const selectHistory = (entry: AuditHistoryEntry) => {
     setReport(entry.report);
     setSelectedId(entry.report.findings[0]?.finding_id || "");
-    setSelectedFileName(entry.fileName);
-    setActiveConfigText(entry.configText || "");
-    setActiveVendor(entry.report.audit.vendor || "auto");
+    setSelectedFileName(entry.filename);
+    setActiveConfigText(entry.originalConfigurationText || "");
+    setActiveVendor(entry.vendor || entry.report.audit.vendor || "auto");
     setUploadedFile({
-      name: entry.fileName,
-      size: entry.configText?.length || 0,
-      status: entry.configText ? "analyzed" : "rejected",
+      name: entry.filename,
+      size: entry.originalConfigurationText?.length || 0,
+      status: entry.originalConfigurationText ? "analyzed" : "rejected",
     });
-    setToast(`Loaded snapshot · ${entry.fileName}`);
+    setToast(entry.originalConfigurationText
+      ? `Loaded snapshot · ${entry.filename}`
+      : `Snapshot loaded · ${entry.filename} has no source text; upload that file again before rerunning`);
   };
   const deleteHistory = (entry: AuditHistoryEntry) => {
     const next = history.filter((item) => item.id !== entry.id);
@@ -1505,12 +1525,9 @@ export default function Home() {
     persistHistory(next);
     if (entry.report.audit.audit_id === report.audit.audit_id) {
       if (next[0]) selectHistory(next[0]);
-      else {
-        setReport(fallbackReport);
-        setSelectedId("");
-      }
+      else void clearHistory();
     }
-    setToast(`Deleted local snapshot · ${entry.fileName}`);
+    setToast(`Deleted local snapshot · ${entry.filename}`);
   };
   const clearHistory = async () => {
     setHistory([]);
@@ -2600,9 +2617,12 @@ export default function Home() {
               <strong>{selectedFileName}</strong>
               <span>
                 {apiOnline
-                  ? "API connected · deterministic engine"
-                  : "API offline · local fixture only"}
+                  ? `API connected · ${vendorLabel(report.audit.vendor)} parser ${report.audit.parser_version}`
+                  : "API unavailable · no fresh backend score"}
               </span>
+              <small>
+                Audit ID: {report.audit.audit_id} · Score source: {apiOnline ? (loading ? "fresh audit in progress" : "deterministic backend") : "unavailable"} · {report.summary.failed_count} failures · {report.summary.unknown_count} unknown
+              </small>
             </div>
             <div className="action-row">
               <button
@@ -2634,6 +2654,11 @@ export default function Home() {
               reset={resetFilters}
             />
           )}
+          {apiOnline && report.summary.failed_count > 0 && report.summary.posture_score === 0 && (
+            <div className="queue-banner" role="note">
+              This score comes from the uploaded file, which contains deterministic failures.
+            </div>
+          )}
           <div className="two-column">
             <section className="panel">
               <div className="panel-head">
@@ -2659,7 +2684,7 @@ export default function Home() {
               history={history}
               onSelect={selectHistory}
               onDelete={deleteHistory}
-              onExport={(entry) => exportReport(entry.report, entry.fileName)}
+              onExport={(entry) => exportReport(entry.report, entry.filename)}
             />
             <TrendPanel history={history} onSelect={selectHistory} />
           </div>
@@ -3006,7 +3031,7 @@ export default function Home() {
                 <option value="">Select baseline...</option>
                 {history.map((h) => (
                   <option key={h.id} value={h.id}>
-                    {new Date(h.capturedAt).toLocaleString()} - {h.fileName}
+                    {new Date(h.timestamp).toLocaleString()} - {h.filename}
                   </option>
                 ))}
               </select>
@@ -3019,7 +3044,7 @@ export default function Home() {
                 <option value="">Select current...</option>
                 {history.map((h) => (
                   <option key={h.id} value={h.id}>
-                    {new Date(h.capturedAt).toLocaleString()} - {h.fileName}
+                    {new Date(h.timestamp).toLocaleString()} - {h.filename}
                   </option>
                 ))}
               </select>
@@ -3602,14 +3627,16 @@ export default function Home() {
           <div className="hero-score">
             <span>POSTURE SCORE</span>
             <strong>
-              {score}
-              <small>/100</small>
+              {score === undefined ? "—" : score}
+              {score !== undefined && <small>/100</small>}
             </strong>
             <div className="score-track">
-              <i style={{ width: `${score}%` }} />
+              <i style={{ width: `${score ?? 0}%` }} />
             </div>
             <span>
-              {score >= 80
+              {score === undefined
+                ? "score unavailable · API offline"
+                : score >= 80
                 ? "operationally healthy"
                 : score >= 60
                   ? "monitor with review"
@@ -3879,7 +3906,7 @@ export default function Home() {
             history={history}
             onSelect={(entry) => selectHistory(entry)}
             onDelete={(entry) => deleteHistory(entry)}
-            onExport={(entry) => exportReport(entry.report, entry.fileName)}
+            onExport={(entry) => exportReport(entry.report, entry.filename)}
           />
         </div>
       </>
