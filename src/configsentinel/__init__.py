@@ -73,6 +73,8 @@ from .models import (
     Finding,
     FindingStatus,
     LLMExplanation,
+    ParseCoverage,
+    ParseStatus,
     RemediationPreview,
     Severity,
 )
@@ -94,6 +96,8 @@ __all__ = [
     "EXPLANATION_SCHEMA",
     "Finding",
     "FindingStatus",
+    "ParseCoverage",
+    "ParseStatus",
     "IngestedConfig",
     "IngestionError",
     "IngestionPolicy",

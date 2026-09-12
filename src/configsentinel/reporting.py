@@ -7,7 +7,7 @@ from dataclasses import asdict
 from typing import Any
 
 from .frameworks import REGISTRY_VERSION, mappings_for_finding, normalize_frameworks
-from .models import AuditResult, Finding
+from .models import AuditResult, Finding, ParseCoverage, ParseStatus
 
 REPORT_VERSION = "8.0.0"
 
@@ -19,6 +19,34 @@ def _finding_dict(finding: Finding, frameworks: tuple[str, ...]) -> dict[str, An
     data["evidence"] = [asdict(span) for span in finding.evidence]
     data["framework_mappings"] = list(mappings_for_finding(finding, frameworks))
     return data
+
+
+def _coverage_dict(result: AuditResult) -> dict[str, Any]:
+    coverage = result.coverage
+    if coverage is None:
+        coverage = ParseCoverage(
+            status=ParseStatus.UNKNOWN,
+            format_detected="unknown",
+            vendor_detected=result.vendor,
+            confidence=0.0,
+            parsed_lines=0,
+            unsupported_lines=0,
+            unknown_blocks=result.unknown_blocks,
+            protected_sections=(),
+            parser_version=result.parser_version,
+        )
+    return {
+        "status": coverage.status.value,
+        "format_detected": coverage.format_detected,
+        "vendor_detected": coverage.vendor_detected,
+        "confidence": coverage.confidence,
+        "parsed_lines": coverage.parsed_lines,
+        "unsupported_lines": coverage.unsupported_lines,
+        "unknown_blocks": [asdict(span) for span in coverage.unknown_blocks],
+        "protected_sections": list(coverage.protected_sections),
+        "parser_version": coverage.parser_version,
+        "coverage_ratio": coverage.coverage_ratio,
+    }
 
 
 def report_dict(
@@ -73,6 +101,7 @@ def report_dict(
             "status_counts": status_counts,
             "posture_score": posture_score,
         },
+        "coverage": _coverage_dict(result),
         "findings": findings,
         "unknown_blocks": [asdict(span) for span in result.unknown_blocks],
         "reconciliation": {

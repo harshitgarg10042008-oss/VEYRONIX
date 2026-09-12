@@ -6,6 +6,7 @@ import pytest
 
 from configsentinel import (
     AuditRequest,
+    AuditResult,
     ConfigSentinelClient,
     EvidenceSpan,
     Finding,
@@ -14,8 +15,11 @@ from configsentinel import (
     LLMConfig,
     LLMCopilot,
     LLMError,
+    ParseCoverage,
+    ParseStatus,
     SecretRedactor,
     Severity,
+    report_dict,
 )
 
 
@@ -146,3 +150,60 @@ def test_disabled_llm_fails_closed():
     copilot = LLMCopilot(config=LLMConfig(enabled=False))
     with pytest.raises(LLMError):
         copilot.explain_finding(finding, "unknown command")
+
+
+def test_parse_coverage_records_vendor_and_coverage_metadata():
+    coverage = ParseCoverage(
+        status=ParseStatus.PARTIALLY_PARSED,
+        format_detected="text/plain",
+        vendor_detected="cisco_ios",
+        confidence=0.93,
+        parsed_lines=80,
+        unsupported_lines=20,
+        unknown_blocks=(EvidenceSpan(12, 12, "unknown command"),),
+        protected_sections=("banner motd",),
+        parser_version="4.0.0",
+    )
+    assert coverage.status == ParseStatus.PARTIALLY_PARSED
+    assert coverage.vendor_detected == "cisco_ios"
+    assert 0.0 <= coverage.confidence <= 1.0
+    assert coverage.coverage_ratio == pytest.approx(0.8)
+
+
+def test_report_includes_parse_coverage_metadata():
+    result = AuditResult(
+        audit_id="audit-coverage",
+        vendor="cisco_ios",
+        parser_version="4.0.0",
+        rule_pack_version="2.1.0",
+        findings=(
+            Finding(
+                finding_id="f1",
+                audit_id="audit-coverage",
+                control_id="C1",
+                status=FindingStatus.FAIL,
+                severity=Severity.HIGH,
+                confidence=1.0,
+                evidence=(EvidenceSpan(1, 1, "transport input telnet"),),
+                observed_state="Telnet enabled",
+                expected_state="SSH only",
+                rationale="Telnet is insecure.",
+            ),
+        ),
+        input_sha256="a" * 64,
+        coverage=ParseCoverage(
+            status=ParseStatus.PARSED,
+            format_detected="text/plain",
+            vendor_detected="cisco_ios",
+            confidence=0.96,
+            parsed_lines=95,
+            unsupported_lines=5,
+            unknown_blocks=(),
+            protected_sections=(),
+            parser_version="4.0.0",
+        ),
+    )
+    payload = report_dict(result)
+    assert payload["coverage"]["status"] == "PARSED"
+    assert payload["coverage"]["vendor_detected"] == "cisco_ios"
+    assert payload["coverage"]["coverage_ratio"] == pytest.approx(0.95)

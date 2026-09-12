@@ -111,6 +111,41 @@ For the SIH evaluation, start with the [final gap analysis](docs/SIH_FINAL_GAP_A
 
 Detailed phase documentation is available in [`docs/`](docs/). Start with the [Phase 1 baseline](docs/phases/PHASE_1_BASELINE.md), [Phase 2 progress](docs/phases/PHASE_2_PROGRESS.md), [Phase 3 accessibility evidence](docs/phases/PHASE_3_E2E_ACCESSIBILITY_EVIDENCE.md), [Phase 4 evidence](docs/phases/PHASE_4_EVIDENCE.md), and [Phase 13-20 completion record](docs/phases/PHASE_13_20_COMPLETION.md). The [end-user guide](docs/guides/USER_GUIDE.md) contains operational examples and troubleshooting.
 
+## VEYRONIX implementation plan
+
+This repository now follows the narrowed VEYRONIX product contract: an evidence-first network configuration compliance platform, not a universal parser or a live device-management system.
+
+### Product boundary
+
+- Evidence-backed audit results only; no live device modification or command execution.
+- Deterministic logic and source-line evidence remain the source of truth.
+- Unsupported syntax is represented as `UNKNOWN`, `PARTIALLY_PARSED`, or `UNSUPPORTED_FORMAT` rather than incorrectly being treated as compliant.
+- Shared audit history is a backend concern when deployed on a LAN host; browser storage remains for preferences and drafts only.
+
+### Supported coverage matrix
+
+| Area                              | Status                    |
+| --------------------------------- | ------------------------- |
+| Cisco IOS / IOS XE CLI text       | Implemented and validated |
+| Junos set / ASCII text            | Implemented and validated |
+| Arista EOS CLI text               | Implemented               |
+| FortiOS native config             | Roadmap                   |
+| PAN-OS XML                        | Roadmap                   |
+| nftables text / JSON              | Implemented               |
+| Live device execution             | Explicitly out of scope   |
+| Autonomous email gateway blocking | Explicitly out of scope   |
+
+### Required engineering milestones
+
+1. Shared multi-computer deployment on one LAN host.
+2. Persistent backend state with audit records, auth hooks, and review APIs.
+3. Parse coverage metadata on every report.
+4. Safe archive ingestion and explicit unsupported/malformed file status.
+5. Evidence-first UI and signed report verification.
+6. Offline-first drafts with a synchronized server audit state.
+
+The full proposal is available in [docs/VEYRONIX_SIH_IMPLEMENTATION_PLAN.md](docs/VEYRONIX_SIH_IMPLEMENTATION_PLAN.md).
+
 ## Project status
 
 This is an alpha hackathon prototype. It is suitable for controlled demonstrations and local evaluation. Before production use, add organization-specific controls, independent parser validation, authenticated multi-user access, secrets-management integration, formal change approval, and a separately reviewed device-application service.

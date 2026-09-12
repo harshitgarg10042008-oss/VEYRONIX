@@ -7,6 +7,15 @@ from enum import Enum
 from typing import Any, Mapping
 
 
+class ParseStatus(str, Enum):
+    PARSED = "PARSED"
+    PARTIALLY_PARSED = "PARTIALLY_PARSED"
+    UNSUPPORTED_FORMAT = "UNSUPPORTED_FORMAT"
+    MALFORMED = "MALFORMED"
+    PROTECTED_INPUT = "PROTECTED_INPUT"
+    UNKNOWN = "UNKNOWN"
+
+
 class FindingStatus(str, Enum):
     PASS = "PASS"
     FAIL = "FAIL"
@@ -99,6 +108,32 @@ class AuditRequest:
 
 
 @dataclass(frozen=True)
+class ParseCoverage:
+    status: ParseStatus = ParseStatus.UNKNOWN
+    format_detected: str = "unknown"
+    vendor_detected: str = "unknown"
+    confidence: float = 0.0
+    parsed_lines: int = 0
+    unsupported_lines: int = 0
+    unknown_blocks: tuple[EvidenceSpan, ...] = ()
+    protected_sections: tuple[str, ...] = ()
+    parser_version: str = "unknown"
+
+    def __post_init__(self) -> None:
+        if not 0.0 <= self.confidence <= 1.0:
+            raise ValueError("confidence must be between 0 and 1")
+        if self.parsed_lines < 0 or self.unsupported_lines < 0:
+            raise ValueError("line counts cannot be negative")
+
+    @property
+    def coverage_ratio(self) -> float:
+        total = self.parsed_lines + self.unsupported_lines
+        if total <= 0:
+            return 0.0
+        return self.parsed_lines / total
+
+
+@dataclass(frozen=True)
 class AuditResult:
     audit_id: str
     vendor: str
@@ -107,6 +142,7 @@ class AuditResult:
     findings: tuple[Finding, ...]
     unknown_blocks: tuple[EvidenceSpan, ...] = ()
     input_sha256: str = ""
+    coverage: ParseCoverage | None = None
 
     @property
     def evaluated_count(self) -> int:
