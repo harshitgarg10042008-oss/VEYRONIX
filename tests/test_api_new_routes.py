@@ -1,8 +1,76 @@
+import json
+
 import pytest
 from fastapi.testclient import TestClient
 from configsentinel.api import app
 
 client = TestClient(app)
+
+
+def test_shared_audit_routes_create_and_list_records(tmp_path, monkeypatch):
+    monkeypatch.setenv("CONFIGSENTINEL_DATABASE_URL", str(tmp_path / "shared-audits.db"))
+    client = TestClient(app)
+
+    payload = {
+        "audit_id": "audit-123",
+        "project_id": "project-demo",
+        "filename": "edge.cfg",
+        "input_sha256": "a" * 64,
+        "vendor": "cisco_ios",
+        "parser_id": "cisco_ios",
+        "parser_version": "4.0.0",
+        "control_pack_version": "2.0.0",
+        "summary": {"failed_count": 1, "status": "FAIL"},
+        "created_by": "operator-a",
+        "report_json": {"audit": {"audit_id": "audit-123"}, "summary": {"failed_count": 1}},
+    }
+
+    create_response = client.post("/api/audits", json=payload)
+    assert create_response.status_code == 200, create_response.text
+    created = create_response.json()
+    assert created["audit_id"] == "audit-123"
+    assert created["project_id"] == "project-demo"
+
+    list_response = client.get("/api/audits")
+    assert list_response.status_code == 200
+    assert any(item["audit_id"] == "audit-123" for item in list_response.json()["items"])
+
+    fetch_response = client.get("/api/audits/audit-123")
+    assert fetch_response.status_code == 200
+    assert fetch_response.json()["filename"] == "edge.cfg"
+
+
+def test_shared_audit_review_route_records_review_disposition(tmp_path, monkeypatch):
+    monkeypatch.setenv("CONFIGSENTINEL_DATABASE_URL", str(tmp_path / "shared-audits.db"))
+    client = TestClient(app)
+
+    client.post(
+        "/api/audits",
+        json={
+            "audit_id": "audit-review",
+            "project_id": "project-demo",
+            "filename": "edge.cfg",
+            "input_sha256": "b" * 64,
+            "vendor": "cisco_ios",
+            "parser_id": "cisco_ios",
+            "parser_version": "4.0.0",
+            "control_pack_version": "2.0.0",
+            "summary": {"failed_count": 2},
+            "created_by": "operator-a",
+            "report_json": {"audit": {"audit_id": "audit-review"}},
+        },
+    )
+
+    review_response = client.post(
+        "/api/audits/audit-review/reviews",
+        json={"reviewer": "reviewer-b", "decision": "APPROVED", "reason": "Clear evidence"},
+    )
+    assert review_response.status_code == 200, review_response.text
+    assert review_response.json()["decision"] == "APPROVED"
+
+    audit_response = client.get("/api/audits/audit-review")
+    assert audit_response.status_code == 200
+    assert audit_response.json()["reviews"][0]["decision"] == "APPROVED"
 
 def test_blast_radius_simulation():
     response = client.post("/api/blast-radius/simulate", json={"change_type": "acl_modification", "target_id": "fw-01"})

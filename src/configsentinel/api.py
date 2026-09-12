@@ -15,6 +15,7 @@ import hmac
 import json
 import os
 import re
+import sqlite3
 import time
 import uuid
 import secrets
@@ -163,6 +164,216 @@ class ApprovalDecisionPayload(ApprovalRequestPayload):
 
 class LoginPayload(BaseModel):
     role: str = Field(default="operator")
+
+
+class SharedAuditRecordPayload(BaseModel):
+    audit_id: str = Field(min_length=1, max_length=256)
+    project_id: str = Field(default="local", min_length=1, max_length=128)
+    filename: str = Field(default="unknown.cfg", max_length=255)
+    input_sha256: str = Field(default="", min_length=1, max_length=128)
+    vendor: str = Field(default="unknown", min_length=1, max_length=64)
+    parser_id: str = Field(default="unknown", min_length=1, max_length=64)
+    parser_version: str = Field(default="unknown", min_length=1, max_length=64)
+    control_pack_version: str = Field(default="unknown", min_length=1, max_length=64)
+    summary: dict[str, Any] = Field(default_factory=dict)
+    created_by: str = Field(default="system", min_length=1, max_length=128)
+    report_json: dict[str, Any] = Field(default_factory=dict)
+
+
+class SharedAuditReviewPayload(BaseModel):
+    reviewer: str = Field(min_length=1, max_length=128)
+    decision: str = Field(min_length=1, max_length=32)
+    reason: str = Field(default="", max_length=500)
+    metadata: dict[str, Any] = Field(default_factory=dict)
+
+
+def _shared_audit_db_path() -> str:
+    database_url = os.getenv("CONFIGSENTINEL_DATABASE_URL", "sqlite:///./.configsentinel/configsentinel.db")
+    if database_url.startswith("sqlite:///"):
+        raw_path = database_url.removeprefix("sqlite:///")
+    elif database_url.startswith("sqlite://"):
+        raw_path = database_url.removeprefix("sqlite://")
+    elif database_url.startswith("sqlite:"):
+        raw_path = database_url.removeprefix("sqlite:")
+    else:
+        raw_path = database_url
+    if raw_path.startswith("//"):
+        raw_path = raw_path[1:]
+    if raw_path.startswith("/") and not os.path.isabs(raw_path):
+        raw_path = raw_path[1:]
+    if not raw_path:
+        raw_path = "./.configsentinel/configsentinel.db"
+    if raw_path.startswith("file://"):
+        raw_path = raw_path.removeprefix("file://")
+    if raw_path.startswith("./"):
+        raw_path = os.path.abspath(raw_path)
+    elif raw_path.startswith("../"):
+        raw_path = os.path.abspath(raw_path)
+    elif os.path.isabs(raw_path):
+        raw_path = raw_path
+    else:
+        raw_path = os.path.abspath(raw_path)
+    db_path = os.path.abspath(raw_path)
+    os.makedirs(os.path.dirname(db_path) or ".", exist_ok=True)
+    return db_path
+
+
+def _json_bytes(value: Any) -> str:
+    return json.dumps(value, separators=(",", ":"), sort_keys=True)
+
+
+def _ensure_shared_audit_schema() -> None:
+    db_path = _shared_audit_db_path()
+    with sqlite3.connect(db_path) as connection:
+        connection.execute(
+            """
+            CREATE TABLE IF NOT EXISTS shared_audits (
+                audit_id TEXT PRIMARY KEY,
+                project_id TEXT NOT NULL,
+                filename TEXT NOT NULL,
+                input_sha256 TEXT NOT NULL,
+                vendor TEXT NOT NULL,
+                parser_id TEXT NOT NULL,
+                parser_version TEXT NOT NULL,
+                control_pack_version TEXT NOT NULL,
+                summary_json TEXT NOT NULL,
+                created_by TEXT NOT NULL,
+                report_json TEXT NOT NULL,
+                reviews_json TEXT NOT NULL DEFAULT '[]',
+                created_at TEXT NOT NULL,
+                updated_at TEXT NOT NULL
+            )
+            """
+        )
+        connection.execute(
+            "CREATE INDEX IF NOT EXISTS idx_shared_audits_project ON shared_audits(project_id, created_at DESC)"
+        )
+        connection.execute(
+            "CREATE INDEX IF NOT EXISTS idx_shared_audits_vendor ON shared_audits(vendor, created_at DESC)"
+        )
+        connection.commit()
+
+
+def _shared_audit_record_to_dict(row: sqlite3.Row) -> dict[str, Any]:
+    return {
+        "audit_id": row["audit_id"],
+        "project_id": row["project_id"],
+        "filename": row["filename"],
+        "input_sha256": row["input_sha256"],
+        "vendor": row["vendor"],
+        "parser_id": row["parser_id"],
+        "parser_version": row["parser_version"],
+        "control_pack_version": row["control_pack_version"],
+        "summary": json.loads(row["summary_json"] or "{}"),
+        "created_by": row["created_by"],
+        "report_json": json.loads(row["report_json"] or "{}"),
+        "reviews": json.loads(row["reviews_json"] or "[]"),
+        "created_at": row["created_at"],
+        "updated_at": row["updated_at"],
+    }
+
+
+def _load_shared_audits(limit: int = 50, offset: int = 0, project_id: str | None = None) -> tuple[list[dict[str, Any]], int]:
+    _ensure_shared_audit_schema()
+    db_path = _shared_audit_db_path()
+    with sqlite3.connect(db_path) as connection:
+        connection.row_factory = sqlite3.Row
+        if project_id:
+            total = connection.execute(
+                "SELECT COUNT(*) AS count FROM shared_audits WHERE project_id = ?",
+                (project_id,),
+            ).fetchone()["count"]
+            rows = connection.execute(
+                """
+                SELECT * FROM shared_audits
+                WHERE project_id = ?
+                ORDER BY created_at DESC
+                LIMIT ? OFFSET ?
+                """,
+                (project_id, limit, offset),
+            ).fetchall()
+        else:
+            total = connection.execute("SELECT COUNT(*) AS count FROM shared_audits").fetchone()["count"]
+            rows = connection.execute(
+                "SELECT * FROM shared_audits ORDER BY created_at DESC LIMIT ? OFFSET ?",
+                (limit, offset),
+            ).fetchall()
+    return [_shared_audit_record_to_dict(row) for row in rows], int(total)
+
+
+def _create_shared_audit(payload: SharedAuditRecordPayload) -> dict[str, Any]:
+    _ensure_shared_audit_schema()
+    now = datetime.datetime.now(datetime.timezone.utc).isoformat()
+    db_path = _shared_audit_db_path()
+    with sqlite3.connect(db_path) as connection:
+        existing = connection.execute(
+            "SELECT audit_id FROM shared_audits WHERE audit_id = ?",
+            (payload.audit_id,),
+        ).fetchone()
+        if existing:
+            raise HTTPException(status_code=409, detail=f"audit {payload.audit_id} already exists")
+        connection.execute(
+            """
+            INSERT INTO shared_audits (
+                audit_id, project_id, filename, input_sha256, vendor, parser_id,
+                parser_version, control_pack_version, summary_json, created_by,
+                report_json, reviews_json, created_at, updated_at
+            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, '[]', ?, ?)
+            """,
+            (
+                payload.audit_id,
+                payload.project_id,
+                payload.filename,
+                payload.input_sha256,
+                payload.vendor,
+                payload.parser_id,
+                payload.parser_version,
+                payload.control_pack_version,
+                _json_bytes(payload.summary),
+                payload.created_by,
+                _json_bytes(payload.report_json),
+                now,
+                now,
+            ),
+        )
+        connection.commit()
+    return _load_shared_audit(payload.audit_id)
+
+
+def _load_shared_audit(audit_id: str) -> dict[str, Any]:
+    _ensure_shared_audit_schema()
+    db_path = _shared_audit_db_path()
+    with sqlite3.connect(db_path) as connection:
+        connection.row_factory = sqlite3.Row
+        row = connection.execute(
+            "SELECT * FROM shared_audits WHERE audit_id = ?",
+            (audit_id,),
+        ).fetchone()
+    if row is None:
+        raise HTTPException(status_code=404, detail=f"audit {audit_id} not found")
+    return _shared_audit_record_to_dict(row)
+
+
+def _append_shared_audit_review(audit_id: str, payload: SharedAuditReviewPayload) -> dict[str, Any]:
+    record = _load_shared_audit(audit_id)
+    reviews = list(record.get("reviews", []))
+    reviews.append(
+        {
+            "reviewer": payload.reviewer,
+            "decision": payload.decision,
+            "reason": payload.reason,
+            "metadata": payload.metadata,
+            "created_at": datetime.datetime.now(datetime.timezone.utc).isoformat(),
+        }
+    )
+    db_path = _shared_audit_db_path()
+    with sqlite3.connect(db_path) as connection:
+        connection.execute(
+            "UPDATE shared_audits SET reviews_json = ?, updated_at = ? WHERE audit_id = ?",
+            (_json_bytes(reviews), datetime.datetime.now(datetime.timezone.utc).isoformat(), audit_id),
+        )
+        connection.commit()
+    return _load_shared_audit(audit_id)
 
 
 MOCK_SESSIONS: dict[str, dict[str, str | int | bool]] = {}
@@ -526,6 +737,50 @@ def create_app(*, allowed_origins: list[str] | None = None) -> FastAPI:
             "device_connections": False,
             "llm_enabled": llm_enabled,
         }
+
+    @app.post("/api/audits", tags=["audit"])
+    def create_shared_audit(payload: SharedAuditRecordPayload) -> dict[str, Any]:
+        return _create_shared_audit(payload)
+
+    @app.get("/api/audits", tags=["audit"])
+    def list_shared_audits(project_id: str | None = None, limit: int = 50, offset: int = 0) -> dict[str, Any]:
+        items, total = _load_shared_audits(limit=max(1, min(limit, 200)), offset=max(0, offset), project_id=project_id)
+        return {"items": items, "total": total, "limit": max(1, min(limit, 200)), "offset": max(0, offset)}
+
+    @app.get("/api/audits/{audit_id}", tags=["audit"])
+    def get_shared_audit(audit_id: str) -> dict[str, Any]:
+        return _load_shared_audit(audit_id)
+
+    @app.delete("/api/audits/{audit_id}", tags=["audit"])
+    def delete_shared_audit(audit_id: str) -> dict[str, Any]:
+        record = _load_shared_audit(audit_id)
+        db_path = _shared_audit_db_path()
+        with sqlite3.connect(db_path) as connection:
+            cursor = connection.execute("DELETE FROM shared_audits WHERE audit_id = ?", (audit_id,))
+            connection.commit()
+        return {"deleted": cursor.rowcount > 0, "audit_id": audit_id, "project_id": record.get("project_id")}
+
+    @app.post("/api/audits/{audit_id}/reviews", tags=["audit"])
+    def review_shared_audit(audit_id: str, payload: SharedAuditReviewPayload) -> dict[str, Any]:
+        record = _load_shared_audit(audit_id)
+        review = {
+            "reviewer": payload.reviewer,
+            "decision": payload.decision,
+            "reason": payload.reason,
+            "metadata": payload.metadata,
+            "created_at": datetime.datetime.now(datetime.timezone.utc).isoformat(),
+        }
+        existing_reviews = list(record.get("reviews", []))
+        existing_reviews.append(review)
+        db_path = _shared_audit_db_path()
+        with sqlite3.connect(db_path) as connection:
+            connection.execute(
+                "UPDATE shared_audits SET reviews_json = ?, updated_at = ? WHERE audit_id = ?",
+                (_json_bytes(existing_reviews), datetime.datetime.now(datetime.timezone.utc).isoformat(), audit_id),
+            )
+            connection.commit()
+        updated = _load_shared_audit(audit_id)
+        return updated["reviews"][-1]
 
     @app.get("/api/capabilities", tags=["audit"])
     def capabilities() -> dict[str, Any]:
