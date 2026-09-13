@@ -5,7 +5,7 @@ from __future__ import annotations
 from .canonical import ParseResult
 from .client import AuditEngine
 from .controls import CONTROL_PACK_VERSION, evaluate
-from .models import AuditRequest, AuditResult
+from .models import AuditRequest, AuditResult, ParseCoverage, ParseStatus
 from .policies import CustomPolicyPack, evaluate_custom
 from .parsers import detect_and_parse
 
@@ -33,6 +33,21 @@ class DeterministicComplianceEngine(AuditEngine):
                 audit_id=audit_id,
                 vendor=parsed.config.metadata.get("plugin_id", parsed.config.vendor),
             )
+        total_lines = len(redacted_config.splitlines())
+        unsupported_lines = sum(b.end_line - b.start_line + 1 for b in parsed.config.unknown_blocks)
+        parsed_lines = max(0, total_lines - unsupported_lines)
+        status = ParseStatus.PARTIALLY_PARSED if parsed.config.unknown_blocks else ParseStatus.PARSED
+        coverage = ParseCoverage(
+            status=status,
+            format_detected=parsed.config.metadata.get("format", parsed.config.vendor),
+            vendor_detected=parsed.config.metadata.get("plugin_id", parsed.config.vendor),
+            confidence=1.0,
+            parsed_lines=parsed_lines,
+            unsupported_lines=unsupported_lines,
+            unknown_blocks=parsed.config.unknown_blocks,
+            protected_sections=(),
+            parser_version=parsed.parser_version,
+        )
         return AuditResult(
             audit_id=audit_id,
             vendor=parsed.config.metadata.get("plugin_id", parsed.config.vendor),
@@ -41,4 +56,5 @@ class DeterministicComplianceEngine(AuditEngine):
             findings=findings,
             unknown_blocks=parsed.config.unknown_blocks,
             input_sha256=input_sha256,
+            coverage=coverage,
         )

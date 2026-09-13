@@ -20,6 +20,7 @@ import time
 import uuid
 import secrets
 from collections import defaultdict, deque
+from pathlib import Path
 from typing import Any
 
 from dataclasses import dataclass
@@ -172,12 +173,21 @@ class SharedAuditRecordPayload(BaseModel):
     filename: str = Field(default="unknown.cfg", max_length=255)
     input_sha256: str = Field(default="", min_length=1, max_length=128)
     vendor: str = Field(default="unknown", min_length=1, max_length=64)
+    format: str = Field(default="native", max_length=64)
     parser_id: str = Field(default="unknown", min_length=1, max_length=64)
     parser_version: str = Field(default="unknown", min_length=1, max_length=64)
     control_pack_version: str = Field(default="unknown", min_length=1, max_length=64)
+    score_state: str = Field(default="SCORE_AVAILABLE", max_length=64)
+    score: float | None = Field(default=None)
     summary: dict[str, Any] = Field(default_factory=dict)
     created_by: str = Field(default="system", min_length=1, max_length=128)
     report_json: dict[str, Any] = Field(default_factory=dict)
+
+
+class ProjectPayload(BaseModel):
+    project_id: str = Field(min_length=1, max_length=128)
+    name: str = Field(min_length=1, max_length=255)
+    description: str = Field(default="", max_length=1000)
 
 
 class SharedAuditReviewPayload(BaseModel):
@@ -218,6 +228,17 @@ def _shared_audit_db_path() -> str:
     return db_path
 
 
+def _get_latest_backup_age_hours() -> float | None:
+    for candidate_dir in [Path("./.configsentinel/backups"), Path("/app/data/backups")]:
+        if candidate_dir.exists():
+            backups = list(candidate_dir.glob("*.backup"))
+            if backups:
+                latest = max(backups, key=lambda p: p.stat().st_mtime)
+                age = time.time() - latest.stat().st_mtime
+                return round(age / 3600.0, 1)
+    return None
+
+
 def _json_bytes(value: Any) -> str:
     return json.dumps(value, separators=(",", ":"), sort_keys=True)
 
@@ -233,9 +254,12 @@ def _ensure_shared_audit_schema() -> None:
                 filename TEXT NOT NULL,
                 input_sha256 TEXT NOT NULL,
                 vendor TEXT NOT NULL,
+                format TEXT NOT NULL DEFAULT 'native',
                 parser_id TEXT NOT NULL,
                 parser_version TEXT NOT NULL,
                 control_pack_version TEXT NOT NULL,
+                score_state TEXT NOT NULL DEFAULT 'SCORE_AVAILABLE',
+                score REAL,
                 summary_json TEXT NOT NULL,
                 created_by TEXT NOT NULL,
                 report_json TEXT NOT NULL,
@@ -245,28 +269,71 @@ def _ensure_shared_audit_schema() -> None:
             )
             """
         )
+        cursor = connection.execute("PRAGMA table_info(shared_audits)")
+        cols = {row[1] for row in cursor.fetchall()}
+        if "format" not in cols:
+            connection.execute("ALTER TABLE shared_audits ADD COLUMN format TEXT NOT NULL DEFAULT 'native'")
+        if "score_state" not in cols:
+            connection.execute("ALTER TABLE shared_audits ADD COLUMN score_state TEXT NOT NULL DEFAULT 'SCORE_AVAILABLE'")
+        if "score" not in cols:
+            connection.execute("ALTER TABLE shared_audits ADD COLUMN score REAL")
+
         connection.execute(
             "CREATE INDEX IF NOT EXISTS idx_shared_audits_project ON shared_audits(project_id, created_at DESC)"
         )
         connection.execute(
             "CREATE INDEX IF NOT EXISTS idx_shared_audits_vendor ON shared_audits(vendor, created_at DESC)"
         )
+        connection.execute(
+            """
+            CREATE TABLE IF NOT EXISTS projects (
+                project_id TEXT PRIMARY KEY,
+                name TEXT NOT NULL,
+                description TEXT NOT NULL DEFAULT '',
+                created_at TEXT NOT NULL,
+                updated_at TEXT NOT NULL
+            )
+            """
+        )
+        count = connection.execute("SELECT COUNT(*) FROM projects").fetchone()[0]
+        if count == 0:
+            now = datetime.datetime.now(datetime.timezone.utc).isoformat()
+            connection.execute(
+                "INSERT INTO projects (project_id, name, description, created_at, updated_at) VALUES (?, ?, ?, ?, ?)",
+                ("local", "Default Workspace", "Primary shared compliance project", now, now),
+            )
         connection.commit()
 
 
 def _shared_audit_record_to_dict(row: sqlite3.Row) -> dict[str, Any]:
+    summary = json.loads(row["summary_json"] or "{}")
+    report = json.loads(row["report_json"] or "{}")
+    keys = row.keys()
+    fmt = row["format"] if "format" in keys else "native"
+    score_state = row["score_state"] if "score_state" in keys else ("SCORE_AVAILABLE" if summary.get("posture_score") is not None else "SCORE_UNAVAILABLE")
+    score_val = row["score"] if "score" in keys else summary.get("posture_score")
     return {
         "audit_id": row["audit_id"],
         "project_id": row["project_id"],
         "filename": row["filename"],
         "input_sha256": row["input_sha256"],
         "vendor": row["vendor"],
+        "format": fmt,
         "parser_id": row["parser_id"],
         "parser_version": row["parser_version"],
         "control_pack_version": row["control_pack_version"],
-        "summary": json.loads(row["summary_json"] or "{}"),
+        "score_state": score_state,
+        "score": score_val,
+        "finding_counts": {
+            "total": summary.get("finding_count", 0),
+            "failed": summary.get("failed_count", 0),
+            "passed": summary.get("passed_count", 0),
+            "unknown": summary.get("unknown_count", 0),
+            "review_required": summary.get("review_required_count", 0),
+        },
+        "summary": summary,
         "created_by": row["created_by"],
-        "report_json": json.loads(row["report_json"] or "{}"),
+        "report_json": report,
         "reviews": json.loads(row["reviews_json"] or "[]"),
         "created_at": row["created_at"],
         "updated_at": row["updated_at"],
@@ -305,37 +372,68 @@ def _create_shared_audit(payload: SharedAuditRecordPayload) -> dict[str, Any]:
     _ensure_shared_audit_schema()
     now = datetime.datetime.now(datetime.timezone.utc).isoformat()
     db_path = _shared_audit_db_path()
+    score_val = payload.score if payload.score is not None else payload.summary.get("posture_score")
     with sqlite3.connect(db_path) as connection:
         existing = connection.execute(
             "SELECT audit_id FROM shared_audits WHERE audit_id = ?",
             (payload.audit_id,),
         ).fetchone()
         if existing:
-            raise HTTPException(status_code=409, detail=f"audit {payload.audit_id} already exists")
-        connection.execute(
-            """
-            INSERT INTO shared_audits (
-                audit_id, project_id, filename, input_sha256, vendor, parser_id,
-                parser_version, control_pack_version, summary_json, created_by,
-                report_json, reviews_json, created_at, updated_at
-            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, '[]', ?, ?)
-            """,
-            (
-                payload.audit_id,
-                payload.project_id,
-                payload.filename,
-                payload.input_sha256,
-                payload.vendor,
-                payload.parser_id,
-                payload.parser_version,
-                payload.control_pack_version,
-                _json_bytes(payload.summary),
-                payload.created_by,
-                _json_bytes(payload.report_json),
-                now,
-                now,
-            ),
-        )
+            connection.execute(
+                """
+                UPDATE shared_audits SET
+                    project_id = ?, filename = ?, input_sha256 = ?, vendor = ?, format = ?,
+                    parser_id = ?, parser_version = ?, control_pack_version = ?,
+                    score_state = ?, score = ?, summary_json = ?, created_by = ?,
+                    report_json = ?, updated_at = ?
+                WHERE audit_id = ?
+                """,
+                (
+                    payload.project_id,
+                    payload.filename,
+                    payload.input_sha256,
+                    payload.vendor,
+                    payload.format,
+                    payload.parser_id,
+                    payload.parser_version,
+                    payload.control_pack_version,
+                    payload.score_state,
+                    score_val,
+                    _json_bytes(payload.summary),
+                    payload.created_by,
+                    _json_bytes(payload.report_json),
+                    now,
+                    payload.audit_id,
+                ),
+            )
+        else:
+            connection.execute(
+                """
+                INSERT INTO shared_audits (
+                    audit_id, project_id, filename, input_sha256, vendor, format,
+                    parser_id, parser_version, control_pack_version, score_state, score,
+                    summary_json, created_by, report_json, reviews_json, created_at, updated_at
+                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, '[]', ?, ?)
+                """,
+                (
+                    payload.audit_id,
+                    payload.project_id,
+                    payload.filename,
+                    payload.input_sha256,
+                    payload.vendor,
+                    payload.format,
+                    payload.parser_id,
+                    payload.parser_version,
+                    payload.control_pack_version,
+                    payload.score_state,
+                    score_val,
+                    _json_bytes(payload.summary),
+                    payload.created_by,
+                    _json_bytes(payload.report_json),
+                    now,
+                    now,
+                ),
+            )
         connection.commit()
     return _load_shared_audit(payload.audit_id)
 
@@ -638,6 +736,12 @@ def create_app(*, allowed_origins: list[str] | None = None) -> FastAPI:
         raise RuntimeError(
             "CONFIGSENTINEL_AUTH_REQUIRED is enabled but CONFIGSENTINEL_API_TOKEN is missing"
         )
+    deployment_mode = os.getenv("VEYRONIX_DEPLOYMENT_MODE", "local").lower()
+    if deployment_mode in {"lan", "production"} and not auth_required and not api_token:
+        logger.warning(
+            "SECURITY WARNING: VEYRONIX running in '%s' mode without CONFIGSENTINEL_AUTH_REQUIRED or CONFIGSENTINEL_API_TOKEN. Configure CONFIGSENTINEL_AUTH_REQUIRED=true and CONFIGSENTINEL_API_TOKEN for secure shared LAN deployment.",
+            deployment_mode,
+        )
     rate_limit = max(1, int(os.getenv("CONFIGSENTINEL_RATE_LIMIT_PER_MINUTE", "120")))
     request_windows: dict[str, deque[float]] = defaultdict(deque)
 
@@ -649,6 +753,7 @@ def create_app(*, allowed_origins: list[str] | None = None) -> FastAPI:
         protected = request.url.path.startswith("/api/") and request.url.path not in {
             "/api/health",
             "/api/v1/health",
+            "/api/version",
             "/api/auth/login",
             "/api/auth/logout",
             "/api/auth/me",
@@ -728,14 +833,89 @@ def create_app(*, allowed_origins: list[str] | None = None) -> FastAPI:
         return response
 
     @app.get("/api/health")
-    def health() -> dict[str, str | bool]:
+    def health() -> dict[str, Any]:
         llm_enabled = os.getenv("CONFIGSENTINEL_LLM_ENABLED", "false").lower() == "true"
+        db_path = _shared_audit_db_path()
+        storage_status = "healthy"
+        try:
+            with sqlite3.connect(db_path) as conn:
+                conn.execute("SELECT 1").fetchone()
+        except Exception:
+            storage_status = "degraded"
+        backup_age = _get_latest_backup_age_hours()
+        auth_req = os.getenv("CONFIGSENTINEL_AUTH_REQUIRED", "false").lower() == "true"
+        dep_mode = os.getenv("VEYRONIX_DEPLOYMENT_MODE", "lan")
         return {
-            "status": "ok",
+            "status": "ok" if storage_status == "healthy" else "degraded",
             "version": APP_VERSION,
+            "api_version": "0.4.0",
             "deterministic": True,
             "device_connections": False,
             "llm_enabled": llm_enabled,
+            "storage": storage_status,
+            "backup_age_hours": backup_age,
+            "auth_required": auth_req,
+            "deployment_mode": dep_mode,
+        }
+
+    @app.get("/api/version", tags=["audit"])
+    def version_info() -> dict[str, Any]:
+        auth_req = os.getenv("CONFIGSENTINEL_AUTH_REQUIRED", "false").lower() == "true"
+        token_set = bool(os.getenv("CONFIGSENTINEL_API_TOKEN", "").strip())
+        dep_mode = os.getenv("VEYRONIX_DEPLOYMENT_MODE", "lan")
+        return {
+            "version": APP_VERSION,
+            "api_version": "0.4.0",
+            "min_frontend_version": "1.0.0",
+            "compatible": True,
+            "deployment_mode": dep_mode,
+            "auth_required": auth_req,
+            "auth_mode": "bearer_token" if (auth_req or token_set) else "none",
+        }
+
+    @app.get("/api/projects", tags=["audit"])
+    def list_projects() -> dict[str, Any]:
+        _ensure_shared_audit_schema()
+        db_path = _shared_audit_db_path()
+        with sqlite3.connect(db_path) as connection:
+            connection.row_factory = sqlite3.Row
+            rows = connection.execute(
+                "SELECT p.*, (SELECT COUNT(*) FROM shared_audits a WHERE a.project_id = p.project_id) AS audit_count FROM projects p ORDER BY p.created_at ASC"
+            ).fetchall()
+            projects = [
+                {
+                    "project_id": r["project_id"],
+                    "name": r["name"],
+                    "description": r["description"],
+                    "audit_count": r["audit_count"],
+                    "created_at": r["created_at"],
+                    "updated_at": r["updated_at"],
+                }
+                for r in rows
+            ]
+        return {"projects": projects, "total": len(projects)}
+
+    @app.post("/api/projects", tags=["audit"])
+    def create_project(payload: ProjectPayload) -> dict[str, Any]:
+        _ensure_shared_audit_schema()
+        now = datetime.datetime.now(datetime.timezone.utc).isoformat()
+        db_path = _shared_audit_db_path()
+        with sqlite3.connect(db_path) as connection:
+            existing = connection.execute("SELECT project_id FROM projects WHERE project_id = ?", (payload.project_id,)).fetchone()
+            if existing:
+                raise HTTPException(status_code=409, detail=f"project {payload.project_id} already exists")
+            connection.execute(
+                "INSERT INTO projects (project_id, name, description, created_at, updated_at) VALUES (?, ?, ?, ?, ?)",
+                (payload.project_id, payload.name, payload.description, now, now),
+            )
+            connection.commit()
+        return {
+            "project_id": payload.project_id,
+            "name": payload.name,
+            "description": payload.description,
+            "audit_count": 0,
+            "created_at": now,
+            "updated_at": now,
         }
 
     @app.post("/api/audits", tags=["audit"])
@@ -746,6 +926,18 @@ def create_app(*, allowed_origins: list[str] | None = None) -> FastAPI:
     def list_shared_audits(project_id: str | None = None, limit: int = 50, offset: int = 0) -> dict[str, Any]:
         items, total = _load_shared_audits(limit=max(1, min(limit, 200)), offset=max(0, offset), project_id=project_id)
         return {"items": items, "total": total, "limit": max(1, min(limit, 200)), "offset": max(0, offset)}
+
+    @app.delete("/api/audits", tags=["audit"])
+    def delete_all_shared_audits(project_id: str | None = None) -> dict[str, Any]:
+        _ensure_shared_audit_schema()
+        db_path = _shared_audit_db_path()
+        with sqlite3.connect(db_path) as connection:
+            if project_id:
+                cursor = connection.execute("DELETE FROM shared_audits WHERE project_id = ?", (project_id,))
+            else:
+                cursor = connection.execute("DELETE FROM shared_audits")
+            connection.commit()
+            return {"deleted_count": cursor.rowcount}
 
     @app.get("/api/audits/{audit_id}", tags=["audit"])
     def get_shared_audit(audit_id: str) -> dict[str, Any]:
@@ -759,6 +951,72 @@ def create_app(*, allowed_origins: list[str] | None = None) -> FastAPI:
             cursor = connection.execute("DELETE FROM shared_audits WHERE audit_id = ?", (audit_id,))
             connection.commit()
         return {"deleted": cursor.rowcount > 0, "audit_id": audit_id, "project_id": record.get("project_id")}
+
+    @app.post("/api/audit/archive", tags=["audit"])
+    def audit_archive(payload: dict[str, Any]) -> dict[str, Any]:
+        import base64
+        import tempfile
+        from configsentinel.sources import discover_sources, SourceDiscoveryError
+        raw_b64 = payload.get("archive_base64", "")
+        filename = payload.get("filename", "configs.zip")
+        vendor = payload.get("vendor", "auto")
+        project_id = payload.get("project_id", "local")
+        if not raw_b64:
+            raise HTTPException(status_code=422, detail="archive_base64 is required")
+        try:
+            raw_bytes = base64.b64decode(raw_b64)
+        except Exception as exc:
+            raise HTTPException(status_code=422, detail=f"Invalid base64 archive payload: {exc}")
+
+        with tempfile.TemporaryDirectory() as tmpdir:
+            archive_path = Path(tmpdir) / filename
+            archive_path.write_bytes(raw_bytes)
+            try:
+                documents = list(discover_sources(archive_path))
+            except SourceDiscoveryError as sde:
+                raise HTTPException(status_code=422, detail=str(sde))
+
+            member_results = []
+            for doc in documents:
+                try:
+                    rep = service.audit(AuditPayload(
+                        config_text=doc.content.decode("utf-8", errors="replace"),
+                        vendor=vendor,
+                        project_id=project_id,
+                    ))
+                    cov_status = rep.get("coverage", {}).get("status", "PARSED")
+                    member_results.append({
+                        "filename": doc.name,
+                        "source": doc.source,
+                        "status": cov_status,
+                        "report": rep,
+                    })
+                except Exception as ex:
+                    err_msg = str(ex)
+                    outcome = "DETECTION_FAILED" if "vendor" in err_msg.lower() else "MALFORMED"
+                    member_results.append({
+                        "filename": doc.name,
+                        "source": doc.source,
+                        "status": outcome,
+                        "error": err_msg,
+                    })
+            return {
+                "archive_filename": filename,
+                "total_members": len(documents),
+                "audited_count": len(member_results),
+                "members": member_results,
+            }
+
+    @app.post("/api/email/inspect", tags=["audit"])
+    def email_inspect(payload: dict[str, Any]) -> dict[str, Any]:
+        from configsentinel.email_inspection import inspect_raw_email
+        raw_email = payload.get("raw_email", "")
+        if not raw_email:
+            raise HTTPException(status_code=422, detail="raw_email is required")
+        try:
+            return inspect_raw_email(raw_email)
+        except ValueError as ve:
+            raise HTTPException(status_code=422, detail=str(ve))
 
     @app.post("/api/audits/{audit_id}/reviews", tags=["audit"])
     def review_shared_audit(audit_id: str, payload: SharedAuditReviewPayload) -> dict[str, Any]:

@@ -30,7 +30,8 @@ services:
       dockerfile: Dockerfile
     image: configsentinel-backend:local
     ports:
-      - "5000:5000"
+      # Expose to host loopback only; external LAN clients access /api via frontend proxy on port 3000
+      - "127.0.0.1:5000:5000"
     environment:
       VEYRONIX_API_HOST: "0.0.0.0"
       VEYRONIX_API_PORT: "5000"

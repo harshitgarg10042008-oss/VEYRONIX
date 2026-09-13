@@ -35,16 +35,28 @@ def _coverage_dict(result: AuditResult) -> dict[str, Any]:
             protected_sections=(),
             parser_version=result.parser_version,
         )
+    unevaluated = sum(
+        1 for f in result.findings
+        if f.status.value in {"UNKNOWN", "NOT_APPLICABLE", "REVIEW_REQUIRED"}
+    )
     return {
         "status": coverage.status.value,
+        "coverage_status": coverage.status.value,
         "format_detected": coverage.format_detected,
         "vendor_detected": coverage.vendor_detected,
         "confidence": coverage.confidence,
-        "parsed_lines": coverage.parsed_lines,
-        "unsupported_lines": coverage.unsupported_lines,
-        "unknown_blocks": [asdict(span) for span in coverage.unknown_blocks],
-        "protected_sections": list(coverage.protected_sections),
+        "detection_confidence": coverage.confidence,
+        "parser_id": result.vendor,
         "parser_version": coverage.parser_version,
+        "parsed_lines": coverage.parsed_lines,
+        "parsed_line_count": coverage.parsed_lines,
+        "unsupported_lines": coverage.unsupported_lines,
+        "unsupported_line_count": coverage.unsupported_lines,
+        "unknown_blocks": [asdict(span) for span in coverage.unknown_blocks],
+        "unknown_block_count": len(coverage.unknown_blocks),
+        "protected_sections": list(coverage.protected_sections),
+        "protected_section_count": len(coverage.protected_sections),
+        "controls_not_evaluated": unevaluated,
         "coverage_ratio": coverage.coverage_ratio,
     }
 

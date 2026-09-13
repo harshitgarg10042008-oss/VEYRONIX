@@ -1066,6 +1066,27 @@ export default function Home() {
       setToast(
         `Audit loaded · ${vendorLabel(nextReport.audit.vendor)} · ${nextReport.summary.failed_count} failure(s) require review · ${nextReport.summary.unknown_count} unresolved`,
       );
+      void fetch(`${API_BASE}/api/audits`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          audit_id: nextReport.audit.audit_id,
+          project_id: "local",
+          filename: fileName,
+          input_sha256: nextReport.audit.input_sha256,
+          vendor: nextReport.audit.vendor,
+          format: (nextReport as any).coverage?.format_detected || nextReport.audit.vendor,
+          parser_id: (nextReport as any).coverage?.parser_id || nextReport.audit.vendor,
+          parser_version: nextReport.audit.parser_version,
+          control_pack_version: nextReport.audit.rule_pack_version,
+          score_state: "SCORE_AVAILABLE",
+          score: nextReport.summary.posture_score,
+          summary: nextReport.summary,
+          created_by: "local-operator",
+          report_json: nextReport,
+          original_configuration_text: configText,
+        }),
+      }).catch(() => {});
       return true;
     } catch (error) {
       if (requestId === auditRequestRef.current) {
@@ -1329,6 +1350,36 @@ export default function Home() {
         .then((data) => {
           setApiOnline(true);
           if (data.version) setSdkVersion(data.version);
+          return fetch(`${API_BASE}/api/audits`).then((res) => (res.ok ? res.json() : null));
+        })
+        .then((auditData) => {
+          if (auditData && Array.isArray(auditData.audits) && auditData.audits.length > 0) {
+            const serverEntries: AuditHistoryEntry[] = auditData.audits.map((a: any) => ({
+              id: `${a.audit_id}-${new Date(a.created_at || Date.now()).getTime()}`,
+              timestamp: a.created_at || new Date().toISOString(),
+              auditId: a.audit_id,
+              filename: a.filename,
+              originalConfigurationText: a.original_configuration_text || (a.report_json?.audit?.config_text ?? ""),
+              vendor: a.vendor || a.report_json?.audit?.vendor || "auto",
+              score: a.score ?? a.summary?.posture_score ?? 0,
+              report: a.report_json || fallbackReport,
+            }));
+            setHistory(serverEntries);
+            persistHistory(serverEntries);
+            const top = serverEntries[0];
+            if (top && top.report && !latest) {
+              setReport(top.report);
+              setSelectedId(top.report.findings?.[0]?.finding_id || "");
+              setSelectedFileName(top.filename);
+              setActiveConfigText(top.originalConfigurationText || "");
+              setActiveVendor(top.vendor);
+              setUploadedFile({
+                name: top.filename,
+                size: top.originalConfigurationText?.length || 0,
+                status: top.originalConfigurationText ? "analyzed" : "ready",
+              });
+            }
+          }
         })
         .catch(() => setApiOnline(false));
       void switchRole("operator");
@@ -1478,6 +1529,11 @@ export default function Home() {
     const next = history.filter((item) => item.id !== entry.id);
     setHistory(next);
     persistHistory(next);
+    if (entry.auditId) {
+      void fetch(`${API_BASE}/api/audits/${encodeURIComponent(entry.auditId)}`, {
+        method: "DELETE",
+      }).catch(() => {});
+    }
     if (entry.report.audit.audit_id === report.audit.audit_id) {
       if (next[0]) selectHistory(next[0]);
       else void clearHistory();
@@ -1487,6 +1543,7 @@ export default function Home() {
   const clearHistory = () => {
     setHistory([]);
     persistHistory([]);
+    void fetch(`${API_BASE}/api/audits`, { method: "DELETE" }).catch(() => {});
     setReport(fallbackReport);
     setSelectedId("");
     setSelectedFileName("No configuration selected");
@@ -1497,7 +1554,6 @@ export default function Home() {
       size: 0,
       status: "idle",
     });
-    setApiOnline(false);
     setToast("History cleared · add a configuration file to begin");
   };
   const exportReport = (source = report, name = selectedFileName) => {

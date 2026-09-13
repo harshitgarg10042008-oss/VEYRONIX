@@ -91,13 +91,28 @@ def _archive_documents(
 ) -> Iterator[SourceDocument]:
     count = 0
     total = 0
+    max_member_size = 10 * 1024 * 1024
+    max_decompression_ratio = 100
     try:
         if archive.name.lower().endswith(policy.archive_extensions[0]):
             with zipfile.ZipFile(archive) as bundle:
                 for member in sorted(
                     bundle.infolist(), key=lambda entry: entry.filename
                 ):
-                    if member.is_dir() or not _safe_member(member.filename):
+                    if member.is_dir():
+                        continue
+                    # Check symlink via Unix file mode attribute
+                    if (member.external_attr >> 16) & 0o170000 == 0o120000:
+                        continue
+                    if not _safe_member(member.filename):
+                        continue
+                    # Decompression bomb checks
+                    if member.file_size > max_member_size:
+                        raise SourceDiscoveryError(f"archive member exceeds maximum uncompressed size: {member.filename}")
+                    if member.compress_size > 0 and (member.file_size / member.compress_size) > max_decompression_ratio:
+                        raise SourceDiscoveryError(f"suspicious compression ratio / decompression bomb rejected: {member.filename}")
+                    # Reject nested archives
+                    if any(member.filename.lower().endswith(ext) for ext in policy.archive_extensions):
                         continue
                     name = Path(member.filename).name
                     try:
@@ -110,7 +125,15 @@ def _archive_documents(
         else:
             with tarfile.open(archive, mode="r:*") as bundle:
                 for member in sorted(bundle.getmembers(), key=lambda entry: entry.name):
+                    if member.isdir():
+                        continue
+                    if member.issym() or member.islnk():
+                        continue
                     if not member.isfile() or not _safe_member(member.name):
+                        continue
+                    if member.size > max_member_size:
+                        raise SourceDiscoveryError(f"archive member exceeds maximum uncompressed size: {member.name}")
+                    if any(member.name.lower().endswith(ext) for ext in policy.archive_extensions):
                         continue
                     name = Path(member.name).name
                     stream = bundle.extractfile(member)
